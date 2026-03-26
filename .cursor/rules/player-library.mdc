@@ -1,0 +1,7 @@
+---
+description: Плеер — применяется при работе с player/ слоем
+globs: "**/{core/player,Core/Player}/**"
+alwaysApply: false
+---
+
+См. раздел **Плеер (Kithara)** в `AGENTS.md` и `docs/player-api.md`.

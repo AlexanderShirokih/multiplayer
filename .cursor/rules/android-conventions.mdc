@@ -1,0 +1,7 @@
+---
+description: Android-конвенции — применяется при работе с Kotlin файлами
+globs: android/**/*.kt,android/**/*.gradle.kts
+alwaysApply: false
+---
+
+См. раздел **Android-конвенции** в `AGENTS.md`.

@@ -1,0 +1,7 @@
+---
+description: Clean Architecture — применяется при работе с domain/data слоями
+globs: "**/{domain,data}/**"
+alwaysApply: false
+---
+
+См. раздел **Архитектура** в `AGENTS.md`.

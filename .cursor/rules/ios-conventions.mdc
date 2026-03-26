@@ -1,0 +1,7 @@
+---
+description: iOS-конвенции — применяется при работе с Swift файлами
+globs: ios/**/*.swift
+alwaysApply: false
+---
+
+См. раздел **iOS-конвенции** в `AGENTS.md`.

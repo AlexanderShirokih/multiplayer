@@ -1,0 +1,14 @@
+---
+description: MultiPlayer — контекст проекта (всегда применяется)
+alwaysApply: true
+---
+
+Читай `AGENTS.md` — там единственный источник правды по проекту.
+
+Ключевое для быстрого контекста:
+- Нативный Android (Kotlin/Compose) + iOS (Swift/SwiftUI), без общего кода
+- Многомодульный проект, вертикальное (feature-based) разделение: `core/`, `feature/`, `services/`
+- Движок плеера: Kithara. Первый сервис: Yandex Music
+- Архитектура: Clean Architecture + MVVM + UDF
+- `feature/*` не зависит от других `feature/*` — только от `core/*` и `services/*`
+- Никакого KMP, Flutter, XML, UIKit, LiveData, completion handlers, хардкодных токенов

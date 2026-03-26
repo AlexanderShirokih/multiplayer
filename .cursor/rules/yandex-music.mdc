@@ -1,0 +1,7 @@
+---
+description: Yandex Music — применяется при работе с сервисным слоем
+globs: "**/{services/yandex,Services/YandexMusic}/**"
+alwaysApply: false
+---
+
+См. раздел **Yandex Music** в `AGENTS.md`.
