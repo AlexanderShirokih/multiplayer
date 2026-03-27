@@ -61,6 +61,8 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
             }
         }
 
+        configureYandexAuthBuild(extensions.getByType())
+
         dependencies {
             add("implementation", libs.findLibrary("androidx-core-ktx").get())
             add("implementation", libs.findLibrary("androidx-lifecycle-runtime-ktx").get())
