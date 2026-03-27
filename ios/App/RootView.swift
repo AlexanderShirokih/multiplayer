@@ -1,42 +1,98 @@
+import CoreUI
 import SwiftUI
 
 struct RootView: View {
+    @Environment(\.multiplayerTheme) private var theme
+
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.04, green: 0.09, blue: 0.18),
-                    Color(red: 0.09, green: 0.17, blue: 0.33),
-                    Color(red: 0.14, green: 0.26, blue: 0.49),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing,
-            )
-            .ignoresSafeArea()
+            MultiplayerBrandBackground()
 
-            VStack(spacing: 16) {
+            VStack(spacing: theme.spacing.lg) {
                 Image("AppIconPreview", bundle: nil)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 112, height: 112)
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                    .shadow(color: Color.black.opacity(0.18), radius: 24, y: 14)
+                    .clipShape(
+                        RoundedRectangle(
+                            cornerRadius: theme.radius.large,
+                            style: .continuous
+                        )
+                    )
+                    .shadow(
+                        color: theme.elevation.level3.color,
+                        radius: theme.elevation.level3.radius,
+                        x: theme.elevation.level3.x,
+                        y: theme.elevation.level3.y
+                    )
 
-                Text("MultiPlayer")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                VStack(spacing: theme.spacing.sm) {
+                    MultiplayerText(
+                        verbatim: "MultiPlayer",
+                        style: theme.typography.displayLarge,
+                        color: theme.colors.textPrimary,
+                        alignment: .center
+                    )
 
-                Text("iOS foundation is ready. Feature modules can now grow from the app entry point.")
-                    .font(.system(size: 16, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.white.opacity(0.78))
-                    .multilineTextAlignment(.center)
+                    MultiplayerText(
+                        verbatim: "iOS foundation is ready. Feature modules can now grow from a shared design language instead of ad-hoc styling.",
+                        style: theme.typography.bodyLarge,
+                        color: theme.colors.textSecondary,
+                        alignment: .center
+                    )
                     .frame(maxWidth: 320)
+                }
+
+                MultiplayerSurface(
+                    cornerRadius: theme.radius.xLarge,
+                    color: theme.colors.surfaceOverlay,
+                    contentColor: theme.colors.textPrimary,
+                    elevation: theme.elevation.level2,
+                    border: MultiplayerBorderStyle(
+                        color: theme.colors.borderSubtle.opacity(0.6)
+                    )
+                ) {
+                    HStack(spacing: theme.spacing.sm) {
+                        theme.icons.play
+                            .font(.headline)
+                            .foregroundStyle(theme.colors.textInverse)
+                            .frame(width: 40, height: 40)
+                            .background(theme.colors.accent)
+                            .clipShape(Circle())
+
+                        VStack(alignment: .leading, spacing: theme.spacing.xxs) {
+                            MultiplayerText(
+                                verbatim: "CoreUI is connected",
+                                style: theme.typography.titleMedium,
+                                color: theme.colors.textPrimary
+                            )
+
+                            MultiplayerText(
+                                verbatim: "Colors, spacing, typography and surfaces now come from one module.",
+                                style: theme.typography.bodyMedium,
+                                color: theme.colors.textSecondary
+                            )
+                        }
+
+                        Spacer(minLength: theme.spacing.sm)
+                    }
+                    .padding(.horizontal, theme.spacing.md)
+                    .padding(.vertical, theme.spacing.sm)
+                }
             }
-            .padding(32)
+            .padding(theme.spacing.xl)
         }
     }
 }
 
 #Preview {
-    RootView()
+    MultiplayerDesignSystem {
+        RootView()
+    }
+}
+
+#Preview("Light") {
+    MultiplayerDesignSystem(colorScheme: .light) {
+        RootView()
+    }
 }
