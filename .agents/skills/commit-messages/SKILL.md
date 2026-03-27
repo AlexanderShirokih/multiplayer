@@ -2,14 +2,21 @@
 name: commit-messages
 description: >-
   Formats Git commit messages for the MultiPlayer repo: platform prefix [android]/[ios],
-  conventional types (feat/fix/refactor), Russian subject line. Use when writing or
-  reviewing commits, preparing git commit messages, or when the user asks about commit
-  style, branch naming, or changelog-style summaries for this project.
+  conventional types (feat/fix/refactor), Russian subject line. Default: a single short
+  subject line only (no body unless needed). Use when writing or reviewing commits,
+  preparing git commit messages, or when the user asks about commit style, branch naming,
+  or changelog-style summaries for this project.
 ---
 
 # Коммиты в MultiPlayer
 
 Единый источник правды по репозиторию — `AGENTS.md`. Ниже — сжатые правила для агента и людей.
+
+## По умолчанию для агента
+
+- **Одна строка (subject)** — без тела коммита, без вариантов «на выбор» и без длинных пояснений в ответе пользователю, если он явно не просит body, несколько вариантов или развёрнутое описание.
+- **Коротко**: уложиться в **~72 символа** в subject; сокращать формулировку, а не добавлять вторую строку без запроса.
+- **Body** — только если пользователь попросил, или изменение настолько неочевидно/объёмно, что без контекста в истории будет хуже (тогда одна пустая строка после subject и краткий body).
 
 ## Когда применять префикс платформы
 
@@ -27,11 +34,11 @@ description: >-
 - **Тип** (из `AGENTS.md`): `feat`, `fix`, `refactor`.
 - Описание — **на русском**, по смыслу в **повелительном наклонении** или короткой номинальной фразе («добавить…», «исправить…», «вынести…»).
 - **Без точки** в конце subject; **без** эмодзи в сообщении коммита.
-- Длина subject: ориентир **до ~72 символов**; если не помещается — сократить или вынести детали в body.
+- Длина subject: ориентир **до ~72 символов**; если не помещается — **сначала сократить subject**; body — по правилам раздела «По умолчанию для агента», не как обход длины.
 
 ## Тело коммита (body, необязательно)
 
-Использовать, когда одной строки мало:
+Не предлагать body по умолчанию. Использовать, когда одной строки реально мало (или пользователь попросил):
 
 - Отделить от subject **пустой строкой**.
 - Строки body — обычно **до 72 символов**; списки с `- ` допустимы.
@@ -66,6 +73,6 @@ description: >-
 ## Чеклист перед коммитом
 
 1. Префикс `[android]` / `[ios]` выставлен, если менялась соответствующая платформа.
-2. Тип — `feat`, `fix` или `refactor`.
-3. Subject понятен без diff; русский язык; без лишней пунктуации в конце строки.
-4. При необходимости добавлен body с контекстом.
+2. Тип — `feat`, `fix` или `refactor` (для репозиторных docs — `docs:` и т.п., см. выше).
+3. Subject понятен без diff; русский язык; без лишней пунктуации в конце строки; **одна короткая строка** — норма.
+4. Body только при необходимости или по запросу пользователя.

@@ -44,7 +44,7 @@ ios/
 ├── Core/
 │   ├── Domain/                 # базовые модели и протоколы репозиториев
 │   ├── Data/                   # сетевая инфраструктура, Ktor/URLSession, хранилище
-│   ├── UI/                     # общие SwiftUI-компоненты, тема
+│   ├── UI/                     # дизайн-система (локальный SPM CoreUI): SwiftUI-компоненты, тема, токены
 │   └── Player/                 # facade над Kithara (движок плеера)
 ├── Feature/
 │   ├── Auth/                   # авторизация (OAuth / Yandex ID)
@@ -170,6 +170,8 @@ UI → ViewModel → UseCase → Repository (interface)
 ## iOS-конвенции
 
 - Соблюдать официальные **гайдлайны Apple**: [Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/) (поведение и внешний вид в духе платформы), [Swift API Design Guidelines](https://swift.org/documentation/api-design-guidelines/) (имена и форма публичного API), а также актуальную документацию по SwiftUI и Swift Concurrency. Умышленные отступления — только с явным обоснованием.
+- **Дизайн-система**: локальный пакет **`ios/Core/UI`** (SwiftPM, product **`CoreUI`**, `import CoreUI`) — единственный слой общих SwiftUI-примитивов для приложения: тема (**`MultiplayerDesignSystem`**, **`MultiplayerTheme`**), токены (цвета, отступы, радиусы, elevation, иконки), переиспользуемые компоненты (**`MultiplayerText`**, **`MultiplayerSurface`**, фоны вроде **`MultiplayerBrandBackground`** и далее по мере развития). Экраны и корневой UI оборачивают контент в дизайн-систему и читают стиль из темы; **не хардкодить** произвольные цвета, отступы и скругления в `Feature/*` и `App` — только через токены и компоненты **`CoreUI`**, кроме осознанных исключений согласованно с командой.
+- Новые общие SwiftUI-компоненты и preview helpers добавлять в **`ios/Core/UI`**, а не дублировать по feature-модулям.
 - Архитектура UI: **MVVM** — состояние вниз, действия вверх
 - Реактивность: только **`AsyncSequence` / `AsyncStream`** для асинхронных последовательностей значений во времени; подписка из SwiftUI — через `task` / `.task` и стандартные async-паттерны.
 - ViewModel: `@Observable` (iOS 17+), `@MainActor`
