@@ -134,8 +134,15 @@ UI → ViewModel → UseCase → Repository (interface)
 - События — `sealed interface`
 - ViewModel: `viewModel()` через Koin, зависимости через конструктор
 - Корутины только через `viewModelScope`, никакого `GlobalScope`
-- Material 3: `MaterialTheme.colorScheme`, `MaterialTheme.typography`
+- Базовая тема приложения поднимается через `MultiplayerDesignSystem` из `android/core/ui`
+- Для app-specific UI использовать `MultiplayerTheme` и его токены (`colors`, `spacing`, `radius`, `elevation`, `icons`)
+- Для базовых текстов и поверхностей предпочитать `MultiplayerText` и `MultiplayerSurface`
+- Прямой `MaterialTheme` вне `core/ui` запрещён, кроме редких interop-случаев, где нужен Material API
+- Не хардкодить цвета, отступы, скругления и elevation в feature-модулях — только через токены дизайн-системы
+- Новые общие Compose-компоненты и preview helpers добавлять в `android/core/ui`, а не дублировать по feature-модулям
+- Если Material 3 уже покрывает стандартную типографику или color semantics, использовать их через `MultiplayerTheme.typography` и `MultiplayerTheme.materialColorScheme`
 - `@Preview(showBackground = true)` для каждого экранного компонента
+- Для preview экранов использовать `MultiplayerPreview` или явно оборачивать контент в `MultiplayerDesignSystem`
 - `*Route` — точка входа с ViewModel; `*Screen` — чистый компонент только с state и лямбдами
 
 ---
@@ -214,4 +221,3 @@ UI → ViewModel → UseCase → Repository (interface)
 - [Jetpack Compose](https://developer.android.com/jetpack/compose)
 - [SwiftUI](https://developer.apple.com/xcode/swiftui/)
 - [Koin](https://insert-koin.io/)
-

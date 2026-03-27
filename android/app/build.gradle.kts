@@ -14,4 +14,7 @@ dependencies {
     implementation(projects.feature.player)
     implementation(projects.feature.search)
     implementation(projects.services.yandex)
+
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
