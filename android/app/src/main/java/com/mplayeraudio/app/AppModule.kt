@@ -1,24 +1,17 @@
 package com.mplayeraudio.app
 
-import com.mplayeraudio.core.domain.musicprovider.AuthorizedMusicProvider
-import com.mplayeraudio.core.domain.musicprovider.MusicProviderAuthorizationRepository
-import kotlinx.coroutines.flow.Flow
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 fun appModule() = module {
-    factory {
-        ObserveAuthorizedMusicProviderUseCase(
+    factory<ObserveAuthorizedMusicProviderUseCase> {
+        DefaultObserveAuthorizedMusicProviderUseCase(
             repository = get(),
         )
     }
-}
-
-class ObserveAuthorizedMusicProviderUseCase(
-    private val repository: MusicProviderAuthorizationRepository,
-) {
-    fun currentAuthorizedProvider(): AuthorizedMusicProvider? {
-        return repository.currentAuthorizedProvider()
+    viewModel {
+        AppRootViewModel(
+            observeAuthorizedMusicProvider = get(),
+        )
     }
-
-    operator fun invoke(): Flow<AuthorizedMusicProvider?> = repository.observeAuthorizedProvider()
 }
