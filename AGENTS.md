@@ -8,7 +8,7 @@
 
 **MultiPlayer** — универсальный потоковый аудио-плеер для нативных мобильных платформ.  
 Архитектура: **полностью нативная** — два независимых проекта (Android, iOS) в одном репозитории, без общего кода.  
-Движок плеера: **[Kithara](https://github.com/zvuk/kithara)**.  
+Движок плеера: **[Kithara](https://github.com/AlexanderShirokih/kithara)**.  
 Первый сервис: **Yandex Music**.
 
 ---
@@ -194,7 +194,7 @@ UI → ViewModel → UseCase → Repository (interface)
 
 ## Плеер (Kithara)
 
-[Kithara](https://github.com/zvuk/kithara) — модульный Rust audio engine.  
+[Kithara](https://github.com/AlexanderShirokih/kithara) — модульный Rust audio engine.  
 Биндинги: Kotlin (Android) и Swift (iOS). 
 
 Ключевые модули:
@@ -247,7 +247,7 @@ UI → ViewModel → UseCase → Repository (interface)
 
 ## Ссылки
 
-- [Kithara](https://github.com/zvuk/kithara) / [docs.rs/kithara](https://docs.rs/kithara)
+- [Kithara](https://github.com/AlexanderShirokih/kithara) / [docs.rs/kithara](https://docs.rs/kithara)
 - [Yandex Music API (unofficial)](https://github.com/MarshalX/yandex-music-api)
 - [Yandex Music OpenAPI spec](https://github.com/acherkashin/yandex-music-open-api/blob/main/src/yandex-music.yaml)
 - [Jetpack Compose](https://developer.android.com/jetpack/compose)

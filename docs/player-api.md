@@ -4,7 +4,7 @@
 
 ## Движок
 
-[Kithara](https://github.com/zvuk/kithara) — Rust audio engine с Kotlin и Swift биндингами.  
+[Kithara](https://github.com/AlexanderShirokih/kithara) — Rust audio engine с Kotlin и Swift биндингами.  
 Документация по API Kithara: https://docs.rs/kithara
 
 ## Статус

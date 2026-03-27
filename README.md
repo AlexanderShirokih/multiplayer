@@ -19,7 +19,7 @@
 
 ## Стек
 
-- **Плеер**: [Kithara](https://github.com/zvuk/kithara) — модульный Rust audio engine (Kotlin и Swift биндинги)
+- **Плеер**: [Kithara](https://github.com/AlexanderShirokih/kithara) — модульный Rust audio engine (Kotlin и Swift биндинги)
 - **HTTP**: Ktor Client
 - **DI**: Koin
 - **Архитектура**: Clean Architecture + MVVM
