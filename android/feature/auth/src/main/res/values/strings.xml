@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="auth_welcome_app_name">MultiPlayer</string>
+    <string name="auth_welcome_title">Открытый плеер\nдля стриминговых\nсервисов</string>
+    <string name="auth_provider_title">Яндекс Музыка</string>
+    <string name="auth_provider_description">Вход по OAuth через Yandex ID,\nчтобы сразу перейти к своей музыке.</string>
+    <string name="auth_login_button">Войти через Яндекс Музыку</string>
+    <string name="auth_login_button_icon_description">Иконка входа через Яндекс Музыку</string>
+    <string name="auth_visual_description">Декоративная музыкальная иллюстрация welcome-экрана</string>
+</resources>
