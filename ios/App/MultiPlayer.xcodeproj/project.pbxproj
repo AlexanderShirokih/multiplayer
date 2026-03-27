@@ -10,6 +10,8 @@
 		A00000000000000000000014 /* CoreUI in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000082 /* CoreUI */; };
 		A00000000000000000000015 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000005 /* WelcomeView.swift */; };
 		A00000000000000000000016 /* YandexMusicAuthCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000006 /* YandexMusicAuthCardView.swift */; };
+		A00000000000000000000017 /* AppRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000007 /* AppRoot.swift */; };
+		A00000000000000000000018 /* PlayerPlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000008 /* PlayerPlaceholderView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -19,6 +21,8 @@
 		A00000000000000000000004 /* MultiPlayer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MultiPlayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000005 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		A00000000000000000000006 /* YandexMusicAuthCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YandexMusicAuthCardView.swift; sourceTree = "<group>"; };
+		A00000000000000000000007 /* AppRoot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRoot.swift; sourceTree = "<group>"; };
+		A00000000000000000000008 /* PlayerPlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerPlaceholderView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -44,13 +48,55 @@
 		A00000000000000000000032 /* App */ = {
 			isa = PBXGroup;
 			children = (
-				A00000000000000000000001 /* MultiPlayerApp.swift */,
-				A00000000000000000000002 /* RootView.swift */,
-				A00000000000000000000005 /* WelcomeView.swift */,
-				A00000000000000000000006 /* YandexMusicAuthCardView.swift */,
+				A00000000000000000000090 /* Sources */,
 				A00000000000000000000003 /* Assets.xcassets */,
 			);
 			path = "";
+			sourceTree = "<group>";
+		};
+		A00000000000000000000090 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000091 /* App */,
+				A00000000000000000000092 /* Feature */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000091 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000001 /* MultiPlayerApp.swift */,
+				A00000000000000000000002 /* RootView.swift */,
+				A00000000000000000000007 /* AppRoot.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000092 /* Feature */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000093 /* Auth */,
+				A00000000000000000000094 /* Player */,
+			);
+			path = Feature;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000093 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000005 /* WelcomeView.swift */,
+				A00000000000000000000006 /* YandexMusicAuthCardView.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000094 /* Player */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000008 /* PlayerPlaceholderView.swift */,
+			);
+			path = Player;
 			sourceTree = "<group>";
 		};
 		A00000000000000000000033 /* Products */ = {
@@ -140,6 +186,8 @@
 				A00000000000000000000012 /* RootView.swift in Sources */,
 				A00000000000000000000015 /* WelcomeView.swift in Sources */,
 				A00000000000000000000016 /* YandexMusicAuthCardView.swift in Sources */,
+				A00000000000000000000017 /* AppRoot.swift in Sources */,
+				A00000000000000000000018 /* PlayerPlaceholderView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
