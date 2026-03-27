@@ -40,11 +40,12 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
         }
 
         dependencies {
+            add("implementation", libs.findLibrary("kotlinx-coroutines-android").get())
             add("testImplementation", libs.findLibrary("junit").get())
             add("androidTestImplementation", libs.findLibrary("androidx-junit").get())
             add("androidTestImplementation", libs.findLibrary("androidx-espresso-core").get())
         }
 
-        applyMultiplayerDetektWhenKotlinPresent()
+        pluginManager.apply("multiplayer.detekt")
     }
 }

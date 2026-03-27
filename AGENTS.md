@@ -139,6 +139,7 @@ UI → ViewModel → UseCase → Repository (interface)
 - События — `sealed interface`
 - ViewModel: `viewModel()` через Koin, зависимости через конструктор
 - Корутины только через `viewModelScope`, никакого `GlobalScope`
+- Исключения: предпочитать явный **`try`/`catch`** вместо **`runCatching`** — яснее поток управления и обработка ошибок; `runCatching` не использовать как значение по умолчанию (допустим, если осознанно нужен `Result` и это согласовано с окружающим кодом).
 - Базовая тема приложения поднимается через `MultiplayerDesignSystem` из `android/core/ui`
 - Для app-specific UI использовать `MultiplayerTheme` и его токены (`colors`, `spacing`, `radius`, `elevation`, `icons`)
 - Для базовых текстов и поверхностей предпочитать `MultiplayerText` и `MultiplayerSurface`

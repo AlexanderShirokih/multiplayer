@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -32,7 +31,7 @@ import com.multiplayer.core.ui.components.MultiplayerText
 import com.multiplayer.core.ui.theme.MultiplayerDesignSystem
 import com.multiplayer.core.ui.theme.MultiplayerTheme
 import com.multiplayer.feature.auth.yamusic.YandexMusicAuthCard
-import com.multiplayer.feature.auth.yamusic.YandexMusicAuthCardViewModel
+import com.multiplayer.feature.auth.yamusic.YandexMusicAuthCardState
 
 @Composable
 fun AuthWelcomeScreen(
@@ -249,7 +248,8 @@ private fun AuthWelcomeScreenPreview() {
         AuthWelcomeScreen(
             loginContent = {
                 YandexMusicAuthCard(
-                    viewModel = remember { YandexMusicAuthCardViewModel() },
+                    state = YandexMusicAuthCardState(),
+                    onClick = {},
                     modifier = Modifier.fillMaxWidth(),
                 )
             },
@@ -264,7 +264,8 @@ private fun AuthWelcomeScreenLightPreview() {
         AuthWelcomeScreen(
             loginContent = {
                 YandexMusicAuthCard(
-                    viewModel = remember { YandexMusicAuthCardViewModel() },
+                    state = YandexMusicAuthCardState(),
+                    onClick = {},
                     modifier = Modifier.fillMaxWidth(),
                 )
             },

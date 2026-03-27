@@ -1,0 +1,126 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="146" y1="72" x2="918" y2="978" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F9FBFF"/>
+      <stop offset="0.44" stop-color="#F1F5FD"/>
+      <stop offset="1" stop-color="#E6EEFB"/>
+    </linearGradient>
+    <radialGradient id="glowBlue" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(794 214) rotate(120) scale(470 470)">
+      <stop offset="0" stop-color="#5388FF" stop-opacity="0.64"/>
+      <stop offset="0.6" stop-color="#356CFF" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#356CFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowAmber" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(206 334) rotate(54) scale(310 310)">
+      <stop offset="0" stop-color="#FFC857" stop-opacity="0.52"/>
+      <stop offset="0.62" stop-color="#FFC857" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#FFC857" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowCore" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(520 522) rotate(90) scale(286 286)">
+      <stop offset="0" stop-color="#356CFF" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#356CFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowViolet" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(322 770) rotate(22) scale(318 260)">
+      <stop offset="0" stop-color="#A86BFF" stop-opacity="0.46"/>
+      <stop offset="0.64" stop-color="#6E63FF" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#6E63FF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowMint" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(770 694) rotate(180) scale(286 238)">
+      <stop offset="0" stop-color="#73F0D2" stop-opacity="0.42"/>
+      <stop offset="0.68" stop-color="#73F0D2" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#73F0D2" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orbHaloBlue" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(518 510) rotate(90) scale(286 286)">
+      <stop offset="0" stop-color="#6F9BFF" stop-opacity="0.88"/>
+      <stop offset="0.42" stop-color="#4C7EFF" stop-opacity="0.5"/>
+      <stop offset="0.76" stop-color="#356CFF" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#356CFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orbHaloViolet" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(456 584) rotate(90) scale(244 244)">
+      <stop offset="0" stop-color="#9A78FF" stop-opacity="0.52"/>
+      <stop offset="0.56" stop-color="#725FFF" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#725FFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orbHaloMint" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(590 454) rotate(90) scale(226 226)">
+      <stop offset="0" stop-color="#8CFFE6" stop-opacity="0.46"/>
+      <stop offset="0.52" stop-color="#73F0D2" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#73F0D2" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="orb" x1="352" y1="334" x2="718" y2="754" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A9C0FF"/>
+      <stop offset="0.48" stop-color="#5388FF"/>
+      <stop offset="1" stop-color="#2D59D1"/>
+    </linearGradient>
+    <linearGradient id="orbHighlight" x1="398" y1="320" x2="612" y2="526" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.72"/>
+      <stop offset="0.54" stop-color="#FFFFFF" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="monogramGlow" x1="360" y1="364" x2="664" y2="668" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.42" stop-color="#F5F9FF"/>
+      <stop offset="1" stop-color="#E8F0FF"/>
+    </linearGradient>
+    <filter id="softBlur" x="-220" y="-180" width="1464" height="1364" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="96"/>
+    </filter>
+    <filter id="orbShadow" x="216" y="252" width="592" height="638" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feOffset dy="32"/>
+      <feGaussianBlur stdDeviation="38"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.207843 0 0 0 0 0.423529 0 0 0 0 1 0 0 0 0.22 0"/>
+      <feBlend mode="normal" in2="SourceGraphic" result="shape"/>
+    </filter>
+    <filter id="orbHaloBlur" x="204" y="202" width="628" height="628" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="34"/>
+    </filter>
+    <filter id="monogramAura" x="236" y="274" width="552" height="500" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="40"/>
+    </filter>
+    <clipPath id="iconClip">
+      <circle cx="512" cy="512" r="512"/>
+    </clipPath>
+    <clipPath id="orbClip">
+      <circle cx="512" cy="518" r="220"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#iconClip)">
+    <rect width="1024" height="1024" fill="url(#bg)" fill-opacity="0.84"/>
+
+    <g opacity="1" filter="url(#softBlur)">
+      <circle cx="794" cy="214" r="236" fill="url(#glowBlue)"/>
+      <circle cx="206" cy="334" r="156" fill="url(#glowAmber)"/>
+      <circle cx="520" cy="522" r="188" fill="url(#glowCore)"/>
+      <ellipse cx="322" cy="770" rx="166" ry="132" fill="url(#glowViolet)"/>
+      <ellipse cx="770" cy="694" rx="148" ry="122" fill="url(#glowMint)"/>
+    </g>
+
+    <path d="M0 640C166 604 304 566 436 476C592 369 748 226 1024 174V1024H0V640Z" fill="#DCE6F7" fill-opacity="0.34"/>
+
+    <g opacity="0.92" filter="url(#softBlur)">
+      <circle cx="682" cy="318" r="198" fill="url(#glowBlue)"/>
+      <circle cx="346" cy="676" r="172" fill="url(#glowViolet)"/>
+      <circle cx="708" cy="666" r="164" fill="url(#glowMint)"/>
+    </g>
+
+    <g filter="url(#orbShadow)">
+      <g clip-path="url(#orbClip)">
+        <circle cx="512" cy="518" r="220" fill="url(#orb)"/>
+        <ellipse cx="452" cy="396" rx="172" ry="128" transform="rotate(-18 452 396)" fill="url(#orbHighlight)"/>
+        <circle cx="624" cy="650" r="154" fill="#214BD3" fill-opacity="0.18"/>
+      </g>
+      <circle cx="512" cy="518" r="219" stroke="#D8E5FF" stroke-opacity="0.56" stroke-width="2"/>
+    </g>
+
+    <g filter="url(#orbHaloBlur)" opacity="1">
+      <circle cx="518" cy="510" r="188" fill="url(#orbHaloBlue)"/>
+      <circle cx="456" cy="584" r="152" fill="url(#orbHaloViolet)"/>
+      <circle cx="590" cy="454" r="144" fill="url(#orbHaloMint)"/>
+    </g>
+
+    <g filter="url(#monogramAura)" opacity="1">
+      <path d="M390 626V420L512 556L634 420V626" stroke="#9CB8FF" stroke-opacity="0.92" stroke-width="104" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <path d="M390 626V420L512 556L634 420V626" stroke="url(#monogramGlow)" stroke-width="74" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

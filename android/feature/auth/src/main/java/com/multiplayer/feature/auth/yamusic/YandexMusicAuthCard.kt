@@ -14,11 +14,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.luminance
@@ -39,18 +38,18 @@ fun YandexMusicAuthCard(
     viewModel: YandexMusicAuthCardViewModel,
     modifier: Modifier = Modifier,
 ) {
-    val state by viewModel.state.collectAsState()
-    YandexMusicAuthCardContent(
-        isLoading = state.isLoading,
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    YandexMusicAuthCard(
+        state = state,
         onClick = viewModel::onLoginClicked,
         modifier = modifier,
     )
 }
 
-@Suppress("MagicNumber")
+@Suppress("LongMethod", "MagicNumber")
 @Composable
-private fun YandexMusicAuthCardContent(
-    isLoading: Boolean,
+fun YandexMusicAuthCard(
+    state: YandexMusicAuthCardState,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -109,9 +108,9 @@ private fun YandexMusicAuthCardContent(
                                 colors.ctaGradientStart,
                                 colors.ctaGradientEnd,
                             ),
-                        ),
+                        )
                     )
-                    .clickable(enabled = !isLoading, onClick = onClick),
+                    .clickable(enabled = !state.isLoading && !state.isAuthorized, onClick = onClick),
             ) {
                 Box(
                     modifier = Modifier
@@ -119,28 +118,31 @@ private fun YandexMusicAuthCardContent(
                         .fillMaxWidth(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (isLoading) {
+                    if (state.isLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
-                            color = colors.textInverse,
+                            color = buttonTextColor,
                             strokeWidth = 2.dp,
                         )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = spacing.lg),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        MultiplayerText(
-                            text = stringResource(R.string.auth_login_button),
-                            style = typography.labelLarge,
-                            color = buttonTextColor,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            modifier = Modifier.alpha(if (isLoading) 0.8f else 1f),
-                        )
+                    } else {
+                        val buttonText = when {
+                            state.isAuthorized -> "Аккаунт подключён"
+                            else -> stringResource(R.string.auth_login_button)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = spacing.lg),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            MultiplayerText(
+                                text = buttonText,
+                                style = typography.labelLarge,
+                                color = buttonTextColor,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                            )
+                        }
                     }
                 }
             }
@@ -158,7 +160,8 @@ private fun YandexMusicAuthCardPreview() {
                 .padding(MultiplayerTheme.spacing.lg),
         ) {
             YandexMusicAuthCard(
-                viewModel = YandexMusicAuthCardViewModel(),
+                state = YandexMusicAuthCardState(),
+                onClick = {},
             )
         }
     }

@@ -7,5 +7,10 @@ plugins {
 dependencies {
     implementation(projects.core.domain)
     implementation(projects.core.ui)
-    implementation(projects.services.yandex)
+    implementation(platform(libs.koin.bom))
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.koin.android)
+    implementation(libs.koin.androidx.compose)
+
+    testImplementation(libs.kotlinx.coroutines.test)
 }
