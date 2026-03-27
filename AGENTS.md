@@ -144,6 +144,8 @@ UI → ViewModel → UseCase → Repository (interface)
 - `@Preview(showBackground = true)` для каждого экранного компонента
 - Для preview экранов использовать `MultiplayerPreview` или явно оборачивать контент в `MultiplayerDesignSystem`
 - `*Route` — точка входа с ViewModel; `*Screen` — чистый компонент только с state и лямбдами
+- **detekt** (Kotlin + Compose): статический анализ подключён через конвенцию `multiplayer.detekt`, конфиг — `android/config/detekt/detekt.yml` (в т.ч. [compose-rules](https://mrmans0n.github.io/compose-rules/detekt)). После любых правок Kotlin/Gradle в `android/` перед завершением работы **нужно** убедиться, что `./gradlew detekt` из каталога `android/` завершается успешно; при необходимости исправить замечания или явно обосновать отключение правила в конфиге/подавлении.
+- **Gradle для агентов**: не передавать `./gradlew` флаг `--no-daemon` (оставляем поведение Gradle по умолчанию: переиспользование daemon ускоряет сборки и типичен для локальной разработки).
 
 ---
 

@@ -2,7 +2,6 @@ package com.multiplayer.core.ui.theme
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -32,6 +31,10 @@ internal val LocalMultiplayerIcons = staticCompositionLocalOf<MultiplayerIcons> 
     error("MultiplayerTheme.icons is not available. Wrap your UI in MultiplayerDesignSystem.")
 }
 
+internal val LocalMultiplayerTypography = staticCompositionLocalOf<MultiplayerTypography> {
+    error("MultiplayerTheme.typography is not available. Wrap your UI in MultiplayerDesignSystem.")
+}
+
 object MultiplayerTheme {
     val colors: MultiplayerColors
         @Composable
@@ -58,10 +61,10 @@ object MultiplayerTheme {
         @ReadOnlyComposable
         get() = LocalMultiplayerIcons.current
 
-    val typography: Typography
+    val typography: MultiplayerTypography
         @Composable
         @ReadOnlyComposable
-        get() = MaterialTheme.typography
+        get() = LocalMultiplayerTypography.current
 
     val materialColorScheme: ColorScheme
         @Composable

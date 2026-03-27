@@ -13,6 +13,7 @@ java {
 dependencies {
     implementation(libs.android.gradle.plugin)
     implementation(libs.kotlin.gradle.plugin)
+    implementation(libs.detekt.gradle.plugin)
 }
 
 gradlePlugin {
@@ -32,6 +33,10 @@ gradlePlugin {
         register("kotlinLibrary") {
             id = "multiplayer.kotlin.library"
             implementationClass = "com.multiplayer.buildlogic.KotlinLibraryConventionPlugin"
+        }
+        register("detekt") {
+            id = "multiplayer.detekt"
+            implementationClass = "com.multiplayer.buildlogic.DetektConventionPlugin"
         }
     }
 }

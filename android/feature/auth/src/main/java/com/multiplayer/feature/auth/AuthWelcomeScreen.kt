@@ -1,9 +1,7 @@
 package com.multiplayer.feature.auth
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,15 +18,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,7 +36,8 @@ fun AuthWelcomeScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = MultiplayerTheme.colors
-    val yandexProvider = state.availableMusicProviders.firstOrNull { it.type == MusicProvider.YandexMusic.type }
+    val yandexProvider =
+        state.availableMusicProviders.firstOrNull { it.type == MusicProvider.YandexMusic.type }
 
     BoxWithConstraints(
         modifier = modifier
@@ -89,7 +83,8 @@ fun AuthWelcomeScreen(
 }
 
 @Composable
-private fun BoxScope.AuthWelcomeBackgroundDecor(
+@Suppress("MagicNumber", "LongMethod")
+private fun AuthWelcomeBackgroundDecor(
     modifier: Modifier = Modifier,
 ) {
     val colors = MultiplayerTheme.colors
@@ -189,35 +184,6 @@ private fun BoxScope.AuthWelcomeBackgroundDecor(
             ),
             alpha = 0.92f,
         )
-
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val path = Path().apply {
-                moveTo(0f, size.height * 0.444f)
-                cubicTo(
-                    size.width * 0.17f,
-                    size.height * 0.434f,
-                    size.width * 0.288f,
-                    size.height * 0.402f,
-                    size.width * 0.454f,
-                    size.height * 0.346f,
-                )
-                cubicTo(
-                    size.width * 0.58f,
-                    size.height * 0.31f,
-                    size.width * 0.722f,
-                    size.height * 0.252f,
-                    size.width,
-                    size.height * 0.224f,
-                )
-                lineTo(size.width, size.height)
-                lineTo(0f, size.height)
-                close()
-            }
-            drawPath(
-                path = path,
-                color = Color(0xFF08101F).copy(alpha = 0.36f),
-            )
-        }
     }
 }
 
@@ -240,6 +206,7 @@ private fun DecorativeGlow(
 }
 
 @Composable
+@Suppress("MagicNumber")
 private fun AuthWelcomeTitleBlock(
     modifier: Modifier = Modifier,
 ) {
@@ -277,6 +244,17 @@ private fun AuthWelcomeTitleBlock(
 @Composable
 private fun AuthWelcomeScreenPreview() {
     MultiplayerDesignSystem(darkTheme = true) {
+        AuthWelcomeScreen(
+            state = AuthWelcomeState(),
+            onEvent = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Auth Welcome Screen Light")
+@Composable
+private fun AuthWelcomeScreenLightPreview() {
+    MultiplayerDesignSystem(darkTheme = false) {
         AuthWelcomeScreen(
             state = AuthWelcomeState(),
             onEvent = {},

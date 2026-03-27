@@ -28,5 +28,7 @@ class KotlinLibraryConventionPlugin : Plugin<Project> {
         dependencies {
             add("testImplementation", libs.findLibrary("junit").get())
         }
+
+        pluginManager.apply("multiplayer.detekt")
     }
 }

@@ -13,4 +13,5 @@ data class MultiplayerSpacing(
     val lg: Dp = 24.dp,
     val xl: Dp = 32.dp,
     val xxl: Dp = 40.dp,
+    val xxxl: Dp = 48.dp,
 )

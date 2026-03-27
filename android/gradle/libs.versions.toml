@@ -1,6 +1,8 @@
 [versions]
 agp = "9.1.0"
 kotlin = "2.3.20"
+detekt = "2.0.0-alpha.2"
+composeRulesDetekt = "0.5.6"
 androidxActivity = "1.13.0"
 androidxCore = "1.18.0"
 androidxLifecycle = "2.10.0"
@@ -12,6 +14,8 @@ junit4 = "4.13.2"
 [libraries]
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+detekt-compose-rules = { module = "io.nlopez.compose.rules:detekt", version.ref = "composeRulesDetekt" }
+detekt-gradle-plugin = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivity" }
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }

@@ -1,0 +1,74 @@
+<svg width="1290" height="2796" viewBox="0 0 1290 2796" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="183" y1="142" x2="1149" y2="2618" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F9FBFF"/>
+      <stop offset="0.42" stop-color="#F1F5FD"/>
+      <stop offset="1" stop-color="#E6EEFB"/>
+    </linearGradient>
+    <radialGradient id="glowBlue" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(995 420) rotate(120) scale(862 862)">
+      <stop offset="0" stop-color="#5388FF" stop-opacity="0.44"/>
+      <stop offset="0.6" stop-color="#356CFF" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#356CFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowAmber" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(235 880) rotate(54) scale(542 542)">
+      <stop offset="0" stop-color="#FFC857" stop-opacity="0.34"/>
+      <stop offset="0.62" stop-color="#FFC857" stop-opacity="0.1"/>
+      <stop offset="1" stop-color="#FFC857" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="orb" x1="457" y1="596" x2="888" y2="1120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A9C0FF"/>
+      <stop offset="0.48" stop-color="#5388FF"/>
+      <stop offset="1" stop-color="#2D59D1"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="236" y1="1698" x2="1042" y2="2529" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.94"/>
+      <stop offset="1" stop-color="#EEF3FF" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="button" x1="215" y1="0" x2="1212" y2="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFD86B"/>
+      <stop offset="1" stop-color="#FFC857"/>
+    </linearGradient>
+    <filter id="softBlur" x="-200" y="-200" width="1690" height="3196" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="80"/>
+    </filter>
+    <filter id="cardShadow" x="96" y="1604" width="1098" height="1112" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feOffset dy="28"/>
+      <feGaussianBlur stdDeviation="40"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.392157 0 0 0 0 0.470588 0 0 0 0 0.658824 0 0 0 0.18 0"/>
+      <feBlend mode="normal" in2="SourceGraphic" result="shape"/>
+    </filter>
+  </defs>
+
+  <rect width="1290" height="2796" rx="72" fill="url(#bg)"/>
+
+  <g opacity="0.96" filter="url(#softBlur)">
+    <circle cx="1016" cy="428" r="402" fill="url(#glowBlue)"/>
+    <circle cx="252" cy="884" r="268" fill="url(#glowAmber)"/>
+    <circle cx="734" cy="1322" r="316" fill="#356CFF" fill-opacity="0.08"/>
+  </g>
+
+  <path d="M0 1210C220 1152 372 1086 586 938C748 826 932 640 1290 564V2796H0V1210Z" fill="#DCE6F7" fill-opacity="0.62"/>
+
+  <text x="110" y="1444" fill="#0D1424" font-family="Manrope, 'SF Pro Display', sans-serif" font-size="126" font-weight="800" letter-spacing="-0.04em">MultiPlayer</text>
+  <text x="112" y="1548" fill="#2B3952" font-family="Manrope, 'SF Pro Display', sans-serif" font-size="58" font-weight="700" letter-spacing="-0.03em">Открытый плеер</text>
+  <text x="112" y="1618" fill="#2B3952" font-family="Manrope, 'SF Pro Display', sans-serif" font-size="58" font-weight="700" letter-spacing="-0.03em">для стриминговых</text>
+  <text x="112" y="1688" fill="#2B3952" font-family="Manrope, 'SF Pro Display', sans-serif" font-size="58" font-weight="700" letter-spacing="-0.03em">сервисов</text>
+
+  <g filter="url(#cardShadow)">
+    <rect x="110" y="1918" width="1070" height="694" rx="56" fill="url(#panel)"/>
+    <rect x="111" y="1919" width="1068" height="692" rx="55" stroke="#AEC1E6" stroke-opacity="0.42" stroke-width="2"/>
+
+    <g opacity="0.96">
+      <text x="164" y="2158" fill="#0D1424" font-family="Manrope, 'SF Pro Display', sans-serif" font-size="62" font-weight="700" letter-spacing="-0.03em">Яндекс Музыка</text>
+      <text x="164" y="2232" fill="#51627F" font-family="Manrope, 'SF Pro Text', sans-serif" font-size="32" font-weight="500" letter-spacing="-0.01em">Вход по OAuth через Yandex ID,</text>
+      <text x="164" y="2276" fill="#51627F" font-family="Manrope, 'SF Pro Text', sans-serif" font-size="32" font-weight="500" letter-spacing="-0.01em">чтобы сразу перейти к своей музыке.</text>
+    </g>
+
+    <g>
+      <rect x="164" y="2358" width="962" height="154" rx="77" fill="url(#button)"/>
+      <rect x="165.5" y="2359.5" width="959" height="151" rx="75.5" stroke="#FFF3CC" stroke-opacity="0.52" stroke-width="3"/>
+      <text x="332" y="2452" fill="#121A2B" font-family="Manrope, 'SF Pro Display', sans-serif" font-size="41" font-weight="800" letter-spacing="-0.02em">Войти через Яндекс Музыку</text>
+    </g>
+
+  </g>
+</svg>

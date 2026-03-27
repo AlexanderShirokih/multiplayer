@@ -1,9 +1,7 @@
 package com.multiplayer.feature.auth
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
@@ -21,11 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -46,6 +40,11 @@ fun YandexMusicAuthCard(
     val colors = MultiplayerTheme.colors
     val radius = MultiplayerTheme.radius
     val typography = MultiplayerTheme.typography
+    val buttonTextColor = if (colors.background.luminance() > 0.5f) {
+        colors.textPrimary
+    } else {
+        colors.textInverse
+    }
 
     MultiplayerSurface(
         modifier = modifier,
@@ -58,7 +57,7 @@ fun YandexMusicAuthCard(
         ),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 22.dp),
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             MultiplayerText(
@@ -80,7 +79,7 @@ fun YandexMusicAuthCard(
                 color = colors.textSecondary,
             )
 
-            Spacer(modifier = Modifier.height(spacing.sm))
+            Spacer(modifier = Modifier.height(spacing.xxs))
 
             Box(
                 modifier = Modifier
@@ -119,7 +118,7 @@ fun YandexMusicAuthCard(
                         MultiplayerText(
                             text = stringResource(R.string.auth_login_button),
                             style = typography.labelLarge,
-                            color = colors.textInverse,
+                            color = buttonTextColor,
                             textAlign = TextAlign.Center,
                             maxLines = 1,
                             modifier = Modifier.alpha(if (isLoading) 0.8f else 1f),

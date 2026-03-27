@@ -13,9 +13,9 @@ import com.multiplayer.core.ui.tokens.multiplayerColors
 
 @Composable
 fun MultiplayerDesignSystem(
+    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val darkTheme = isSystemInDarkTheme()
     val colors = remember(darkTheme) { multiplayerColors(darkTheme) }
     val spacing = remember { MultiplayerSpacing() }
     val radius = remember { MultiplayerRadius() }
@@ -23,6 +23,7 @@ fun MultiplayerDesignSystem(
     val icons = remember { MultiplayerIcons() }
     val materialColorScheme = remember(darkTheme) { multiplayerMaterialColorScheme(darkTheme) }
     val shapes = remember(radius) { multiplayerShapes(radius) }
+    val typography = remember { defaultMultiplayerTypography() }
 
     CompositionLocalProvider(
         LocalMultiplayerColors provides colors,
@@ -30,10 +31,11 @@ fun MultiplayerDesignSystem(
         LocalMultiplayerRadius provides radius,
         LocalMultiplayerElevation provides elevation,
         LocalMultiplayerIcons provides icons,
+        LocalMultiplayerTypography provides typography,
     ) {
         MaterialTheme(
             colorScheme = materialColorScheme,
-            typography = MultiplayerTypography,
+            typography = typography.toMaterialTypography(),
             shapes = shapes,
             content = content,
         )
