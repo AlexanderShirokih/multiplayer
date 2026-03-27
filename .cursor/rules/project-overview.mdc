@@ -13,4 +13,5 @@ alwaysApply: true
 - `feature/*` не зависит от других `feature/*` — только от `core/*` и `services/*`; нарушать архитектуру и модульность из `AGENTS.md` нельзя
 - Никакого KMP, Flutter, XML, UIKit, LiveData, completion handlers, хардкодных токенов
 - Android: после правок Kotlin/Gradle в `android/` — `./gradlew detekt` из `android/` должен проходить; в командах Gradle **не** использовать `--no-daemon` (см. `AGENTS.md`, Android-конвенции)
-- iOS: ориентир на гайдлайны Apple (HIG, Swift API, документация SwiftUI); UI — через пакет дизайн-системы `ios/Core/UI` (`CoreUI`), см. `AGENTS.md`
+- iOS: ориентир на гайдлайны Apple (HIG, Swift API, документация SwiftUI); UI — через пакет дизайн-системы `ios/Core/UI` (`CoreUI`), см. `AGENTS.md`; экраны и крупные блоки — по отдельным файлам по необходимости
+- UI Android и iOS структурно согласованы (архитектура экранов, сценарии), с уважением к платформенным отличиям; подробности — в `AGENTS.md`, раздел «Кросс-платформенный UI»
