@@ -8,6 +8,8 @@ import com.mplayeraudio.core.domain.yandexauth.YandexAuthStatus
 import com.mplayeraudio.core.domain.yandexauth.YandexAuthorizationRequest
 import com.mplayeraudio.core.domain.yandexauth.YandexClientId
 import com.mplayeraudio.core.domain.yandexauth.YandexUserIdentity
+import com.mplayeraudio.core.domain.musicprovider.AuthorizedMusicProvider
+import com.mplayeraudio.core.domain.musicprovider.MusicProviderAuthorizationRepository
 import com.mplayeraudio.services.yandexauth.internal.DeviceMetadataProvider
 import com.mplayeraudio.services.yandexauth.internal.PendingYandexAuthorization
 import com.mplayeraudio.services.yandexauth.internal.PkceGenerator
@@ -38,7 +40,7 @@ internal class YandexAuthRepositoryImpl(
     private val callbackParser: YandexAuthorizationCallbackParser,
     private val tokenRefresher: YandexTokenRefresher,
     private val clock: Clock,
-) : YandexAuthRepository, YandexAccessTokenProvider {
+) : YandexAuthRepository, YandexAccessTokenProvider, MusicProviderAuthorizationRepository {
 
     private val refreshMutex = Mutex()
     private val status = MutableStateFlow(initialStatus())
@@ -46,6 +48,16 @@ internal class YandexAuthRepositoryImpl(
     override fun observeSession(): Flow<YandexAuthSession?> = sessionStore.sessionFlow
 
     override fun observeStatus(): Flow<YandexAuthStatus> = status.asStateFlow()
+
+    override fun currentAuthorizedProvider(): AuthorizedMusicProvider? {
+        return sessionStore.sessionFlow.value?.let { AuthorizedMusicProvider.YandexMusic }
+    }
+
+    override fun observeAuthorizedProvider(): Flow<AuthorizedMusicProvider?> {
+        return sessionStore.sessionFlow
+            .map { session -> session?.let { AuthorizedMusicProvider.YandexMusic } }
+            .distinctUntilChanged()
+    }
 
     override fun accessTokenFlow(): Flow<String?> {
         return sessionStore.sessionFlow

@@ -1,0 +1,4 @@
+<resources>
+    <string name="player_placeholder_title">Экран плеера</string>
+    <string name="player_placeholder_description">Пока здесь пусто. Следующим шагом подключим now playing и базовые контролы воспроизведения.</string>
+</resources>

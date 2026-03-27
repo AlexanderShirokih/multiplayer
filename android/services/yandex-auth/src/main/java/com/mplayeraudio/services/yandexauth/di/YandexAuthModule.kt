@@ -1,4 +1,5 @@
 package com.mplayeraudio.services.yandexauth.di
+import com.mplayeraudio.core.domain.musicprovider.MusicProviderAuthorizationRepository
 import com.mplayeraudio.core.domain.yandexauth.YandexAccessTokenProvider
 import com.mplayeraudio.core.domain.yandexauth.YandexAuthRepository
 import com.mplayeraudio.services.yandexauth.YandexAuthRepositoryImpl
@@ -93,4 +94,5 @@ fun yandexAuthModule(config: YandexOAuthConfig): Module = module {
     }
     single<YandexAuthRepository> { get<YandexAuthRepositoryImpl>() }
     single<YandexAccessTokenProvider> { get<YandexAuthRepositoryImpl>() }
+    single<MusicProviderAuthorizationRepository> { get<YandexAuthRepositoryImpl>() }
 }

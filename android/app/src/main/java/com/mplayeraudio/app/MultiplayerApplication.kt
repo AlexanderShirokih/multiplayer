@@ -15,6 +15,7 @@ class MultiplayerApplication : Application() {
         startKoin {
             androidContext(this@MultiplayerApplication)
             modules(
+                appModule(),
                 yandexAuthModule(yandexOAuthConfig()),
                 yandexMusicAuthModule(),
             )
