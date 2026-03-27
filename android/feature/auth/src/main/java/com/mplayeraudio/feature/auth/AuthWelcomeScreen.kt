@@ -1,6 +1,7 @@
 package com.mplayeraudio.feature.auth
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -15,9 +16,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mplayeraudio.core.ui.components.MultiplayerBrandBackgroundDecor
 import com.mplayeraudio.core.ui.components.MultiplayerText
@@ -53,6 +55,10 @@ fun AuthWelcomeScreen(
                 .fillMaxSize(),
         )
 
+        AuthWelcomeBackgroundCurve(
+            modifier = Modifier.fillMaxSize(),
+        )
+
         AuthWelcomeTitleBlock(
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -73,6 +79,50 @@ fun AuthWelcomeScreen(
         ) {
             loginContent()
         }
+    }
+}
+
+@Composable
+@Suppress("MagicNumber")
+private fun AuthWelcomeBackgroundCurve(
+    modifier: Modifier = Modifier,
+) {
+    val colors = MultiplayerTheme.colors
+    val isLightTheme = colors.background.luminance() > 0.5f
+    val curveColor = if (isLightTheme) {
+        colors.brandVisualPrimary.copy(alpha = 0.20f)
+    } else {
+        colors.brandVisualPrimaryContainer.copy(alpha = 0.18f)
+    }
+
+    Canvas(modifier = modifier) {
+        val path = Path().apply {
+            moveTo(0f, size.height * 0.444f)
+            cubicTo(
+                size.width * 0.17f,
+                size.height * 0.434f,
+                size.width * 0.288f,
+                size.height * 0.402f,
+                size.width * 0.454f,
+                size.height * 0.346f,
+            )
+            cubicTo(
+                size.width * 0.58f,
+                size.height * 0.31f,
+                size.width * 0.722f,
+                size.height * 0.252f,
+                size.width,
+                size.height * 0.224f,
+            )
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+
+        drawPath(
+            path = path,
+            color = curveColor,
+        )
     }
 }
 
