@@ -15,4 +15,6 @@ internal val Blue500 = Color(0xFF356CFF)
 internal val Blue400 = Color(0xFF5388FF)
 internal val Blue300 = Color(0xFF9CB8FF)
 internal val Amber300 = Color(0xFFFFC857)
+/** Светлый жёлтый для CTA-градиента (см. `MultiplayerColors.ctaGradient*`). */
+internal val AmberGradientLight = Color(0xFFFFD86B)
 internal val Red300 = Color(0xFFFF7A7A)

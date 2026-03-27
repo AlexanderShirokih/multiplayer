@@ -12,6 +12,16 @@ internal object AndroidSdk {
     const val target = 36
 }
 
+internal fun Project.applyMultiplayerDetektWhenKotlinPresent() {
+    val applyOnce = {
+        if (!pluginManager.hasPlugin("multiplayer.detekt")) {
+            pluginManager.apply("multiplayer.detekt")
+        }
+    }
+    pluginManager.withPlugin("org.jetbrains.kotlin.android") { applyOnce() }
+    pluginManager.withPlugin("org.jetbrains.kotlin.plugin.compose") { applyOnce() }
+}
+
 internal fun Project.multiplayerNamespace(): String {
     val suffix = path
         .split(":")

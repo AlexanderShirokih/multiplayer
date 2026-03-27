@@ -9,7 +9,8 @@ alwaysApply: true
 - Нативный Android (Kotlin/Compose) + iOS (Swift/SwiftUI), без общего кода
 - Многомодульный проект, вертикальное (feature-based) разделение: `core/`, `feature/`, `services/`
 - Движок плеера: Kithara. Первый сервис: Yandex Music
-- Архитектура: Clean Architecture + MVVM + UDF
+- Архитектура: Clean Architecture + MVVM + UDF; реактивная модель данных (Android: Kotlin Flow; iOS: AsyncSequence / AsyncStream); по возможности семантические типы или `typealias` вместо сырых примитивов (id, длительность и т.д.); чистый, тестируемый код
 - `feature/*` не зависит от других `feature/*` — только от `core/*` и `services/*`
 - Никакого KMP, Flutter, XML, UIKit, LiveData, completion handlers, хардкодных токенов
 - Android: после правок Kotlin/Gradle в `android/` — `./gradlew detekt` из `android/` должен проходить; в командах Gradle **не** использовать `--no-daemon` (см. `AGENTS.md`, Android-конвенции)
+- iOS: ориентир на гайдлайны Apple (HIG, Swift API, документация SwiftUI)

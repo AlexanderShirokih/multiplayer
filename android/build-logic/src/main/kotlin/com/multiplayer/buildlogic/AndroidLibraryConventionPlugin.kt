@@ -45,8 +45,6 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
             add("androidTestImplementation", libs.findLibrary("androidx-espresso-core").get())
         }
 
-        pluginManager.withPlugin("org.jetbrains.kotlin.android") {
-            pluginManager.apply("multiplayer.detekt")
-        }
+        applyMultiplayerDetektWhenKotlinPresent()
     }
 }

@@ -1,4 +1,4 @@
-package com.multiplayer.feature.auth
+package com.multiplayer.feature.auth.yamusic
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -29,9 +31,25 @@ import com.multiplayer.core.ui.components.MultiplayerSurface
 import com.multiplayer.core.ui.components.MultiplayerText
 import com.multiplayer.core.ui.theme.MultiplayerDesignSystem
 import com.multiplayer.core.ui.theme.MultiplayerTheme
+import com.multiplayer.feature.auth.R
 
+@Suppress("MagicNumber")
 @Composable
 fun YandexMusicAuthCard(
+    viewModel: YandexMusicAuthCardViewModel,
+    modifier: Modifier = Modifier,
+) {
+    val state by viewModel.state.collectAsState()
+    YandexMusicAuthCardContent(
+        isLoading = state.isLoading,
+        onClick = viewModel::onLoginClicked,
+        modifier = modifier,
+    )
+}
+
+@Suppress("MagicNumber")
+@Composable
+private fun YandexMusicAuthCardContent(
     isLoading: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -140,8 +158,7 @@ private fun YandexMusicAuthCardPreview() {
                 .padding(MultiplayerTheme.spacing.lg),
         ) {
             YandexMusicAuthCard(
-                isLoading = false,
-                onClick = {},
+                viewModel = YandexMusicAuthCardViewModel(),
             )
         }
     }

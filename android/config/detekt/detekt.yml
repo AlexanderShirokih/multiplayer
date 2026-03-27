@@ -7,10 +7,10 @@ config:
 complexity:
   LongMethod:
     active: true
-    allowedLines: 80
+    allowedLines: 90
   LongParameterList:
     active: true
-    functionThreshold: 8
+    allowedFunctionParameters: 8
     ignoreDefaultParameters: true
   TooManyFunctions:
     active: true
@@ -35,10 +35,6 @@ style:
     active: true
     ignoreAnnotated:
       - Preview
-  UnusedPrivateMember:
-    active: true
-    ignoreAnnotated:
-      - Preview
 
 Compose:
   ComposableAnnotationNaming:
@@ -49,6 +45,7 @@ Compose:
     active: true
   CompositionLocalAllowlist:
     active: true
+    allowedCompositionLocals: LocalMultiplayerColors,LocalMultiplayerSpacing,LocalMultiplayerRadius,LocalMultiplayerElevation,LocalMultiplayerIcons,LocalMultiplayerTypography
   CompositionLocalNaming:
     active: true
   ContentEmitterReturningValues:

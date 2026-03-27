@@ -1,21 +1,30 @@
 package com.multiplayer.feature.auth
 
+import androidx.compose.foundation.layout.fillMaxWidth
+import com.multiplayer.feature.auth.yamusic.YandexMusicAuthCard
+import com.multiplayer.feature.auth.yamusic.YandexMusicAuthCardViewModel
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 
 @Composable
 fun AuthWelcomeRoute(
-    onEvent: (AuthWelcomeEvent) -> Unit = {},
-    viewModel: AuthWelcomeViewModel = remember { AuthWelcomeViewModel() },
+    modifier: Modifier = Modifier,
 ) {
-    val state = viewModel.state.collectAsState()
+    val yandexMusicAuthViewModel = remember { YandexMusicAuthCardViewModel() }
+    val availableMusicProviders = listOf(MusicProvider.YandexMusic)
 
     AuthWelcomeScreen(
-        state = state.value,
-        onEvent = { event ->
-            viewModel.onEvent(event)
-            onEvent(event)
+        loginContent = {
+            for (provider in availableMusicProviders) {
+                when (provider.type) {
+                    MusicProvider.YandexMusic.type -> YandexMusicAuthCard(
+                        viewModel = yandexMusicAuthViewModel,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
         },
+        modifier = modifier,
     )
 }

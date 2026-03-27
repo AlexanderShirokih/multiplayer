@@ -114,6 +114,8 @@ docs/
 
 Clean Architecture, одинакова по смыслу на обеих платформах.
 
+Ориентир для всего кода: **чистый и тестируемый** — понятные имена и границы ответственности, без лишней сложности; домен и use case не привязывать к UI и конкретным фреймворкам; зависимости задавать явно (интерфейсы, DI), чтобы критичную логику можно было проверять unit-тестами без тяжёлой инфраструктуры.
+
 ```
 UI → ViewModel → UseCase → Repository (interface)
                                   ↓
@@ -123,13 +125,16 @@ UI → ViewModel → UseCase → Repository (interface)
 - Domain не знает о data и ui; зависимости текут только внутрь
 - UseCase = один сценарий, одна публичная операция
 - DTO отдельно от доменных моделей; маппинг только в направлении `DTO → Domain`
+- Где это уместно по смыслу — **семантические обёртки** вместо «голых» примитивов и строк: идентификаторы сущностей, длительность, единицы измерения и т.п., чтобы тип системы отражал назначение и не смешивал разные по смыслу значения. На Kotlin — `value class` или отдельные маленькие типы в domain; при необходимости **`typealias`** для читаемости сигнатур. На Swift — узкие `struct` с явным именем; при необходимости **`typealias`** (учитывая, что он не создаёт новый номинальный тип, в отличие от `struct`). Не использовать один общий `String`/`Int`/`UUID` для всего подряд без имени смысла.
 - ViewModel хранит UI-состояние, принимает события от UI, вызывает UseCase — не репозиторий напрямую
+- **Реактивная архитектура** — предпочтительна: данные и события моделируются как потоки во времени, UI подписывается на них, а не опрашивает состояние вручную и не размазывает одноразовые колбэки по слоям. Конкретные примитивы — в платформенных конвенциях ниже.
 
 ---
 
 ## Android-конвенции
 
 - Архитектура UI: **MVVM + UDF** — состояние вниз, события вверх
+- Реактивность: **Kotlin Flow** — холодный `Flow` из репозиториев и data-слоя; для UI-состояния и разового потребления в ViewModel — `StateFlow` / `SharedFlow`; сборка в UI — `collectAsStateWithLifecycle` и аналоги. Избегать императивного «дергания» состояния без потока причин.
 - State — иммутабельный `data class`, хранится в `StateFlow`
 - События — `sealed interface`
 - ViewModel: `viewModel()` через Koin, зависимости через конструктор
@@ -144,14 +149,25 @@ UI → ViewModel → UseCase → Repository (interface)
 - `@Preview(showBackground = true)` для каждого экранного компонента
 - Для preview экранов использовать `MultiplayerPreview` или явно оборачивать контент в `MultiplayerDesignSystem`
 - `*Route` — точка входа с ViewModel; `*Screen` — чистый компонент только с state и лямбдами
-- **detekt** (Kotlin + Compose): статический анализ подключён через конвенцию `multiplayer.detekt`, конфиг — `android/config/detekt/detekt.yml` (в т.ч. [compose-rules](https://mrmans0n.github.io/compose-rules/detekt)). После любых правок Kotlin/Gradle в `android/` перед завершением работы **нужно** убедиться, что `./gradlew detekt` из каталога `android/` завершается успешно; при необходимости исправить замечания или явно обосновать отключение правила в конфиге/подавлении.
+- **detekt** обязателен для Android-кода (см. подраздел ниже).
 - **Gradle для агентов**: не передавать `./gradlew` флаг `--no-daemon` (оставляем поведение Gradle по умолчанию: переиспользование daemon ускоряет сборки и типичен для локальной разработки).
+
+### detekt (Android)
+
+- **Запуск**: из каталога `android/` выполнить `./gradlew detekt`. Успешное завершение без ошибок — часть проверки после правок Kotlin или Gradle в `android/`.
+- **Подключение в модулях**: конвенция `multiplayer.detekt` подставляется вместе с Kotlin (`multiplayer.kotlin.library` для JVM-модулей; для Android — после `org.jetbrains.kotlin.android` или `org.jetbrains.kotlin.plugin.compose` в `build-logic`).
+- **Конфигурация**: `android/config/detekt/detekt.yml`. Базовые правила Detekt 2 и [compose-rules](https://mrmans0n.github.io/compose-rules/detekt) (секция `Compose:`). Правила и пороги меняют здесь; общие отключения — только с кратким комментарием в YAML или в коде.
+- **Jetpack Compose в Android-модулях**: в `build.gradle.kts` модуля с `multiplayer.android.library` или `multiplayer.android.application` добавлять `id("multiplayer.android.compose")` и `alias(libs.plugins.kotlin.compose)` (как в `app`, `core/ui`, фичах), чтобы единообразно включить Compose Compiler и зависимости BOM.
+- **Подавления**: точечно — `@Suppress("ИмяПравила")` на объявлении (см. [документацию detekt](https://detekt.dev/docs/introduction/suppressing-rules)); для Compose-правил — id из отчёта (например `MagicNumber`, `ComposableNaming`). Глобально — `active: false` в `detekt.yml` или правка порога, если это осознанное соглашение команды.
+- **Ссылки**: [detekt Gradle](https://detekt.dev/docs/gettingstarted/gradle), [compose-rules + detekt](https://mrmans0n.github.io/compose-rules/detekt).
 
 ---
 
 ## iOS-конвенции
 
+- Соблюдать официальные **гайдлайны Apple**: [Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/) (поведение и внешний вид в духе платформы), [Swift API Design Guidelines](https://swift.org/documentation/api-design-guidelines/) (имена и форма публичного API), а также актуальную документацию по SwiftUI и Swift Concurrency. Умышленные отступления — только с явным обоснованием.
 - Архитектура UI: **MVVM** — состояние вниз, действия вверх
+- Реактивность: только **`AsyncSequence` / `AsyncStream`** для асинхронных последовательностей значений во времени; подписка из SwiftUI — через `task` / `.task` и стандартные async-паттерны.
 - ViewModel: `@Observable` (iOS 17+), `@MainActor`
 - State — `struct`, мутируется только внутри ViewModel
 - Действия — `enum`

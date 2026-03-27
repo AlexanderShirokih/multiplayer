@@ -1,9 +1,11 @@
 package com.multiplayer.feature.auth
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -28,16 +31,16 @@ import androidx.compose.ui.unit.sp
 import com.multiplayer.core.ui.components.MultiplayerText
 import com.multiplayer.core.ui.theme.MultiplayerDesignSystem
 import com.multiplayer.core.ui.theme.MultiplayerTheme
+import com.multiplayer.feature.auth.yamusic.YandexMusicAuthCard
+import com.multiplayer.feature.auth.yamusic.YandexMusicAuthCardViewModel
 
 @Composable
 fun AuthWelcomeScreen(
-    state: AuthWelcomeState,
-    onEvent: (AuthWelcomeEvent) -> Unit,
+    loginContent: @Composable ColumnScope.() -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = MultiplayerTheme.colors
-    val yandexProvider =
-        state.availableMusicProviders.firstOrNull { it.type == MusicProvider.YandexMusic.type }
+    val spacing = MultiplayerTheme.spacing
 
     BoxWithConstraints(
         modifier = modifier
@@ -65,19 +68,18 @@ fun AuthWelcomeScreen(
                 .offset(y = maxHeight * 0.48f),
         )
 
-        if (yandexProvider != null) {
-            YandexMusicAuthCard(
-                isLoading = state.isLoading,
-                onClick = { onEvent(AuthWelcomeEvent.LoginClicked(yandexProvider)) },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(
-                        start = maxWidth * 0.085f,
-                        end = maxWidth * 0.085f,
-                        bottom = maxHeight * 0.05f,
-                    ),
-            )
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(
+                    start = maxWidth * 0.085f,
+                    end = maxWidth * 0.085f,
+                    bottom = maxHeight * 0.05f,
+                ),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            loginContent()
         }
     }
 }
@@ -245,8 +247,12 @@ private fun AuthWelcomeTitleBlock(
 private fun AuthWelcomeScreenPreview() {
     MultiplayerDesignSystem(darkTheme = true) {
         AuthWelcomeScreen(
-            state = AuthWelcomeState(),
-            onEvent = {},
+            loginContent = {
+                YandexMusicAuthCard(
+                    viewModel = remember { YandexMusicAuthCardViewModel() },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
         )
     }
 }
@@ -256,8 +262,12 @@ private fun AuthWelcomeScreenPreview() {
 private fun AuthWelcomeScreenLightPreview() {
     MultiplayerDesignSystem(darkTheme = false) {
         AuthWelcomeScreen(
-            state = AuthWelcomeState(),
-            onEvent = {},
+            loginContent = {
+                YandexMusicAuthCard(
+                    viewModel = remember { YandexMusicAuthCardViewModel() },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
         )
     }
 }

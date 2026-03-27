@@ -2,6 +2,7 @@ package com.multiplayer.core.ui.tokens
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import com.multiplayer.core.ui.theme.AmberGradientLight
 import com.multiplayer.core.ui.theme.Amber300
 import com.multiplayer.core.ui.theme.Blue300
 import com.multiplayer.core.ui.theme.Blue400
@@ -74,7 +75,7 @@ private fun lightMultiplayerColors(): MultiplayerColors = MultiplayerColors(
     brandVisualSecondary = Amber300,
     brandVisualSecondaryMuted = Amber300.copy(alpha = 0.48f),
     ctaGradientStart = Amber300,
-    ctaGradientEnd = Color(0xFFFFD86B),
+    ctaGradientEnd = AmberGradientLight,
     borderSubtle = Gray300,
     borderStrong = Gray500,
     success = Blue400,
@@ -101,7 +102,7 @@ private fun darkMultiplayerColors(): MultiplayerColors = MultiplayerColors(
     brandVisualPrimaryContainer = Blue500,
     brandVisualSecondary = Amber300,
     brandVisualSecondaryMuted = Amber300.copy(alpha = 0.48f),
-    ctaGradientStart = Color(0xFFFFD86B),
+    ctaGradientStart = AmberGradientLight,
     ctaGradientEnd = Amber300,
     borderSubtle = Gray600,
     borderStrong = Gray500,
