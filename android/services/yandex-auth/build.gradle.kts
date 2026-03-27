@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.multiplayer.services.yandexauth"
+    namespace = "com.mplayeraudio.services.yandexauth"
 }
 
 dependencies {

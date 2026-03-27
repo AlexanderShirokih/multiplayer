@@ -2,7 +2,7 @@ plugins {
     `kotlin-dsl`
 }
 
-group = "com.multiplayer.buildlogic"
+group = "com.mplayeraudio.buildlogic"
 
 java {
     toolchain {
@@ -20,23 +20,23 @@ gradlePlugin {
     plugins {
         register("androidApplication") {
             id = "multiplayer.android.application"
-            implementationClass = "com.multiplayer.buildlogic.AndroidApplicationConventionPlugin"
+            implementationClass = "com.mplayeraudio.buildlogic.AndroidApplicationConventionPlugin"
         }
         register("androidLibrary") {
             id = "multiplayer.android.library"
-            implementationClass = "com.multiplayer.buildlogic.AndroidLibraryConventionPlugin"
+            implementationClass = "com.mplayeraudio.buildlogic.AndroidLibraryConventionPlugin"
         }
         register("androidCompose") {
             id = "multiplayer.android.compose"
-            implementationClass = "com.multiplayer.buildlogic.AndroidComposeConventionPlugin"
+            implementationClass = "com.mplayeraudio.buildlogic.AndroidComposeConventionPlugin"
         }
         register("kotlinLibrary") {
             id = "multiplayer.kotlin.library"
-            implementationClass = "com.multiplayer.buildlogic.KotlinLibraryConventionPlugin"
+            implementationClass = "com.mplayeraudio.buildlogic.KotlinLibraryConventionPlugin"
         }
         register("detekt") {
             id = "multiplayer.detekt"
-            implementationClass = "com.multiplayer.buildlogic.DetektConventionPlugin"
+            implementationClass = "com.mplayeraudio.buildlogic.DetektConventionPlugin"
         }
     }
 }
