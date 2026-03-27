@@ -7,16 +7,15 @@ struct RootView: View {
         Group {
             switch appRoot.destination {
             case .auth:
-                WelcomeView(
-                    onConnectYandexMusic: {
-                        appRoot.destination = .player
-                    }
-                )
+                WelcomeView(viewModel: appRoot.authCardViewModel)
                 .transition(.opacity)
             case .player:
                 PlayerPlaceholderView()
                     .transition(.opacity)
             }
+        }
+        .task {
+            appRoot.start()
         }
         .animation(.easeInOut, value: appRoot.destination)
     }

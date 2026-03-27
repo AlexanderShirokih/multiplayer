@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleDisplayName</key>
+	<string>MultiPlayer</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.mplayeraudio.oauth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(YANDEX_OAUTH_REDIRECT_SCHEME)</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>YandexOAuthClientID</key>
+	<string>$(YANDEX_OAUTH_CLIENT_ID)</string>
+	<key>YandexOAuthClientSecret</key>
+	<string>$(YANDEX_OAUTH_CLIENT_SECRET)</string>
+	<key>YandexOAuthDeviceName</key>
+	<string>$(YANDEX_OAUTH_DEVICE_NAME)</string>
+	<key>YandexOAuthRedirectHost</key>
+	<string>$(YANDEX_OAUTH_REDIRECT_HOST)</string>
+	<key>YandexOAuthRedirectPath</key>
+	<string>$(YANDEX_OAUTH_REDIRECT_PATH)</string>
+	<key>YandexOAuthRedirectScheme</key>
+	<string>$(YANDEX_OAUTH_REDIRECT_SCHEME)</string>
+</dict>
+</plist>

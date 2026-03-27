@@ -1,16 +1,17 @@
+import AuthFeature
 import CoreUI
 import SwiftUI
 
 struct WelcomeView: View {
-    private let onConnectYandexMusic: () -> Void
+    private let viewModel: YandexMusicAuthCardViewModel
 
-    init(onConnectYandexMusic: @escaping () -> Void = {}) {
-        self.onConnectYandexMusic = onConnectYandexMusic
+    init(viewModel: YandexMusicAuthCardViewModel) {
+        self.viewModel = viewModel
     }
 
     var body: some View {
         WelcomeContentView(
-            onConnectYandexMusic: onConnectYandexMusic
+            viewModel: viewModel
         )
     }
 }
@@ -18,7 +19,7 @@ struct WelcomeView: View {
 private struct WelcomeContentView: View {
     @Environment(\.multiplayerTheme) private var theme
 
-    let onConnectYandexMusic: () -> Void
+    let viewModel: YandexMusicAuthCardViewModel
 
     var body: some View {
         GeometryReader { proxy in
@@ -41,7 +42,7 @@ private struct WelcomeContentView: View {
                     Spacer(minLength: 0)
 
                     YandexMusicAuthCardView(
-                        onConnectYandexMusic: onConnectYandexMusic
+                        viewModel: viewModel
                     )
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, metrics.horizontalPadding)
@@ -156,12 +157,12 @@ private struct WelcomeDecorativeCurve: View {
 
 #Preview("Light") {
     MultiplayerDesignSystem(colorScheme: .light) {
-        WelcomeView()
+        WelcomeView(viewModel: AuthPreviewFactory.makeViewModel())
     }
 }
 
 #Preview("Dark") {
     MultiplayerDesignSystem(colorScheme: .dark) {
-        WelcomeView()
+        WelcomeView(viewModel: AuthPreviewFactory.makeViewModel())
     }
 }
