@@ -3,6 +3,7 @@ package com.mplayeraudio.app
 import android.app.Application
 import com.mplayeraudio.core.domain.yandexauth.YandexClientId
 import com.mplayeraudio.feature.auth.yamusic.yandexMusicAuthModule
+import com.mplayeraudio.services.yandex.di.yandexMusicModule
 import com.mplayeraudio.services.yandexauth.YandexOAuthConfig
 import com.mplayeraudio.services.yandexauth.di.yandexAuthModule
 import org.koin.android.ext.koin.androidContext
@@ -17,6 +18,7 @@ class MultiplayerApplication : Application() {
             modules(
                 appModule(),
                 yandexAuthModule(yandexOAuthConfig()),
+                yandexMusicModule(),
                 yandexMusicAuthModule(),
             )
         }
