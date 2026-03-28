@@ -104,7 +104,7 @@ fun NowPlayingStrip(
         initialValue = 0f,
         targetValue = (PI * 2).toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 900, easing = LinearEasing),
+            animation = tween(durationMillis = 2_000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         ),
         label = "mini-player-wave-phase",

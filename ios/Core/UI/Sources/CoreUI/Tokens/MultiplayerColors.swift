@@ -30,6 +30,11 @@ public struct MultiplayerColors {
     public let brandVisualTertiaryMuted: Color
     public let ctaGradientStart: Color
     public let ctaGradientEnd: Color
+    public let miniPlayerGradientStart: Color
+    public let miniPlayerGradientEnd: Color
+    public let miniPlayerProgress: Color
+    public let miniPlayerPrimaryContent: Color
+    public let miniPlayerSecondaryContent: Color
     public let borderSubtle: Color
     public let borderStrong: Color
     public let success: Color

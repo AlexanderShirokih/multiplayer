@@ -85,11 +85,14 @@ private func lightMultiplayerColors() -> MultiplayerColors {
         brandVisualTertiaryMuted: purple300,
         ctaGradientStart: amber300,
         ctaGradientEnd: amberGradientLight,
+        miniPlayerGradientStart: miniPlayerLightStart,
+        miniPlayerGradientEnd: miniPlayerLightEnd,
+        miniPlayerProgress: amber300,
+        miniPlayerPrimaryContent: gray650,
+        miniPlayerSecondaryContent: miniPlayerLightSecondary,
         borderSubtle: gray300,
         borderStrong: gray500,
-        success: blue400,
-        warning: amber300,
-        error: red300
+        success: blue400, warning: amber300, error: red300
     )
 }
 
@@ -124,10 +127,13 @@ private func darkMultiplayerColors() -> MultiplayerColors {
         brandVisualTertiaryMuted: purple300,
         ctaGradientStart: amberGradientLight,
         ctaGradientEnd: amber300,
+        miniPlayerGradientStart: miniPlayerDarkStart,
+        miniPlayerGradientEnd: miniPlayerDarkEnd,
+        miniPlayerProgress: amber300,
+        miniPlayerPrimaryContent: gray100,
+        miniPlayerSecondaryContent: miniPlayerDarkSecondary,
         borderSubtle: gray600,
         borderStrong: gray500,
-        success: blue300,
-        warning: amber300,
-        error: red300
-    )
+        success: blue300, warning: amber300, error: red300
+)
 }
