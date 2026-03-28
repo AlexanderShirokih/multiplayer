@@ -7,6 +7,8 @@ plugins {
 dependencies {
     implementation(projects.core.domain)
     implementation(projects.core.ui)
+    implementation(projects.core.player)
+    implementation(libs.androidx.compose.material.icons.core)
     implementation(platform(libs.koin.bom))
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.koin.android)

@@ -26,18 +26,21 @@ import androidx.compose.ui.unit.dp
 import com.mplayeraudio.core.ui.preview.MultiplayerPreview
 import com.mplayeraudio.core.ui.theme.MultiplayerTheme
 
-private const val BarAnimation1Ms = 420
-private const val BarAnimation2Ms = 560
-private const val BarAnimation3Ms = 480
+private const val BarAnimation1Ms = 400
+private const val BarAnimation2Ms = 300
+private const val BarAnimation3Ms = 500
 
 private const val BarPhaseOffset1Ms = 0
-private const val BarPhaseOffset2Ms = 210
-private const val BarPhaseOffset3Ms = 370
+private const val BarPhaseOffset2Ms = 150
+private const val BarPhaseOffset3Ms = 50
 
-private const val Bar1InitialHeightFraction = 0.28f
-private const val Bar2InitialHeightFraction = 0.45f
-private const val Bar3InitialHeightFraction = 0.32f
-private const val BarTargetHeightFraction = 1f
+private const val Bar1InitialHeightFraction = 0.3f
+private const val Bar2InitialHeightFraction = 0.2f
+private const val Bar3InitialHeightFraction = 0.4f
+
+private const val Bar1TargetHeightFraction = 0.8f
+private const val Bar2TargetHeightFraction = 1f
+private const val Bar3TargetHeightFraction = 0.7f
 
 private val BarWidth: Dp = 6.dp
 private val BarGap: Dp = 2.dp
@@ -52,7 +55,7 @@ fun MultiplayerEqualizerIndicator(
     val transition = rememberInfiniteTransition(label = "multiplayer_equalizer")
     val bar1 by transition.animateFloat(
         initialValue = Bar1InitialHeightFraction,
-        targetValue = BarTargetHeightFraction,
+        targetValue = Bar1TargetHeightFraction,
         animationSpec = infiniteRepeatable(
             animation = tween(BarAnimation1Ms, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
@@ -62,7 +65,7 @@ fun MultiplayerEqualizerIndicator(
     )
     val bar2 by transition.animateFloat(
         initialValue = Bar2InitialHeightFraction,
-        targetValue = BarTargetHeightFraction,
+        targetValue = Bar2TargetHeightFraction,
         animationSpec = infiniteRepeatable(
             animation = tween(BarAnimation2Ms, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
@@ -72,7 +75,7 @@ fun MultiplayerEqualizerIndicator(
     )
     val bar3 by transition.animateFloat(
         initialValue = Bar3InitialHeightFraction,
-        targetValue = BarTargetHeightFraction,
+        targetValue = Bar3TargetHeightFraction,
         animationSpec = infiniteRepeatable(
             animation = tween(BarAnimation3Ms, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,

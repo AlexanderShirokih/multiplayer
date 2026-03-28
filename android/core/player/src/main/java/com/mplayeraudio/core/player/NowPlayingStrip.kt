@@ -50,7 +50,6 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -61,7 +60,7 @@ import com.mplayeraudio.core.ui.theme.MultiplayerTheme
 import kotlin.math.PI
 import kotlin.math.sin
 
-private val StripHeight = 123.dp
+private val StripHeight = 123.468.dp
 private val StripCornerRadius = 20.dp
 private val StripBorderWidth = 1.dp
 private val SideControlHitWidth = 48.dp
@@ -92,6 +91,7 @@ fun NowPlayingStrip(
     state: NowPlayingStripState,
     onAction: (NowPlayingStripAction) -> Unit,
     modifier: Modifier = Modifier,
+    showBorder: Boolean = true,
 ) {
     val colors = MultiplayerTheme.colors
     val spacing = MultiplayerTheme.spacing
@@ -134,11 +134,17 @@ fun NowPlayingStrip(
                     ),
                 ),
             )
-            .border(
-                width = StripBorderWidth,
-                color = colors.surfacePrimary.copy(alpha = 0.46f),
-                shape = shape,
-            )
+            .let { baseModifier ->
+                if (showBorder) {
+                    baseModifier.border(
+                        width = StripBorderWidth,
+                        color = colors.surfacePrimary.copy(alpha = 0.46f),
+                        shape = shape,
+                    )
+                } else {
+                    baseModifier
+                }
+            }
             .drawWithCache {
                 val radiusPx = StripCornerRadius.toPx()
                 val clipPath = Path().apply {
@@ -225,6 +231,7 @@ fun NowPlayingStrip(
                 .matchParentSize()
                 .padding(vertical = spacing.md),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             ControlButton(
                 tag = "now_playing_previous",
@@ -240,11 +247,10 @@ fun NowPlayingStrip(
 
             Row(
                 modifier = Modifier
-                    .weight(1f)
+                    .padding(horizontal = spacing.xxs)
                     .clickable(enabled = state.controlsEnabled) {
                         onAction(NowPlayingStripAction.PlayPauseClicked)
-                    }
-                    .padding(horizontal = spacing.xs),
+                    },
                 horizontalArrangement = Arrangement.spacedBy(spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -258,7 +264,6 @@ fun NowPlayingStrip(
                 )
 
                 Column(
-                    modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(spacing.xxs),
                 ) {
                     MultiplayerText(
