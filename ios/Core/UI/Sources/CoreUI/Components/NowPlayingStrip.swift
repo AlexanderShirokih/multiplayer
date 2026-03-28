@@ -68,13 +68,16 @@ public struct NowPlayingStrip: View {
 
     private let state: NowPlayingStripState
     private let onAction: (NowPlayingStripAction) -> Void
+    private let showBorder: Bool
 
     public init(
         state: NowPlayingStripState,
-        onAction: @escaping (NowPlayingStripAction) -> Void
+        onAction: @escaping (NowPlayingStripAction) -> Void,
+        showBorder: Bool = true
     ) {
         self.state = state
         self.onAction = onAction
+        self.showBorder = showBorder
     }
 
     public var body: some View {
@@ -116,7 +119,8 @@ public struct NowPlayingStrip: View {
                 progress: state.displayedProgressFraction,
                 isWaveAnimated: state.isPlaying && !state.isSeekInProgress,
                 phase: phase,
-                cornerRadius: theme.radius.large
+                cornerRadius: theme.radius.large,
+                showBorder: showBorder
             )
         }
         .opacity(state.controlsEnabled ? 1 : 0.72)

@@ -23,7 +23,9 @@ public struct MusicLibraryView: View {
                 onAction: viewModel.send
             )
             .navigationDestination(item: selectedPlaylistBinding) { destination in
-                PlaylistDetailPlaceholderView(title: destination.title)
+                TrackListView(
+                    state: TrackListPreviewFactory.makeState(title: destination.title)
+                )
             }
         }
         .task {
@@ -234,39 +236,6 @@ private struct LibraryPlaylistCardView: View {
             return "трека"
         }
         return "треков"
-    }
-}
-
-private struct PlaylistDetailPlaceholderView: View {
-    @Environment(\.multiplayerTheme) private var theme
-
-    let title: String
-
-    var body: some View {
-        ZStack {
-            MultiplayerBrandBackground()
-
-            VStack(alignment: .leading, spacing: theme.spacing.md) {
-                MultiplayerText(
-                    verbatim: title,
-                    style: theme.typography.title,
-                    color: theme.colors.textPrimary
-                )
-
-                MultiplayerText(
-                    verbatim: """
-                    Детальный экран плейлиста будет следующим шагом.
-                    Сейчас навигация и карточка уже готовы.
-                    """,
-                    style: theme.typography.body,
-                    color: theme.colors.textSecondary
-                )
-            }
-            .padding(theme.spacing.lg)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        }
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

@@ -8,6 +8,7 @@ struct NowPlayingStripBackground: View {
     let isWaveAnimated: Bool
     let phase: CGFloat
     let cornerRadius: CGFloat
+    let showBorder: Bool
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -39,8 +40,10 @@ struct NowPlayingStripBackground: View {
                 }
             }
             .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(theme.colors.surfacePrimary.opacity(0.46), lineWidth: stripBorderWidth)
+                if showBorder {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(theme.colors.surfacePrimary.opacity(0.46), lineWidth: stripBorderWidth)
+                }
             }
     }
 }
