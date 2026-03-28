@@ -5,6 +5,11 @@
     <string name="library_favourites">Любимые</string>
     <string name="library_tracks_count">%d треков</string>
     <string name="playlist_detail_title">Плейлист</string>
-    <string name="playlist_detail_placeholder">Детальный вид плейлиста будет реализован позже.</string>
     <string name="playlist_detail_back">Назад</string>
+    <string name="track_list_subtitle">%d треков</string>
+    <string name="track_list_loading_message">Загружаем треки…</string>
+    <string name="track_list_load_error_message">Не удалось загрузить список треков. Попробуйте ещё раз.</string>
+    <string name="track_list_private_library_message">Эта медиатека недоступна для просмотра.</string>
+    <string name="track_list_empty_message">В этом списке пока нет треков.</string>
+    <string name="track_list_retry">Повторить</string>
 </resources>

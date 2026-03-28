@@ -56,7 +56,7 @@ class NowPlayingStripViewModel(
         }
     }
 
-    internal fun dispose() {
+    fun dispose() {
         viewModelScope.cancel()
     }
 

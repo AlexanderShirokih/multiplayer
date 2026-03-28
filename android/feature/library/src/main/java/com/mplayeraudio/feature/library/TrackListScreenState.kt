@@ -7,7 +7,9 @@ import com.mplayeraudio.core.ui.model.MultiplayerTrackListItemState
 @Immutable
 data class TrackListScreenState(
     val title: String,
-    val subtitle: String,
-    val nowPlaying: NowPlayingStripState,
+    val nowPlaying: NowPlayingStripState?,
     val tracks: List<MultiplayerTrackListItemState>,
-)
+) {
+    val trackCount: Int
+        get() = tracks.count()
+}

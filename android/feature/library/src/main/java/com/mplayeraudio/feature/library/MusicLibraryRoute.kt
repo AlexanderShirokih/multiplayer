@@ -1,5 +1,6 @@
 package com.mplayeraudio.feature.library
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -8,9 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.mplayeraudio.core.domain.musiclibrary.PlaylistId
 import kotlinx.coroutines.flow.collectLatest
 import org.koin.androidx.compose.koinViewModel
 
@@ -25,11 +24,15 @@ fun MusicLibraryRoute(
     LaunchedEffect(viewModel) {
         viewModel.effects.collectLatest { effect ->
             when (effect) {
-                is MusicLibraryEffect.NavigateToPlaylist -> {
-                    selectedDestination = LibraryDestination.Playlist(effect.playlistId)
+                is MusicLibraryEffect.NavigateToTrackList -> {
+                    selectedDestination = LibraryDestination.TrackList(effect.destination)
                 }
             }
         }
+    }
+
+    BackHandler(enabled = selectedDestination != null) {
+        selectedDestination = null
     }
 
     Crossfade(
@@ -44,15 +47,9 @@ fun MusicLibraryRoute(
                     modifier = modifier,
                 )
             }
-            is LibraryDestination.Playlist -> {
-                val playlistTitle = state.content?.cards
-                    ?.filterIsInstance<MusicLibraryCard.Playlist>()
-                    ?.firstOrNull { it.id == destination.playlistId }
-                    ?.title
-                    ?: stringResource(R.string.playlist_detail_title)
-
-                PlaylistDetailRoute(
-                    title = playlistTitle,
+            is LibraryDestination.TrackList -> {
+                TrackListRoute(
+                    destination = destination.destination,
                     onBack = { selectedDestination = null },
                     modifier = modifier,
                 )
@@ -62,5 +59,5 @@ fun MusicLibraryRoute(
 }
 
 private sealed interface LibraryDestination {
-    data class Playlist(val playlistId: PlaylistId) : LibraryDestination
+    data class TrackList(val destination: LibraryTrackListDestination) : LibraryDestination
 }

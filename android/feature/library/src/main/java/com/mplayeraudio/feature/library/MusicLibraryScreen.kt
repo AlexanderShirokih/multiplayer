@@ -32,6 +32,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistId
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistKind
+import com.mplayeraudio.core.domain.musiclibrary.PlaylistRole
 import com.mplayeraudio.core.domain.musiclibrary.ProviderUserId
 import com.mplayeraudio.core.ui.components.MultiplayerBrandBackgroundDecor
 import com.mplayeraudio.core.ui.components.MultiplayerCardSurface
@@ -52,7 +53,7 @@ private val HeroArtworkSize = 108.dp
 @Composable
 fun MusicLibraryScreen(
     state: MusicLibraryState,
-    onPlaylistClick: (PlaylistId) -> Unit,
+    onPlaylistClick: (MusicLibraryCard.Playlist) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = MultiplayerTheme.colors
@@ -83,7 +84,7 @@ fun MusicLibraryScreen(
 @Composable
 private fun LibraryContent(
     content: MusicLibraryContent,
-    onPlaylistClick: (PlaylistId) -> Unit,
+    onPlaylistClick: (MusicLibraryCard.Playlist) -> Unit,
 ) {
     val spacing = MultiplayerTheme.spacing
 
@@ -125,7 +126,7 @@ private fun LibraryContent(
                 is MusicLibraryCard.Playlist -> {
                     LibraryPlaylistCard(
                         playlist = card,
-                        onClick = { onPlaylistClick(card.id) },
+                        onClick = { onPlaylistClick(card) },
                     )
                 }
             }
@@ -267,6 +268,7 @@ private fun previewLibraryContent(): MusicLibraryContent {
                 id = previewPlaylistId(1),
                 title = "Ночной код",
                 trackCount = 248,
+                role = PlaylistRole.Regular,
                 layout = PlaylistCardLayout.Compact,
                 style = MultiplayerCardSurfaceStyle.Surface2,
                 artwork = PlaylistCardArtwork.Default,
@@ -276,6 +278,7 @@ private fun previewLibraryContent(): MusicLibraryContent {
                 id = previewPlaylistId(2),
                 title = "Любимые",
                 trackCount = 248,
+                role = PlaylistRole.Favourites,
                 layout = PlaylistCardLayout.Compact,
                 style = MultiplayerCardSurfaceStyle.Surface4,
                 artwork = PlaylistCardArtwork.Favourites,
@@ -285,6 +288,7 @@ private fun previewLibraryContent(): MusicLibraryContent {
                 id = previewPlaylistId(3),
                 title = "Маршрут дня",
                 trackCount = 64,
+                role = PlaylistRole.Regular,
                 layout = PlaylistCardLayout.Featured,
                 style = MultiplayerCardSurfaceStyle.Surface3,
                 artwork = PlaylistCardArtwork.Default,
@@ -333,6 +337,7 @@ private fun LibraryPlaylistCardCompactDarkPreview() {
                 id = previewPlaylistId(11),
                 title = "После полуночи",
                 trackCount = 87,
+                role = PlaylistRole.Regular,
                 layout = PlaylistCardLayout.Compact,
                 style = MultiplayerCardSurfaceStyle.Surface2,
                 artwork = PlaylistCardArtwork.Default,
@@ -353,6 +358,7 @@ private fun LibraryPlaylistCardFeaturedDarkPreview() {
                 id = previewPlaylistId(12),
                 title = "Сигналы города",
                 trackCount = 152,
+                role = PlaylistRole.Regular,
                 layout = PlaylistCardLayout.Featured,
                 style = MultiplayerCardSurfaceStyle.Surface3,
                 artwork = PlaylistCardArtwork.Default,

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mplayeraudio.core.player.NowPlayingStrip
@@ -58,7 +59,7 @@ fun TrackListScreen(
         ) {
             TrackListHeader(
                 title = state.title,
-                subtitle = state.subtitle,
+                subtitle = stringResource(R.string.track_list_subtitle, state.trackCount),
                 onBack = onBack,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -67,16 +68,18 @@ fun TrackListScreen(
 
             Spacer(modifier = Modifier.height(spacing.xl))
 
-            NowPlayingStrip(
-                state = state.nowPlaying,
-                onAction = onNowPlayingAction,
-                showBorder = false,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = MultiplayerTheme.spacing.md),
-            )
+            if (state.nowPlaying != null) {
+                NowPlayingStrip(
+                    state = state.nowPlaying,
+                    onAction = onNowPlayingAction,
+                    showBorder = false,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = MultiplayerTheme.spacing.md),
+                )
 
-            Spacer(modifier = Modifier.height(spacing.xl))
+                Spacer(modifier = Modifier.height(spacing.xl))
+            }
 
             TrackListPanel(
                 tracks = state.tracks,
@@ -110,7 +113,6 @@ internal object TrackListScreenMetrics {
 private fun previewTrackListState(): TrackListScreenState {
     return TrackListScreenState(
         title = "Моя фонотека",
-        subtitle = "4 трека • 24 ч 12 м",
         nowPlaying = NowPlayingStripState(
             title = "Midnight Drive",
             subtitle = "The Northern Lights",
