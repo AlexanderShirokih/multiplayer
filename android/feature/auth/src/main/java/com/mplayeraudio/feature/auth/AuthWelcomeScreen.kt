@@ -44,8 +44,8 @@ fun AuthWelcomeScreen(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        colors.backgroundGradientStart,
-                        colors.backgroundGradientEnd,
+                        colors.backgroundGradient.start,
+                        colors.backgroundGradient.end,
                     ),
                 ),
             ),
@@ -138,7 +138,7 @@ private fun AuthWelcomeTitleBlock(
     Column(modifier = modifier) {
         MultiplayerText(
             text = stringResource(R.string.auth_welcome_app_name),
-            style = typography.displayLarge.copy(
+            style = typography.pageTitle.copy(
                 fontSize = 43.sp,
                 lineHeight = 45.sp,
                 letterSpacing = (-1.6).sp,
@@ -148,9 +148,7 @@ private fun AuthWelcomeTitleBlock(
 
         MultiplayerText(
             text = stringResource(R.string.auth_welcome_title),
-            style = typography.headlineLarge.copy(
-                fontSize = 20.sp,
-                lineHeight = 24.sp,
+            style = typography.title.copy(
                 letterSpacing = (-0.35).sp,
             ),
             color = colors.textPrimary.copy(alpha = 0.92f),

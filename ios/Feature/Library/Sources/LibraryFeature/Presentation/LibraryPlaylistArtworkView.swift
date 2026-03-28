@@ -44,7 +44,7 @@ private struct FavouritePlaylistArtworkView: View {
                     LinearGradient(
                         colors: [
                             theme.colors.accent,
-                            theme.colors.warning
+                            theme.colors.brandVisualSecondary
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -283,7 +283,7 @@ private struct PlaylistArtworkPalette {
             highlight = theme.colors.brandVisualSecondary
 
         case .surface4:
-            backdrop = theme.colors.surfaceAccent.opacity(0.2)
+            backdrop = theme.colors.brandVisualSecondary.opacity(0.18)
             primary = theme.colors.brandVisualPrimaryMuted
             secondary = theme.colors.brandVisualPrimary
             highlight = theme.colors.brandVisualSecondary

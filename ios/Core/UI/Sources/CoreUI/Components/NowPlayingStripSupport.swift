@@ -13,10 +13,7 @@ struct NowPlayingStripBackground: View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(
                 LinearGradient(
-                    colors: [
-                        theme.colors.miniPlayerGradientStart,
-                        theme.colors.miniPlayerGradientEnd
-                    ],
+                    colors: theme.colors.miniPlayerGradient.colors,
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )

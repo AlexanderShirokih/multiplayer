@@ -11,3 +11,4 @@ alwaysApply: false
 - После изменений Kotlin или Gradle-скриптов в Android-модулях **обязательно** прогонять `./gradlew detekt` из каталога `android/` и устранять нарушения (или осознанно настраивать конфиг/`@Suppress` с обоснованием).
 - Команды Gradle вызывать **без** `--no-daemon` (не отключать daemon в инструкциях и примерах команд).
 - Kotlin: предпочитать явный `try`/`catch` вместо `runCatching` (см. `AGENTS.md`, Android-конвенции).
+- Локализация: пользовательские строки и `contentDescription` — в `res/values/strings.xml` (и `values-<locale>/`), в Compose — `stringResource(...)`; см. `AGENTS.md`.

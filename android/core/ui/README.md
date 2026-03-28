@@ -13,12 +13,24 @@
 
 A token is a stable, semantic design decision that should be shared across screens and features:
 
-- colors like `textPrimary` or `surfaceSecondary`
+- colors like `textPrimary`, `surfaceOverlay`, or `surfaceContentPrimary`
 - spacing steps like `md` or `xl`
 - corner radii like `medium` or `pill`
 - elevation levels used repeatedly across UI
 
 Do not add a token when Material 3 already provides a good public contract and the app does not need its own semantic alias.
+
+Typography should stay minimal and semantic:
+
+- keep only roles that repeat across screens, such as page titles, content titles, body, meta, and labels
+- merge near-duplicates instead of creating a new style for a 1-2sp deviation
+- keep one-off hero or component-specific text metrics local to the component instead of promoting them into `core/ui`
+
+Colors should stay minimal and semantic:
+
+- prefer a single semantic role over multiple shade aliases that differ only for one component
+- keep paired gradient colors grouped under one semantic ramp instead of exporting separate `start/end` tokens
+- if a tint is only needed inside one illustration or decorative pattern, derive it locally with opacity instead of promoting a new global token
 
 ## Token vs Material rule
 

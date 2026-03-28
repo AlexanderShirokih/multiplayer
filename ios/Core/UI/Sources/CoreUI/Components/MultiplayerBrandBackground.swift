@@ -7,7 +7,7 @@ public struct MultiplayerBrandBackground: View {
 
     public var body: some View {
         ZStack {
-            theme.colors.backgroundGradient
+            theme.colors.backgroundGradient.linearGradient()
 
             DecorativeGlow(
                 colorStops: [

@@ -59,7 +59,7 @@ private struct PreviewCard: View {
         ) {
             MultiplayerText(
                 verbatim: "Now Playing",
-                style: theme.typography.titleLarge,
+                style: theme.typography.title,
                 color: theme.colors.textPrimary
             )
             .padding(theme.spacing.lg)

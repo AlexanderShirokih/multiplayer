@@ -39,11 +39,7 @@ struct YandexMusicAuthCardView: View {
             VStack(alignment: .leading, spacing: 10) {
                 MultiplayerText(
                     verbatim: "Яндекс Музыка",
-                    style: MultiplayerTextStyle(
-                        font: .system(size: 21, weight: .semibold, design: .rounded),
-                        lineSpacing: 2,
-                        tracking: -0.3
-                    ),
+                    style: theme.typography.title,
                     color: palette.textPrimary
                 )
 
@@ -51,11 +47,7 @@ struct YandexMusicAuthCardView: View {
                     verbatim: viewModel.state.isAuthorized
                         ? "Аккаунт подключён. Навигация переключится на плеер автоматически."
                         : "Вход по OAuth через Yandex ID,\nчтобы сразу перейти к своей музыке.",
-                    style: MultiplayerTextStyle(
-                        font: .system(size: 11, weight: .regular, design: .default),
-                        lineSpacing: 3,
-                        tracking: -0.05
-                    ),
+                    style: theme.typography.meta,
                     color: palette.textSecondary
                 )
 
@@ -67,7 +59,7 @@ struct YandexMusicAuthCardView: View {
                     ZStack {
                         MultiplayerText(
                             verbatim: buttonTitle,
-                            style: theme.typography.labelLarge,
+                            style: theme.typography.label,
                             color: buttonTextColor,
                             alignment: .center,
                             lineLimit: 1
@@ -84,10 +76,7 @@ struct YandexMusicAuthCardView: View {
                     .padding(.vertical, theme.spacing.md)
                     .background(
                         LinearGradient(
-                            colors: [
-                                palette.ctaGradientStart,
-                                palette.ctaGradientEnd,
-                            ],
+                            colors: palette.ctaGradient.colors,
                             startPoint: .leading,
                             endPoint: .trailing
                         )

@@ -132,7 +132,7 @@ public struct NowPlayingStrip: View {
                 VStack(alignment: .center, spacing: theme.spacing.xxs) {
                     MultiplayerText(
                         verbatim: state.title,
-                        style: theme.typography.titleLarge,
+                        style: theme.typography.title,
                         color: theme.colors.miniPlayerPrimaryContent,
                         alignment: .center,
                         lineLimit: 1
@@ -141,7 +141,7 @@ public struct NowPlayingStrip: View {
                     if !state.subtitle.isEmpty {
                         MultiplayerText(
                             verbatim: state.subtitle,
-                            style: theme.typography.bodyMedium,
+                            style: theme.typography.secondaryBody,
                             color: theme.colors.miniPlayerSecondaryContent,
                             alignment: .center,
                             lineLimit: 1
@@ -195,7 +195,7 @@ public struct NowPlayingStrip: View {
     private func timeLabel(_ text: String) -> some View {
         MultiplayerText(
             verbatim: text,
-            style: theme.typography.labelLarge,
+            style: theme.typography.meta,
             color: theme.colors.miniPlayerSecondaryContent
         )
         .monospacedDigit()

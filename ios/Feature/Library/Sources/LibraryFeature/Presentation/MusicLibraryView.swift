@@ -106,7 +106,7 @@ private struct LibraryHeaderView: View {
         VStack(alignment: .leading, spacing: 0) {
             MultiplayerText(
                 verbatim: "Моя музыка",
-                style: theme.typography.displayLarge,
+                style: theme.typography.pageTitle,
                 color: theme.colors.textPrimary
             )
 
@@ -115,7 +115,7 @@ private struct LibraryHeaderView: View {
 
             MultiplayerText(
                 verbatim: "Плейлисты, которые всегда под рукой",
-                style: theme.typography.bodyLarge,
+                style: theme.typography.secondaryBody,
                 color: theme.colors.textSecondary
             )
 
@@ -163,15 +163,15 @@ private struct LibraryPlaylistCardView: View {
             VStack(alignment: .leading, spacing: theme.spacing.xxs) {
                 MultiplayerText(
                     verbatim: playlist.title,
-                    style: theme.typography.headlineLarge,
-                    color: theme.colors.textPrimary,
+                    style: theme.typography.title,
+                    color: theme.colors.surfaceContentPrimary,
                     lineLimit: 2
                 )
 
                 MultiplayerText(
                     verbatim: tracksCountText(for: playlist.trackCount),
-                    style: theme.typography.labelLarge,
-                    color: theme.colors.textSecondary,
+                    style: theme.typography.meta,
+                    color: theme.colors.surfaceContentSecondary,
                     lineLimit: 1
                 )
             }
@@ -204,15 +204,15 @@ private struct LibraryPlaylistCardView: View {
             VStack(alignment: .leading, spacing: theme.spacing.xxs) {
                 MultiplayerText(
                     verbatim: playlist.title,
-                    style: theme.typography.titleLarge,
-                    color: theme.colors.textPrimary,
+                    style: theme.typography.compactTitle,
+                    color: theme.colors.surfaceContentPrimary,
                     lineLimit: 2
                 )
 
                 MultiplayerText(
                     verbatim: tracksCountText(for: playlist.trackCount),
-                    style: theme.typography.labelLarge,
-                    color: theme.colors.textSecondary,
+                    style: theme.typography.meta,
+                    color: theme.colors.surfaceContentSecondary,
                     lineLimit: 1
                 )
             }
@@ -249,7 +249,7 @@ private struct PlaylistDetailPlaceholderView: View {
             VStack(alignment: .leading, spacing: theme.spacing.md) {
                 MultiplayerText(
                     verbatim: title,
-                    style: theme.typography.displayLarge,
+                    style: theme.typography.title,
                     color: theme.colors.textPrimary
                 )
 
@@ -258,7 +258,7 @@ private struct PlaylistDetailPlaceholderView: View {
                     Детальный экран плейлиста будет следующим шагом.
                     Сейчас навигация и карточка уже готовы.
                     """,
-                    style: theme.typography.bodyLarge,
+                    style: theme.typography.body,
                     color: theme.colors.textSecondary
                 )
             }

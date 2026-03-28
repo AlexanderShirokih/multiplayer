@@ -1,75 +1,53 @@
 import SwiftUI
 
+public struct MultiplayerColorRamp {
+    public let start: Color
+    public let end: Color
+
+    public init(start: Color, end: Color) {
+        self.start = start
+        self.end = end
+    }
+
+    public var colors: [Color] {
+        [start, end]
+    }
+
+    public func linearGradient(
+        startPoint: UnitPoint = .topLeading,
+        endPoint: UnitPoint = .bottomTrailing
+    ) -> LinearGradient {
+        LinearGradient(
+            colors: colors,
+            startPoint: startPoint,
+            endPoint: endPoint
+        )
+    }
+}
+
 public struct MultiplayerColors {
     public let background: Color
-    public let backgroundMuted: Color
-    public let backgroundGradientStart: Color
-    public let backgroundGradientEnd: Color
+    public let backgroundGradient: MultiplayerColorRamp
     public let surfacePrimary: Color
-    public let surfaceSecondary: Color
     public let surfaceOverlay: Color
-    public let surfaceAccent: Color
-    public let surface2GradientStart: Color
-    public let surface2GradientEnd: Color
-    public let surface3GradientStart: Color
-    public let surface3GradientEnd: Color
-    public let surface4GradientStart: Color
-    public let surface4GradientEnd: Color
+    public let surface2Gradient: MultiplayerColorRamp
+    public let surface3Gradient: MultiplayerColorRamp
+    public let surface4Gradient: MultiplayerColorRamp
     public let textPrimary: Color
     public let textSecondary: Color
-    public let textTertiary: Color
+    public let surfaceContentPrimary: Color
+    public let surfaceContentSecondary: Color
     public let textInverse: Color
     public let accent: Color
-    public let accentMuted: Color
     public let brandVisualPrimary: Color
     public let brandVisualPrimaryMuted: Color
     public let brandVisualPrimaryContainer: Color
     public let brandVisualSecondary: Color
-    public let brandVisualSecondaryMuted: Color
     public let brandVisualTertiary: Color
-    public let brandVisualTertiaryMuted: Color
-    public let ctaGradientStart: Color
-    public let ctaGradientEnd: Color
-    public let miniPlayerGradientStart: Color
-    public let miniPlayerGradientEnd: Color
+    public let ctaGradient: MultiplayerColorRamp
+    public let miniPlayerGradient: MultiplayerColorRamp
     public let miniPlayerProgress: Color
     public let miniPlayerPrimaryContent: Color
     public let miniPlayerSecondaryContent: Color
     public let borderSubtle: Color
-    public let borderStrong: Color
-    public let success: Color
-    public let warning: Color
-    public let error: Color
-
-    public var backgroundGradient: LinearGradient {
-        LinearGradient(
-            colors: [backgroundGradientStart, backgroundGradientEnd],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
-
-    public var surface2Gradient: LinearGradient {
-        LinearGradient(
-            colors: [surface2GradientStart, surface2GradientEnd],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
-
-    public var surface3Gradient: LinearGradient {
-        LinearGradient(
-            colors: [surface3GradientStart, surface3GradientEnd],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
-
-    public var surface4Gradient: LinearGradient {
-        LinearGradient(
-            colors: [surface4GradientStart, surface4GradientEnd],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
 }

@@ -150,8 +150,8 @@ private fun LibraryHeader() {
         Spacer(modifier = Modifier.height(spacing.xxs))
         MultiplayerText(
             text = stringResource(R.string.library_subtitle),
-            style = typography.pageSubtitle,
-            color = colors.textSurfaceSecondary,
+            style = typography.secondaryBody,
+            color = colors.textSecondary,
         )
         Spacer(modifier = Modifier.height(spacing.xs))
     }
@@ -191,15 +191,15 @@ private fun LibraryPlaylistCard(
                 ) {
                     MultiplayerText(
                         text = playlist.title,
-                        style = typography.cardTitleLarge,
-                        color = colors.textSurfacePrimary,
+                        style = typography.title,
+                        color = colors.surfaceContentPrimary,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                     MultiplayerText(
                         text = stringResource(R.string.library_tracks_count, playlist.trackCount),
-                        style = typography.cardMeta,
-                        color = colors.textSurfaceSecondary,
+                        style = typography.label,
+                        color = colors.surfaceContentSecondary,
                     )
                 }
 
@@ -234,15 +234,15 @@ private fun LibraryPlaylistCard(
                 ) {
                     MultiplayerText(
                         text = playlist.title,
-                        style = typography.cardTitleCompact,
-                        color = colors.textSurfacePrimary,
+                        style = typography.compactTitle,
+                        color = colors.surfaceContentPrimary,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                     MultiplayerText(
                         text = stringResource(R.string.library_tracks_count, playlist.trackCount),
-                        style = typography.cardMeta,
-                        color = colors.textSurfaceSecondary,
+                        style = typography.label,
+                        color = colors.surfaceContentSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )

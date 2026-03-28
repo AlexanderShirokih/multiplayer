@@ -52,8 +52,8 @@ private fun PlaylistDetailPlaceholderScreen(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        colors.backgroundGradientStart,
-                        colors.backgroundGradientEnd,
+                        colors.backgroundGradient.start,
+                        colors.backgroundGradient.end,
                     ),
                 ),
             ),
@@ -86,19 +86,19 @@ private fun PlaylistDetailPlaceholderScreen(
                 ) {
                     MultiplayerText(
                         text = title,
-                        style = MultiplayerTheme.typography.titleLarge,
+                        style = MultiplayerTheme.typography.title,
                         textAlign = TextAlign.Center,
                     )
                     MultiplayerText(
                         text = stringResource(R.string.playlist_detail_placeholder),
-                        style = MultiplayerTheme.typography.bodyMedium,
+                        style = MultiplayerTheme.typography.body,
                         color = colors.textSecondary,
                         textAlign = TextAlign.Center,
                     )
                     TextButton(onClick = onBack) {
                         MultiplayerText(
                             text = stringResource(R.string.playlist_detail_back),
-                            style = MultiplayerTheme.typography.labelLarge,
+                            style = MultiplayerTheme.typography.label,
                             color = colors.accent,
                         )
                     }

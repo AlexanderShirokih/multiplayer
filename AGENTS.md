@@ -153,10 +153,12 @@ UI → ViewModel → UseCase → Repository (interface)
 - Исключения: предпочитать явный **`try`/`catch`** вместо **`runCatching`** — яснее поток управления и обработка ошибок; `runCatching` не использовать как значение по умолчанию (допустим, если осознанно нужен `Result` и это согласовано с окружающим кодом).
 - Базовая тема приложения поднимается через `MultiplayerDesignSystem` из `android/core/ui`
 - Для app-specific UI использовать `MultiplayerTheme` и его токены (`colors`, `spacing`, `radius`, `elevation`, `icons`)
+- **Дизайн-система (`android/core/ui`)**: не добавлять новые токены (`MultiplayerSpacing`, `MultiplayerColors`, типографика и т.п.), стили и произвольные константы в дизайн-систему без явного согласования и правки этого документа; локальные размеры для одного компонента — в файле компонента (или во feature), а не в общих токенах
 - Для базовых текстов и поверхностей предпочитать `MultiplayerText` и `MultiplayerSurface`
 - Прямой `MaterialTheme` вне `core/ui` запрещён, кроме редких interop-случаев, где нужен Material API
 - Не хардкодить цвета, отступы, скругления и elevation в feature-модулях — только через токены дизайн-системы
 - Новые общие Compose-компоненты и preview helpers добавлять в `android/core/ui`, а не дублировать по feature-модулям
+- **Локализация (Android)**: пользовательский текст — только через `res/values/strings.xml`; в Compose — `stringResource(...)`. Не хардкодить пользовательские фразы на конкретном языке в Kotlin-файлах UI. Исключения — осознанно и по согласованию (например временный debug).
 - Если Material 3 уже покрывает стандартную типографику или color semantics, использовать их через `MultiplayerTheme.typography` и `MultiplayerTheme.materialColorScheme`
 - `@Preview(showBackground = true)` для каждого экранного компонента
 - Для preview экранов использовать `MultiplayerPreview` или явно оборачивать контент в `MultiplayerDesignSystem`

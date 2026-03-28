@@ -10,102 +10,55 @@ import androidx.compose.ui.unit.sp
  * Для `MaterialTheme` значения преобразуются в [androidx.compose.material3.Typography] через [toMaterialTypography].
  */
 data class MultiplayerTypography(
-    val displayLarge: TextStyle,
-    val headlineLarge: TextStyle,
-    val titleLarge: TextStyle,
-    val titleMedium: TextStyle,
-    val bodyLarge: TextStyle,
-    val bodyMedium: TextStyle,
-    val bodySmall: TextStyle,
-    val labelLarge: TextStyle,
     val pageTitle: TextStyle,
-    val pageSubtitle: TextStyle,
-    val heroTitle: TextStyle,
-    val cardTitleLarge: TextStyle,
-    val cardTitleCompact: TextStyle,
-    val cardMeta: TextStyle,
+    val title: TextStyle,
+    val compactTitle: TextStyle,
+    val body: TextStyle,
+    val secondaryBody: TextStyle,
+    val meta: TextStyle,
+    val label: TextStyle,
 )
 
 @Suppress("MagicNumber")
 internal fun defaultMultiplayerTypography(): MultiplayerTypography {
     return MultiplayerTypography(
-        displayLarge = TextStyle(
-            fontSize = 34.sp,
-            lineHeight = 40.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.5).sp,
-        ),
-        headlineLarge = TextStyle(
-            fontSize = 24.sp,
-            lineHeight = 30.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = (-0.2).sp,
-        ),
-        titleLarge = TextStyle(
-            fontSize = 20.sp,
-            lineHeight = 26.sp,
-            fontWeight = FontWeight.SemiBold,
-        ),
-        titleMedium = TextStyle(
-            fontSize = 16.sp,
-            lineHeight = 22.sp,
-            fontWeight = FontWeight.Medium,
-        ),
-        bodyLarge = TextStyle(
-            fontSize = 16.sp,
-            lineHeight = 22.sp,
-            fontWeight = FontWeight.Normal,
-        ),
-        bodyMedium = TextStyle(
-            fontSize = 14.sp,
-            lineHeight = 20.sp,
-            fontWeight = FontWeight.Normal,
-        ),
-        bodySmall = TextStyle(
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
-            fontWeight = FontWeight.Normal,
-        ),
-        labelLarge = TextStyle(
-            fontSize = 14.sp,
-            lineHeight = 20.sp,
-            fontWeight = FontWeight.SemiBold,
-        ),
         pageTitle = TextStyle(
             fontSize = 34.sp,
             lineHeight = 38.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = (-0.6).sp,
         ),
-        pageSubtitle = TextStyle(
-            fontSize = 15.sp,
-            lineHeight = 20.sp,
-            fontWeight = FontWeight.Medium,
-            letterSpacing = (-0.1).sp,
-        ),
-        heroTitle = TextStyle(
-            fontSize = 28.sp,
-            lineHeight = 30.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.6).sp,
-        ),
-        cardTitleLarge = TextStyle(
+        title = TextStyle(
             fontSize = 20.sp,
-            lineHeight = 23.sp,
+            lineHeight = 24.sp,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = (-0.25).sp,
         ),
-        cardTitleCompact = TextStyle(
+        compactTitle = TextStyle(
             fontSize = 18.sp,
-            lineHeight = 21.sp,
+            lineHeight = 22.sp,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = (-0.2).sp,
         ),
-        cardMeta = TextStyle(
-            fontSize = 13.sp,
-            lineHeight = 18.sp,
-            fontWeight = FontWeight.Medium,
-            letterSpacing = (-0.05).sp,
+        body = TextStyle(
+            fontSize = 16.sp,
+            lineHeight = 22.sp,
+            fontWeight = FontWeight.Normal,
+        ),
+        secondaryBody = TextStyle(
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            fontWeight = FontWeight.Normal,
+        ),
+        meta = TextStyle(
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.Normal,
+        ),
+        label = TextStyle(
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            fontWeight = FontWeight.SemiBold,
         ),
     )
 }
@@ -113,13 +66,13 @@ internal fun defaultMultiplayerTypography(): MultiplayerTypography {
 internal fun MultiplayerTypography.toMaterialTypography(): Typography {
     val baseline = Typography()
     return baseline.copy(
-        displayLarge = displayLarge,
-        headlineLarge = headlineLarge,
-        titleLarge = titleLarge,
-        titleMedium = titleMedium,
-        bodyLarge = bodyLarge,
-        bodyMedium = bodyMedium,
-        bodySmall = bodySmall,
-        labelLarge = labelLarge,
+        displayLarge = pageTitle,
+        headlineLarge = title,
+        titleLarge = title,
+        titleMedium = label,
+        bodyLarge = body,
+        bodyMedium = secondaryBody,
+        bodySmall = meta,
+        labelLarge = label,
     )
 }

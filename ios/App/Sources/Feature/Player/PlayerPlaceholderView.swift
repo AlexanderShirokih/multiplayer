@@ -37,10 +37,7 @@ private struct PlayerPlaceholderContentView: View {
 
             ZStack {
                 LinearGradient(
-                    colors: [
-                        theme.colors.backgroundGradientStart,
-                        theme.colors.backgroundGradientEnd
-                    ],
+                    colors: theme.colors.backgroundGradient.colors,
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -58,14 +55,14 @@ private struct PlayerPlaceholderContentView: View {
 
                             MultiplayerText(
                                 verbatim: "Сейчас играет",
-                                style: theme.typography.displayLarge,
+                                style: theme.typography.title,
                                 color: theme.colors.textPrimary,
                                 alignment: .center
                             )
 
                             MultiplayerText(
                                 verbatim: subtitle,
-                                style: theme.typography.bodyLarge,
+                                style: theme.typography.body,
                                 color: theme.colors.textSecondary,
                                 alignment: .center
                             )

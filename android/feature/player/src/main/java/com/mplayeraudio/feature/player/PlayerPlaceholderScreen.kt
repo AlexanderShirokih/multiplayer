@@ -36,8 +36,8 @@ fun PlayerPlaceholderScreen(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        colors.backgroundGradientStart,
-                        colors.backgroundGradientEnd,
+                        colors.backgroundGradient.start,
+                        colors.backgroundGradient.end,
                     ),
                 ),
             ),
@@ -70,12 +70,12 @@ fun PlayerPlaceholderScreen(
                 ) {
                     MultiplayerText(
                         text = stringResource(R.string.player_placeholder_title),
-                        style = MultiplayerTheme.typography.titleLarge,
+                        style = MultiplayerTheme.typography.title,
                         textAlign = TextAlign.Center,
                     )
                     MultiplayerText(
                         text = stringResource(R.string.player_placeholder_description),
-                        style = MultiplayerTheme.typography.bodyMedium,
+                        style = MultiplayerTheme.typography.body,
                         color = MultiplayerTheme.colors.textSecondary,
                         textAlign = TextAlign.Center,
                     )

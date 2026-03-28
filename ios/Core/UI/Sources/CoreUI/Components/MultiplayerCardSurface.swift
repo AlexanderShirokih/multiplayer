@@ -58,13 +58,13 @@ public struct MultiplayerCardSurface<Content: View>: View {
             AnyShapeStyle(theme.colors.surfacePrimary)
 
         case .surface2:
-            AnyShapeStyle(theme.colors.surface2Gradient)
+            AnyShapeStyle(theme.colors.surface2Gradient.linearGradient())
 
         case .surface3:
-            AnyShapeStyle(theme.colors.surface3Gradient)
+            AnyShapeStyle(theme.colors.surface3Gradient.linearGradient())
 
         case .surface4:
-            AnyShapeStyle(theme.colors.surface4Gradient)
+            AnyShapeStyle(theme.colors.surface4Gradient.linearGradient())
         }
     }
 

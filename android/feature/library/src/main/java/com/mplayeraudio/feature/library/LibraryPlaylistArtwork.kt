@@ -396,14 +396,14 @@ private fun artworkPalette(
         )
 
         MultiplayerCardSurfaceStyle.Surface3 -> GeneratedArtworkPalette(
-            backdrop = colors.brandVisualTertiaryMuted.copy(alpha = 0.18f),
+            backdrop = colors.brandVisualTertiary.copy(alpha = 0.18f),
             primary = colors.brandVisualTertiary,
             secondary = colors.brandVisualPrimary.copy(alpha = 0.86f),
             highlight = colors.brandVisualPrimaryContainer,
         )
 
         MultiplayerCardSurfaceStyle.Surface4 -> GeneratedArtworkPalette(
-            backdrop = colors.brandVisualSecondaryMuted.copy(alpha = 0.18f),
+            backdrop = colors.brandVisualSecondary.copy(alpha = 0.18f),
             primary = colors.brandVisualSecondary,
             secondary = colors.brandVisualPrimary.copy(alpha = 0.82f),
             highlight = colors.brandVisualSecondary,

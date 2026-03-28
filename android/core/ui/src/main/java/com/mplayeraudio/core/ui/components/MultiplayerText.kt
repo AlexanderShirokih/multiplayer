@@ -29,7 +29,7 @@ fun MultiplayerText(
     softWrap: Boolean = true,
     maxLines: Int = Int.MAX_VALUE,
     minLines: Int = 1,
-    style: TextStyle = MultiplayerTheme.typography.bodyLarge,
+    style: TextStyle = MultiplayerTheme.typography.body,
 ) {
     Text(
         text = text,

@@ -50,6 +50,7 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -128,8 +129,8 @@ fun NowPlayingStrip(
             .background(
                 brush = Brush.linearGradient(
                     colors = listOf(
-                        colors.miniPlayerGradientStart,
-                        colors.miniPlayerGradientEnd,
+                        colors.miniPlayerGradient.start,
+                        colors.miniPlayerGradient.end,
                     ),
                 ),
             )
@@ -262,7 +263,7 @@ fun NowPlayingStrip(
                 ) {
                     MultiplayerText(
                         text = state.title,
-                        style = typography.titleLarge,
+                        style = typography.title,
                         color = colors.miniPlayerPrimaryContent,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -270,7 +271,7 @@ fun NowPlayingStrip(
                     if (state.subtitle.isNotBlank()) {
                         MultiplayerText(
                             text = state.subtitle,
-                            style = typography.bodyMedium,
+                            style = typography.secondaryBody,
                             color = colors.miniPlayerSecondaryContent,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -313,13 +314,13 @@ fun NowPlayingStrip(
         ) {
             MultiplayerText(
                 text = formatPlaybackTime(state.currentPositionMs),
-                style = typography.bodySmall,
+                style = typography.meta,
                 color = colors.miniPlayerSecondaryContent,
             )
             Spacer(modifier = Modifier.weight(1f))
             MultiplayerText(
                 text = formatPlaybackTime(state.durationMs),
-                style = typography.bodySmall,
+                style = typography.meta,
                 color = colors.miniPlayerSecondaryContent,
             )
         }

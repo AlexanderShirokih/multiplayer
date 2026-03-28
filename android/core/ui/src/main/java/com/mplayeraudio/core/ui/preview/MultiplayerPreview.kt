@@ -57,7 +57,10 @@ private fun MultiplayerPreviewSurfacePreview() {
             shadowElevation = MultiplayerTheme.elevation.level1,
         ) {
             Box(modifier = Modifier.padding(MultiplayerTheme.spacing.lg)) {
-                MultiplayerText(text = "Now Playing")
+                MultiplayerText(
+                    text = "Now Playing",
+                    style = MultiplayerTheme.typography.title,
+                )
             }
         }
     }

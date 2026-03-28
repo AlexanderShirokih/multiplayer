@@ -64,22 +64,22 @@ private fun multiplayerCardSurfaceBrush(
     return when (style) {
         MultiplayerCardSurfaceStyle.Surface2 -> Brush.linearGradient(
             colors = listOf(
-                colors.surface2GradientStart,
-                colors.surface2GradientEnd,
+                colors.surface2Gradient.start,
+                colors.surface2Gradient.end,
             ),
         )
 
         MultiplayerCardSurfaceStyle.Surface3 -> Brush.linearGradient(
             colors = listOf(
-                colors.surface3GradientStart,
-                colors.surface3GradientEnd,
+                colors.surface3Gradient.start,
+                colors.surface3Gradient.end,
             ),
         )
 
         MultiplayerCardSurfaceStyle.Surface4 -> Brush.linearGradient(
             colors = listOf(
-                colors.surface4GradientStart,
-                colors.surface4GradientEnd,
+                colors.surface4Gradient.start,
+                colors.surface4Gradient.end,
             ),
         )
     }

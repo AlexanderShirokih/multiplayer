@@ -18,59 +18,63 @@ public struct MultiplayerTextStyle {
 }
 
 public struct MultiplayerTypography {
-    public let displayLarge: MultiplayerTextStyle
-    public let headlineLarge: MultiplayerTextStyle
-    public let titleLarge: MultiplayerTextStyle
-    public let titleMedium: MultiplayerTextStyle
-    public let bodyLarge: MultiplayerTextStyle
-    public let bodyMedium: MultiplayerTextStyle
-    public let labelLarge: MultiplayerTextStyle
+    public let pageTitle: MultiplayerTextStyle
+    public let title: MultiplayerTextStyle
+    public let compactTitle: MultiplayerTextStyle
+    public let body: MultiplayerTextStyle
+    public let secondaryBody: MultiplayerTextStyle
+    public let meta: MultiplayerTextStyle
+    public let label: MultiplayerTextStyle
 
     public init(
-        displayLarge: MultiplayerTextStyle,
-        headlineLarge: MultiplayerTextStyle,
-        titleLarge: MultiplayerTextStyle,
-        titleMedium: MultiplayerTextStyle,
-        bodyLarge: MultiplayerTextStyle,
-        bodyMedium: MultiplayerTextStyle,
-        labelLarge: MultiplayerTextStyle
+        pageTitle: MultiplayerTextStyle,
+        title: MultiplayerTextStyle,
+        compactTitle: MultiplayerTextStyle,
+        body: MultiplayerTextStyle,
+        secondaryBody: MultiplayerTextStyle,
+        meta: MultiplayerTextStyle,
+        label: MultiplayerTextStyle
     ) {
-        self.displayLarge = displayLarge
-        self.headlineLarge = headlineLarge
-        self.titleLarge = titleLarge
-        self.titleMedium = titleMedium
-        self.bodyLarge = bodyLarge
-        self.bodyMedium = bodyMedium
-        self.labelLarge = labelLarge
+        self.pageTitle = pageTitle
+        self.title = title
+        self.compactTitle = compactTitle
+        self.body = body
+        self.secondaryBody = secondaryBody
+        self.meta = meta
+        self.label = label
     }
 }
 
 public func defaultMultiplayerTypography() -> MultiplayerTypography {
     MultiplayerTypography(
-        displayLarge: MultiplayerTextStyle(
-            font: .system(.largeTitle, design: .rounded, weight: .bold),
-            lineSpacing: 4
+        pageTitle: MultiplayerTextStyle(
+            font: .system(size: 34, weight: .bold, design: .rounded),
+            lineSpacing: 4,
+            tracking: -0.6
         ),
-        headlineLarge: MultiplayerTextStyle(
-            font: .system(.title2, design: .rounded, weight: .semibold),
-            lineSpacing: 2
+        title: MultiplayerTextStyle(
+            font: .system(size: 20, weight: .semibold, design: .rounded),
+            lineSpacing: 2,
+            tracking: -0.25
         ),
-        titleLarge: MultiplayerTextStyle(
-            font: .system(.title3, design: .rounded, weight: .semibold),
-            lineSpacing: 2
+        compactTitle: MultiplayerTextStyle(
+            font: .system(size: 18, weight: .semibold, design: .rounded),
+            lineSpacing: 2,
+            tracking: -0.2
         ),
-        titleMedium: MultiplayerTextStyle(
-            font: .system(.headline, design: .default, weight: .semibold)
-        ),
-        bodyLarge: MultiplayerTextStyle(
+        body: MultiplayerTextStyle(
             font: .system(.body, design: .default, weight: .regular),
             lineSpacing: 4
         ),
-        bodyMedium: MultiplayerTextStyle(
+        secondaryBody: MultiplayerTextStyle(
             font: .system(.callout, design: .default, weight: .regular),
             lineSpacing: 2
         ),
-        labelLarge: MultiplayerTextStyle(
+        meta: MultiplayerTextStyle(
+            font: .system(size: 12, weight: .regular, design: .default),
+            lineSpacing: 2
+        ),
+        label: MultiplayerTextStyle(
             font: .system(.subheadline, design: .default, weight: .semibold),
             tracking: 0.2
         )

@@ -79,20 +79,12 @@ fun YandexMusicAuthCard(
         ) {
             MultiplayerText(
                 text = stringResource(R.string.auth_provider_title),
-                style = typography.titleLarge.copy(
-                    fontSize = 21.sp,
-                    lineHeight = 24.sp,
-                    letterSpacing = (-0.3).sp,
-                ),
+                style = typography.title,
             )
 
             MultiplayerText(
                 text = stringResource(R.string.auth_provider_description),
-                style = typography.bodyMedium.copy(
-                    fontSize = 11.sp,
-                    lineHeight = 14.sp,
-                    letterSpacing = (-0.05).sp,
-                ),
+                style = typography.meta,
                 color = colors.textSecondary,
             )
 
@@ -105,8 +97,8 @@ fun YandexMusicAuthCard(
                     .background(
                         brush = Brush.horizontalGradient(
                             colors = listOf(
-                                colors.ctaGradientStart,
-                                colors.ctaGradientEnd,
+                                colors.ctaGradient.start,
+                                colors.ctaGradient.end,
                             ),
                         )
                     )
@@ -137,7 +129,7 @@ fun YandexMusicAuthCard(
                         ) {
                             MultiplayerText(
                                 text = buttonText,
-                                style = typography.labelLarge,
+                                style = typography.label,
                                 color = buttonTextColor,
                                 textAlign = TextAlign.Center,
                                 maxLines = 1,

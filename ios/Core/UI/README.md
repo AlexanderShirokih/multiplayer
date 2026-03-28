@@ -20,6 +20,18 @@ Add a MultiPlayer token when the value expresses product language that should st
 
 Do not mirror every native SwiftUI API into custom tokens. Prefer SwiftUI defaults when the platform already provides a good semantic contract.
 
+Typography should stay minimal and semantic:
+
+- keep only roles that repeat across screens, such as page titles, content titles, body, meta, and labels
+- merge near-duplicates instead of creating a new style for a 1-2pt deviation
+- keep one-off hero or component-specific text metrics local to the component instead of promoting them into `CoreUI`
+
+Colors should stay minimal and semantic:
+
+- prefer a single semantic role over multiple shade aliases that differ only for one component
+- keep paired gradient colors grouped under one semantic ramp instead of exporting separate `start/end` tokens
+- if a tint is only needed inside one illustration or decorative pattern, derive it locally with opacity instead of promoting a new global token
+
 ## SwiftUI rule
 
 - Feature modules should prefer `MultiplayerDesignSystem`, `MultiplayerSurface`, `MultiplayerText`, and `@Environment(\\.multiplayerTheme)`
