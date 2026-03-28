@@ -11,6 +11,7 @@ import com.mplayeraudio.core.domain.musiclibrary.PlaylistKind
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistSummary
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistTrackEntry
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistUuid
+import com.mplayeraudio.core.domain.musiclibrary.PlaylistRole
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistVisibility
 import com.mplayeraudio.core.domain.musiclibrary.ProviderUserId
 import com.mplayeraudio.core.domain.musiclibrary.SavedTrackEntry
@@ -49,10 +50,11 @@ internal fun JsonObject.toCurrentUserId(): ProviderUserId {
 internal fun JsonObject.toPlaylistSummary(): PlaylistSummary {
     val owner = requiredObject("owner")
     val ownerId = owner.optionalLong("uid")?.toString() ?: requiredLong("uid").toString()
+    val kind = requiredLong("kind")
     return PlaylistSummary(
         id = PlaylistId(
             ownerId = ProviderUserId(ownerId),
-            kind = PlaylistKind(requiredLong("kind")),
+            kind = PlaylistKind(kind),
         ),
         provider = MusicProviderId.YandexMusic,
         playlistUuid = optionalString("playlistUuid")?.let(::PlaylistUuid),
@@ -64,8 +66,11 @@ internal fun JsonObject.toPlaylistSummary(): PlaylistSummary {
         isAvailable = optionalBoolean("available") ?: true,
         isCollective = optionalBoolean("collective") ?: false,
         visibility = optionalString("visibility")?.toPlaylistVisibility(),
+        role = if (kind == YANDEX_FAVOURITES_PLAYLIST_KIND) PlaylistRole.Favourites else PlaylistRole.Regular,
     )
 }
+
+private const val YANDEX_FAVOURITES_PLAYLIST_KIND = 3L
 
 internal fun JsonObject.toPlaylist(): Playlist {
     val tracks = optionalArray("tracks")

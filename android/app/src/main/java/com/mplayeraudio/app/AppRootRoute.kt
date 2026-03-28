@@ -6,7 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mplayeraudio.feature.auth.AuthWelcomeRoute
-import com.mplayeraudio.feature.player.PlayerRoute
+import com.mplayeraudio.feature.library.MusicLibraryRoute
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -22,7 +22,7 @@ fun AppRootRoute(
     ) { destination ->
         when (destination) {
             AppDestination.Auth -> AuthWelcomeRoute(modifier = modifier)
-            AppDestination.Player -> PlayerRoute(modifier = modifier)
+            AppDestination.Main -> MusicLibraryRoute(modifier = modifier)
         }
     }
 }

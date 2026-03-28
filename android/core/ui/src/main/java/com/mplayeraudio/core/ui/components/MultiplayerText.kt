@@ -11,7 +11,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.sp
 import com.mplayeraudio.core.ui.theme.MultiplayerTheme
 
 @Composable
@@ -30,7 +29,7 @@ fun MultiplayerText(
     softWrap: Boolean = true,
     maxLines: Int = Int.MAX_VALUE,
     minLines: Int = 1,
-    style: TextStyle = MultiplayerTheme.typography.bodyLarge.copy(lineHeight = 22.sp),
+    style: TextStyle = MultiplayerTheme.typography.bodyLarge,
 ) {
     Text(
         text = text,

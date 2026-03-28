@@ -6,6 +6,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -27,7 +28,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun MultiPlayerApp() {
-    MultiplayerDesignSystem(darkTheme = true) {
+    MultiplayerDesignSystem(darkTheme = isSystemInDarkTheme()) {
         MultiplayerSurface(
             modifier = Modifier.fillMaxSize(),
             shape = RoundedCornerShape(0.dp),

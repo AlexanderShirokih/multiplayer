@@ -34,6 +34,11 @@ enum class PlaylistVisibility {
     Private,
 }
 
+enum class PlaylistRole {
+    Favourites,
+    Regular,
+}
+
 data class PlaylistSummary(
     val id: PlaylistId,
     val provider: MusicProviderId,
@@ -46,6 +51,7 @@ data class PlaylistSummary(
     val isAvailable: Boolean,
     val isCollective: Boolean,
     val visibility: PlaylistVisibility?,
+    val role: PlaylistRole = PlaylistRole.Regular,
 )
 
 data class Playlist(

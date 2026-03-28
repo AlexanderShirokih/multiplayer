@@ -14,7 +14,7 @@ data class AppRootState(
 
 enum class AppDestination {
     Auth,
-    Player,
+    Main,
 }
 
 class AppRootViewModel(
@@ -41,7 +41,7 @@ class AppRootViewModel(
             }
 
             else -> {
-                AppDestination.Player
+                AppDestination.Main
             }
         }
     }

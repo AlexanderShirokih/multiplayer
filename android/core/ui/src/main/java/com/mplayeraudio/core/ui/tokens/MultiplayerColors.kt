@@ -15,6 +15,7 @@ import com.mplayeraudio.core.ui.theme.Gray400
 import com.mplayeraudio.core.ui.theme.Gray500
 import com.mplayeraudio.core.ui.theme.Gray600
 import com.mplayeraudio.core.ui.theme.Gray700
+import com.mplayeraudio.core.ui.theme.Gray650
 import com.mplayeraudio.core.ui.theme.Gray750
 import com.mplayeraudio.core.ui.theme.Gray800
 import com.mplayeraudio.core.ui.theme.Gray850
@@ -52,6 +53,8 @@ data class MultiplayerColors(
     val textPrimary: Color,
     val textSecondary: Color,
     val textTertiary: Color,
+    val textSurfacePrimary: Color,
+    val textSurfaceSecondary: Color,
     val textInverse: Color,
     val accent: Color,
     val accentMuted: Color,
@@ -97,6 +100,8 @@ private fun lightMultiplayerColors(): MultiplayerColors = MultiplayerColors(
     textPrimary = Ink950,
     textSecondary = Gray700,
     textTertiary = Gray500,
+    textSurfacePrimary = Gray650,
+    textSurfaceSecondary = Gray500,
     textInverse = Color.White,
     accent = Blue500,
     accentMuted = Blue300,
@@ -134,6 +139,8 @@ private fun darkMultiplayerColors(): MultiplayerColors = MultiplayerColors(
     textPrimary = Gray100,
     textSecondary = Gray300,
     textTertiary = Gray400,
+    textSurfacePrimary = Gray100,
+    textSurfaceSecondary = Gray400,
     textInverse = Ink950,
     accent = Blue300,
     accentMuted = Blue400,

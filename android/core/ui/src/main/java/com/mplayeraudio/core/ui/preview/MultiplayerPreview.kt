@@ -18,10 +18,11 @@ import com.mplayeraudio.core.ui.theme.MultiplayerTheme
 @Composable
 fun MultiplayerPreview(
     modifier: Modifier = Modifier,
+    darkTheme: Boolean = false,
     contentAlignment: Alignment = Alignment.TopStart,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    MultiplayerDesignSystem {
+    MultiplayerDesignSystem(darkTheme = darkTheme) {
         MultiplayerSurface(
             modifier = modifier.fillMaxSize(),
             shape = RoundedCornerShape(0.dp),
