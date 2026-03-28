@@ -8,9 +8,9 @@ private let equalizerBarCornerRadius: CGFloat = 3
 public struct MultiplayerEqualizerIndicator: View {
     private let color: Color
 
-    @State private var bar1Height: CGFloat = 0.28
-    @State private var bar2Height: CGFloat = 0.45
-    @State private var bar3Height: CGFloat = 0.32
+    @State private var bar1Height: CGFloat = 0.3
+    @State private var bar2Height: CGFloat = 0.2
+    @State private var bar3Height: CGFloat = 0.4
 
     public init(color: Color) {
         self.color = color
@@ -33,16 +33,16 @@ public struct MultiplayerEqualizerIndicator: View {
     }
 
     private func startAnimations() async {
-        withAnimation(.easeInOut(duration: 0.42).repeatForever(autoreverses: true)) {
-            bar1Height = 1.0
+        withAnimation(.easeInOut(duration: 0.4).repeatForever(autoreverses: true)) {
+            bar1Height = 0.8
         }
-        try? await Task.sleep(for: .milliseconds(210))
-        withAnimation(.easeInOut(duration: 0.56).repeatForever(autoreverses: true)) {
+        try? await Task.sleep(for: .milliseconds(50))
+        withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
+            bar3Height = 0.7
+        }
+        try? await Task.sleep(for: .milliseconds(100))
+        withAnimation(.easeInOut(duration: 0.3).repeatForever(autoreverses: true)) {
             bar2Height = 1.0
-        }
-        try? await Task.sleep(for: .milliseconds(160))
-        withAnimation(.easeInOut(duration: 0.48).repeatForever(autoreverses: true)) {
-            bar3Height = 1.0
         }
     }
 }
