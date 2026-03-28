@@ -6,12 +6,10 @@ import org.koin.dsl.module
 
 fun musicLibraryModule(): Module = module {
     factory { ObserveOwnPlaylistsUseCase(get()) }
-    factory { ObserveSavedTracksUseCase(get()) }
     factory { RefreshLibraryUseCase(get()) }
     viewModel {
         MusicLibraryViewModel(
             observeOwnPlaylists = get(),
-            observeSavedTracks = get(),
             refreshLibrary = get(),
         )
     }

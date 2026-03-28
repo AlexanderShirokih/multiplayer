@@ -2,10 +2,10 @@ package com.mplayeraudio.feature.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mplayeraudio.core.domain.musiclibrary.MusicLibraryException
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistId
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistRole
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistSummary
-import com.mplayeraudio.core.domain.musiclibrary.SavedTracksResult
 import com.mplayeraudio.core.ui.components.MultiplayerCardSurfaceStyle
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,8 +13,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -26,7 +26,6 @@ private val PlaylistCardStyles = listOf(
 
 class MusicLibraryViewModel(
     observeOwnPlaylists: ObserveOwnPlaylistsUseCase,
-    observeSavedTracks: ObserveSavedTracksUseCase,
     private val refreshLibrary: RefreshLibraryUseCase,
 ) : ViewModel() {
 
@@ -37,21 +36,10 @@ class MusicLibraryViewModel(
     val effects: SharedFlow<MusicLibraryEffect> = _effects.asSharedFlow()
 
     init {
-        combine(
-            observeOwnPlaylists(),
-            observeSavedTracks(),
-        ) { playlists, savedTracks ->
-            val tracksCount = when (savedTracks) {
-                is SavedTracksResult.Available -> savedTracks.value.tracks.size
-                SavedTracksResult.PrivateLibrary -> 0
-            }
+        observeOwnPlaylists()
+            .onEach { playlists ->
             val orderedPlaylists = playlists.orderedForPresentation()
             val cards = buildList {
-                add(
-                    MusicLibraryCard.SavedTracks(
-                        trackCount = tracksCount,
-                    ),
-                )
                 orderedPlaylists.mapIndexedTo(this) { index, playlist ->
                     playlist.toLibraryCard(index)
                 }
@@ -64,14 +52,14 @@ class MusicLibraryViewModel(
                     ),
                 )
             }
-        }
+            }
             .launchIn(viewModelScope)
 
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
             try {
                 refreshLibrary()
-            } catch (_: Exception) {
+            } catch (_: MusicLibraryException) {
                 _state.update { it.copy(isLoading = false) }
             }
         }
@@ -80,12 +68,6 @@ class MusicLibraryViewModel(
     fun onPlaylistClick(playlistId: PlaylistId) {
         viewModelScope.launch {
             _effects.emit(MusicLibraryEffect.NavigateToPlaylist(playlistId))
-        }
-    }
-
-    fun onSavedTracksClick() {
-        viewModelScope.launch {
-            _effects.emit(MusicLibraryEffect.NavigateToSavedTracks)
         }
     }
 }

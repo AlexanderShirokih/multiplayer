@@ -60,13 +60,12 @@ class YandexMusicAuthCardViewModel(
         viewModelScope.launch {
             _state.update { currentState -> currentState.copy(isLoading = true) }
 
-            runCatching {
-                startYandexAuthorization()
-            }.onSuccess { request ->
+            try {
+                val request = startYandexAuthorization()
                 _effects.emit(YandexMusicAuthCardEffect.OpenExternalAuth(request.url))
-            }.onFailure { throwable ->
+            } catch (exception: YandexAuthException) {
                 _state.update { currentState -> currentState.copy(isLoading = false) }
-                _effects.emit(YandexMusicAuthCardEffect.ShowToast(throwable.toUserMessage()))
+                _effects.emit(YandexMusicAuthCardEffect.ShowToast(exception.toUserMessage()))
             }
         }
     }

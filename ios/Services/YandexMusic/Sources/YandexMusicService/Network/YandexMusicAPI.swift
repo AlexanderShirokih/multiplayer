@@ -43,7 +43,7 @@ public final class URLSessionYandexMusicAPI: YandexMusicAPI, @unchecked Sendable
 
     public func fetchAvailability(accessToken: String) async throws -> [String: Any] {
         let result = try await getWrappedResult(
-            url: "https://api.music.yandex.net/account/status",
+            url: yandexMusicURL(path: "account/status"),
             accessToken: accessToken
         )
         guard let object = result as? [String: Any] else {
@@ -74,7 +74,7 @@ public final class URLSessionYandexMusicAPI: YandexMusicAPI, @unchecked Sendable
         userId: String
     ) async throws -> [[String: Any]] {
         let result = try await getWrappedResult(
-            url: "https://api.music.yandex.net/users/\(userId)/playlists/list",
+            url: yandexMusicURL(path: "users/\(userId)/playlists/list"),
             accessToken: accessToken
         )
         guard let array = result as? [[String: Any]] else {
@@ -91,7 +91,7 @@ public final class URLSessionYandexMusicAPI: YandexMusicAPI, @unchecked Sendable
         kind: Int64
     ) async throws -> [String: Any] {
         let result = try await getWrappedResult(
-            url: "https://api.music.yandex.net/users/\(userId)/playlists/\(kind)",
+            url: yandexMusicURL(path: "users/\(userId)/playlists/\(kind)"),
             accessToken: accessToken
         )
         guard let object = result as? [String: Any] else {
@@ -104,7 +104,7 @@ public final class URLSessionYandexMusicAPI: YandexMusicAPI, @unchecked Sendable
 
     public func fetchSavedTracks(accessToken: String, userId: String) async throws -> Any {
         return try await getWrappedResult(
-            url: "https://api.music.yandex.net/users/\(userId)/likes/tracks",
+            url: yandexMusicURL(path: "users/\(userId)/likes/tracks"),
             accessToken: accessToken
         )
     }
@@ -116,7 +116,7 @@ public final class URLSessionYandexMusicAPI: YandexMusicAPI, @unchecked Sendable
         var parameters = trackIds.map { ("track-ids", $0) }
         parameters.append(("with-positions", "true"))
         let result = try await postWrappedForm(
-            url: "https://api.music.yandex.net/tracks/",
+            url: yandexMusicURL(path: "tracks/"),
             accessToken: accessToken,
             parameters: parameters
         )
@@ -227,6 +227,12 @@ public final class URLSessionYandexMusicAPI: YandexMusicAPI, @unchecked Sendable
         #endif
     }
 }
+
+private func yandexMusicURL(path: String) -> String {
+    "\(yandexMusicAPIBaseURL)/\(path)"
+}
+
+private let yandexMusicAPIBaseURL = "https://api.music.yandex.net"
 
 private extension String {
     var urlQueryEscaped: String {

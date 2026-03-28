@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="library_title">Плейлисты</string>
-    <string name="library_subtitle">Сетка из подборок, лайков и всех треков</string>
-    <string name="library_saved_tracks">Моя фонотека</string>
-    <string name="library_saved_tracks_count">%d треков в одном потоке</string>
-    <string name="library_listen">Слушать</string>
+    <string name="library_subtitle">Сетка из плейлистов и подборок</string>
     <string name="library_favourites">Любимые</string>
     <string name="library_tracks_count">%d треков</string>
     <string name="playlist_detail_title">Плейлист</string>

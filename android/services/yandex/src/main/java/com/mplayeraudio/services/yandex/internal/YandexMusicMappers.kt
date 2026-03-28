@@ -66,11 +66,11 @@ internal fun JsonObject.toPlaylistSummary(): PlaylistSummary {
         isAvailable = optionalBoolean("available") ?: true,
         isCollective = optionalBoolean("collective") ?: false,
         visibility = optionalString("visibility")?.toPlaylistVisibility(),
-        role = if (kind == YANDEX_FAVOURITES_PLAYLIST_KIND) PlaylistRole.Favourites else PlaylistRole.Regular,
+        role = if (kind == YandexFavouritesPlaylistKind) PlaylistRole.Favourites else PlaylistRole.Regular,
     )
 }
 
-private const val YANDEX_FAVOURITES_PLAYLIST_KIND = 3L
+private const val YandexFavouritesPlaylistKind = 3L
 
 internal fun JsonObject.toPlaylist(): Playlist {
     val tracks = optionalArray("tracks")

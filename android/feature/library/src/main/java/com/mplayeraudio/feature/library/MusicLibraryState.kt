@@ -15,12 +15,6 @@ data class MusicLibraryContent(
 sealed interface MusicLibraryCard {
     val key: String
 
-    data class SavedTracks(
-        val trackCount: Int,
-    ) : MusicLibraryCard {
-        override val key: String = SavedTracksCardKey
-    }
-
     data class Playlist(
         val id: PlaylistId,
         val title: String,
@@ -43,5 +37,3 @@ enum class PlaylistCardArtwork {
     Default,
     Favourites,
 }
-
-const val SavedTracksCardKey = "saved-tracks-card"

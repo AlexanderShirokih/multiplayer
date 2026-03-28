@@ -21,14 +21,11 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -55,7 +52,6 @@ private val HeroArtworkSize = 108.dp
 @Composable
 fun MusicLibraryScreen(
     state: MusicLibraryState,
-    onSavedTracksClick: () -> Unit,
     onPlaylistClick: (PlaylistId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -77,7 +73,6 @@ fun MusicLibraryScreen(
             state.content?.let { content ->
                 LibraryContent(
                     content = content,
-                    onSavedTracksClick = onSavedTracksClick,
                     onPlaylistClick = onPlaylistClick,
                 )
             }
@@ -88,7 +83,6 @@ fun MusicLibraryScreen(
 @Composable
 private fun LibraryContent(
     content: MusicLibraryContent,
-    onSavedTracksClick: () -> Unit,
     onPlaylistClick: (PlaylistId) -> Unit,
 ) {
     val spacing = MultiplayerTheme.spacing
@@ -124,8 +118,6 @@ private fun LibraryContent(
                             StaggeredGridItemSpan.SingleLane
                         }
                     }
-
-                    is MusicLibraryCard.SavedTracks -> StaggeredGridItemSpan.FullLine
                 }
             },
         ) { card ->
@@ -134,13 +126,6 @@ private fun LibraryContent(
                     LibraryPlaylistCard(
                         playlist = card,
                         onClick = { onPlaylistClick(card.id) },
-                    )
-                }
-
-                is MusicLibraryCard.SavedTracks -> {
-                    LibraryHeroCard(
-                        trackCount = card.trackCount,
-                        onClick = onSavedTracksClick,
                     )
                 }
             }
@@ -169,109 +154,6 @@ private fun LibraryHeader() {
             color = colors.textSurfaceSecondary,
         )
         Spacer(modifier = Modifier.height(spacing.xs))
-    }
-}
-
-@Composable
-private fun LibraryHeroCard(
-    trackCount: Int,
-    onClick: () -> Unit,
-) {
-    val colors = MultiplayerTheme.colors
-    val spacing = MultiplayerTheme.spacing
-    val typography = MultiplayerTheme.typography
-
-    MultiplayerCardSurface(
-        modifier = Modifier.fillMaxWidth(),
-        style = MultiplayerCardSurfaceStyle.Surface2,
-        contentPadding = PaddingValues(
-            horizontal = spacing.lg,
-            vertical = spacing.xl,
-        ),
-        onClick = onClick,
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
-                MultiplayerText(
-                    text = stringResource(R.string.library_saved_tracks),
-                    style = typography.heroTitle,
-                    color = colors.textSurfacePrimary,
-                )
-
-                MultiplayerText(
-                    text = stringResource(R.string.library_saved_tracks_count, trackCount),
-                    style = typography.pageSubtitle,
-                    color = colors.textSurfaceSecondary,
-                )
-
-                Spacer(modifier = Modifier.height(spacing.sm))
-
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(MultiplayerTheme.radius.pill))
-                        .background(colors.accent)
-                        .heightIn(min = 40.dp),
-                    horizontalArrangement = Arrangement.spacedBy(spacing.xs),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Spacer(modifier = Modifier.size(spacing.xxs))
-                    Icon(
-                        painter = painterResource(R.drawable.ic_play),
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = colors.textInverse,
-                    )
-                    MultiplayerText(
-                        text = stringResource(R.string.library_listen),
-                        style = typography.labelLarge,
-                        color = colors.textInverse,
-                    )
-                    Spacer(modifier = Modifier.size(spacing.xxs))
-                }
-            }
-
-            HeroCardArtwork(
-                modifier = Modifier.size(HeroArtworkSize),
-            )
-        }
-    }
-}
-
-@Composable
-private fun HeroCardArtwork(
-    modifier: Modifier = Modifier,
-) {
-    val colors = MultiplayerTheme.colors
-
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(96.dp)
-                .clip(CircleShape)
-                .background(colors.brandVisualPrimary.copy(alpha = 0.14f)),
-        )
-        Box(
-            modifier = Modifier
-                .size(74.dp)
-                .clip(CircleShape)
-                .background(colors.brandVisualPrimary.copy(alpha = 0.24f)),
-        )
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(colors.brandVisualPrimaryContainer.copy(alpha = 0.72f)),
-        )
     }
 }
 
@@ -381,9 +263,6 @@ private fun previewPlaylistId(kind: Long): PlaylistId {
 private fun previewLibraryContent(): MusicLibraryContent {
     return MusicLibraryContent(
         cards = listOf(
-            MusicLibraryCard.SavedTracks(
-                trackCount = 1264,
-            ),
             MusicLibraryCard.Playlist(
                 id = previewPlaylistId(1),
                 title = "Ночной код",
@@ -425,7 +304,6 @@ private fun MusicLibraryScreenPreview() {
                 isLoading = false,
                 content = previewLibraryContent(),
             ),
-            onSavedTracksClick = {},
             onPlaylistClick = {},
         )
     }
@@ -440,19 +318,7 @@ private fun MusicLibraryScreenDarkPreview() {
                 isLoading = false,
                 content = previewLibraryContent(),
             ),
-            onSavedTracksClick = {},
             onPlaylistClick = {},
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "Hero Card Dark")
-@Composable
-private fun LibraryHeroCardDarkPreview() {
-    MultiplayerPreview(darkTheme = true, contentAlignment = Alignment.Center) {
-        LibraryHeroCard(
-            trackCount = 1264,
-            onClick = {},
         )
     }
 }

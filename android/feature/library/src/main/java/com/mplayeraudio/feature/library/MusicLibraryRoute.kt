@@ -28,9 +28,6 @@ fun MusicLibraryRoute(
                 is MusicLibraryEffect.NavigateToPlaylist -> {
                     selectedDestination = LibraryDestination.Playlist(effect.playlistId)
                 }
-                MusicLibraryEffect.NavigateToSavedTracks -> {
-                    selectedDestination = LibraryDestination.SavedTracks
-                }
             }
         }
     }
@@ -43,15 +40,7 @@ fun MusicLibraryRoute(
             null -> {
                 MusicLibraryScreen(
                     state = state,
-                    onSavedTracksClick = viewModel::onSavedTracksClick,
                     onPlaylistClick = viewModel::onPlaylistClick,
-                    modifier = modifier,
-                )
-            }
-            LibraryDestination.SavedTracks -> {
-                PlaylistDetailRoute(
-                    title = stringResource(R.string.library_saved_tracks),
-                    onBack = { selectedDestination = null },
                     modifier = modifier,
                 )
             }
@@ -73,6 +62,5 @@ fun MusicLibraryRoute(
 }
 
 private sealed interface LibraryDestination {
-    data object SavedTracks : LibraryDestination
     data class Playlist(val playlistId: PlaylistId) : LibraryDestination
 }

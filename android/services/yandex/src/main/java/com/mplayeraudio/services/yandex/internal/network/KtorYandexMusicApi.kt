@@ -26,7 +26,7 @@ internal class KtorYandexMusicApi(
 ) : YandexMusicApi {
 
     override suspend fun fetchAvailability(accessToken: String): JsonObject {
-        return getWrappedResult("https://api.music.yandex.net/account/status", accessToken).jsonObject
+        return getWrappedResult(yandexMusicUrl("account/status"), accessToken).jsonObject
     }
 
     override suspend fun fetchCurrentUser(accessToken: String): JsonObject {
@@ -46,7 +46,7 @@ internal class KtorYandexMusicApi(
         userId: String,
     ): JsonArray {
         return getWrappedResult(
-            url = "https://api.music.yandex.net/users/$userId/playlists/list",
+            url = yandexMusicUrl("users/$userId/playlists/list"),
             accessToken = accessToken,
         ).jsonArray
     }
@@ -57,7 +57,7 @@ internal class KtorYandexMusicApi(
         kind: Long,
     ): JsonObject {
         return getWrappedResult(
-            url = "https://api.music.yandex.net/users/$userId/playlists/$kind",
+            url = yandexMusicUrl("users/$userId/playlists/$kind"),
             accessToken = accessToken,
         ).jsonObject
     }
@@ -67,7 +67,7 @@ internal class KtorYandexMusicApi(
         userId: String,
     ): JsonElement {
         return getWrappedResult(
-            url = "https://api.music.yandex.net/users/$userId/likes/tracks",
+            url = yandexMusicUrl("users/$userId/likes/tracks"),
             accessToken = accessToken,
         )
     }
@@ -77,7 +77,7 @@ internal class KtorYandexMusicApi(
         trackIds: List<String>,
     ): JsonArray {
         return submitWrappedForm(
-            url = "https://api.music.yandex.net/tracks/",
+            url = yandexMusicUrl("tracks/"),
             accessToken = accessToken,
         ) {
             trackIds.forEach { append("track-ids", it) }
@@ -147,9 +147,12 @@ internal class KtorYandexMusicApi(
     }
 }
 
+private fun yandexMusicUrl(path: String): String = "$YandexMusicApiBaseUrl/$path"
+
 private fun JsonElement.asContent(): String? {
     return (this as? JsonPrimitive)?.contentOrNull
 }
 
+private const val YandexMusicApiBaseUrl = "https://api.music.yandex.net"
 private const val HttpStatusUnauthorized = 401
 private const val HttpStatusUnavailableForLegalReasons = 451
