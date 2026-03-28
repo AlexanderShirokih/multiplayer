@@ -1,0 +1,71 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="248dp"
+    android:height="249dp"
+    android:viewportWidth="248.0563"
+    android:viewportHeight="248.821">
+    <group
+        android:translateX="-77.7837"
+        android:translateY="-114.262">
+        <path android:pathData="M201.812,363.083C270.31,363.083 325.84,307.382 325.84,238.672C325.84,169.962 270.31,114.262 201.812,114.262C133.313,114.262 77.7837,169.962 77.7837,238.672C77.7837,307.382 133.313,363.083 201.812,363.083Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:centerX="201.812"
+                    android:centerY="259.303"
+                    android:gradientRadius="140.04"
+                    android:type="radial">
+                    <item
+                        android:color="#75A4BDFF"
+                        android:offset="0" />
+                    <item
+                        android:color="#295388FF"
+                        android:offset="0.66" />
+                    <item
+                        android:color="#005388FF"
+                        android:offset="1" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:pathData="M201.812,336.2C256.198,336.2 300.286,291.976 300.286,237.422C300.286,182.868 256.198,138.644 201.812,138.644C147.426,138.644 103.337,182.868 103.337,237.422C103.337,291.976 147.426,336.2 201.812,336.2Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:endX="275.514"
+                    android:endY="317.298"
+                    android:startX="126.398"
+                    android:startY="164.901"
+                    android:type="linear">
+                    <item
+                        android:color="#AAC0FF"
+                        android:offset="0" />
+                    <item
+                        android:color="#5D8FFF"
+                        android:offset="0.48" />
+                    <item
+                        android:color="#315FDD"
+                        android:offset="1" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M201.812,326.823C251.034,326.823 290.937,286.797 290.937,237.422C290.937,188.047 251.034,148.021 201.812,148.021C152.589,148.021 112.686,188.047 112.686,237.422C112.686,286.797 152.589,326.823 201.812,326.823Z"
+            android:strokeColor="#2EDDE8FF"
+            android:strokeWidth="0.624217" />
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M201.812,311.193C242.429,311.193 275.356,278.165 275.356,237.422C275.356,196.679 242.429,163.651 201.812,163.651C161.194,163.651 128.267,196.679 128.267,237.422C128.267,278.165 161.194,311.193 201.812,311.193Z"
+            android:strokeColor="#24EAF1FF"
+            android:strokeWidth="0.624217" />
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M201.812,289.937C230.726,289.937 254.165,266.425 254.165,237.422C254.165,208.419 230.726,184.907 201.812,184.907C172.898,184.907 149.458,208.419 149.458,237.422C149.458,266.425 172.898,289.937 201.812,289.937Z"
+            android:strokeColor="#1AF5F8FF"
+            android:strokeWidth="0.624217" />
+        <path
+            android:fillColor="#FF0E1628"
+            android:pathData="M201.812,256.803C212.482,256.803 221.133,248.126 221.133,237.422C221.133,226.718 212.482,218.042 201.812,218.042C191.141,218.042 182.491,226.718 182.491,237.422C182.491,248.126 191.141,256.803 201.812,256.803Z" />
+        <path
+            android:fillColor="#ADF6F8FC"
+            android:pathData="M201.812,244.299C205.598,244.299 208.667,241.22 208.667,237.422C208.667,233.624 205.598,230.545 201.812,230.545C198.025,230.545 194.956,233.624 194.956,237.422C194.956,241.22 198.025,244.299 201.812,244.299Z" />
+    </group>
+</vector>

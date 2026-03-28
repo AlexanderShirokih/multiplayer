@@ -25,6 +25,12 @@ import com.mplayeraudio.core.ui.theme.Indigo900
 import com.mplayeraudio.core.ui.theme.Ink950
 import com.mplayeraudio.core.ui.theme.Lavender50
 import com.mplayeraudio.core.ui.theme.Lavender100
+import com.mplayeraudio.core.ui.theme.MiniPlayerDarkEnd
+import com.mplayeraudio.core.ui.theme.MiniPlayerDarkSecondary
+import com.mplayeraudio.core.ui.theme.MiniPlayerDarkStart
+import com.mplayeraudio.core.ui.theme.MiniPlayerLightEnd
+import com.mplayeraudio.core.ui.theme.MiniPlayerLightSecondary
+import com.mplayeraudio.core.ui.theme.MiniPlayerLightStart
 import com.mplayeraudio.core.ui.theme.Navy600
 import com.mplayeraudio.core.ui.theme.NeutralBlue50
 import com.mplayeraudio.core.ui.theme.Peach50
@@ -67,6 +73,11 @@ data class MultiplayerColors(
     val brandVisualTertiaryMuted: Color,
     val ctaGradientStart: Color,
     val ctaGradientEnd: Color,
+    val miniPlayerGradientStart: Color,
+    val miniPlayerGradientEnd: Color,
+    val miniPlayerProgress: Color,
+    val miniPlayerPrimaryContent: Color,
+    val miniPlayerSecondaryContent: Color,
     val borderSubtle: Color,
     val borderStrong: Color,
     val success: Color,
@@ -114,6 +125,11 @@ private fun lightMultiplayerColors(): MultiplayerColors = MultiplayerColors(
     brandVisualTertiaryMuted = Purple300,
     ctaGradientStart = Amber300,
     ctaGradientEnd = AmberGradientLight,
+    miniPlayerGradientStart = MiniPlayerLightStart,
+    miniPlayerGradientEnd = MiniPlayerLightEnd,
+    miniPlayerProgress = Amber300,
+    miniPlayerPrimaryContent = Gray650,
+    miniPlayerSecondaryContent = MiniPlayerLightSecondary,
     borderSubtle = Gray300,
     borderStrong = Gray500,
     success = Blue400,
@@ -153,6 +169,11 @@ private fun darkMultiplayerColors(): MultiplayerColors = MultiplayerColors(
     brandVisualTertiaryMuted = Purple300,
     ctaGradientStart = AmberGradientLight,
     ctaGradientEnd = Amber300,
+    miniPlayerGradientStart = MiniPlayerDarkStart,
+    miniPlayerGradientEnd = MiniPlayerDarkEnd,
+    miniPlayerProgress = Amber300,
+    miniPlayerPrimaryContent = Gray100,
+    miniPlayerSecondaryContent = MiniPlayerDarkSecondary,
     borderSubtle = Gray600,
     borderStrong = Gray500,
     success = Blue300,
