@@ -48,6 +48,7 @@ public struct PlaylistCard: Hashable, Sendable {
     public let id: PlaylistId
     public let title: String
     public let trackCount: Int
+    public let role: PlaylistRole
     public let layout: PlaylistCardLayout
     public let style: MultiplayerCardSurfaceStyle
     public let artwork: PlaylistCardArtwork
@@ -57,6 +58,7 @@ public struct PlaylistCard: Hashable, Sendable {
         id: PlaylistId,
         title: String,
         trackCount: Int,
+        role: PlaylistRole,
         layout: PlaylistCardLayout,
         style: MultiplayerCardSurfaceStyle,
         artwork: PlaylistCardArtwork,
@@ -65,6 +67,7 @@ public struct PlaylistCard: Hashable, Sendable {
         self.id = id
         self.title = title
         self.trackCount = trackCount
+        self.role = role
         self.layout = layout
         self.style = style
         self.artwork = artwork
@@ -85,10 +88,12 @@ public enum PlaylistCardArtwork: Hashable, Sendable {
 public struct MusicLibraryDestination: Hashable, Sendable, Identifiable {
     public let playlistId: PlaylistId
     public let title: String
+    public let role: PlaylistRole
 
-    public init(playlistId: PlaylistId, title: String) {
+    public init(playlistId: PlaylistId, title: String, role: PlaylistRole) {
         self.playlistId = playlistId
         self.title = title
+        self.role = role
     }
 
     public var id: String {

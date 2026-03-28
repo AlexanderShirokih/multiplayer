@@ -11,9 +11,14 @@ private let featuredArtworkSize: CGFloat = 92
 
 public struct MusicLibraryView: View {
     @State private var viewModel: MusicLibraryViewModel
+    private let trackListViewModelFactory: (MusicLibraryDestination) -> TrackListViewModel
 
-    public init(viewModel: MusicLibraryViewModel) {
+    public init(
+        viewModel: MusicLibraryViewModel,
+        trackListViewModelFactory: @escaping (MusicLibraryDestination) -> TrackListViewModel
+    ) {
         _viewModel = State(initialValue: viewModel)
+        self.trackListViewModelFactory = trackListViewModelFactory
     }
 
     public var body: some View {
@@ -23,9 +28,7 @@ public struct MusicLibraryView: View {
                 onAction: viewModel.send
             )
             .navigationDestination(item: selectedPlaylistBinding) { destination in
-                TrackListView(
-                    state: TrackListPreviewFactory.makeState(title: destination.title)
-                )
+                TrackListView(viewModel: trackListViewModelFactory(destination))
             }
         }
         .task {
@@ -283,12 +286,18 @@ private struct LibraryDecorativeCurve: View {
 
 #Preview("Light") {
     MultiplayerDesignSystem(colorScheme: .light) {
-        MusicLibraryView(viewModel: MusicLibraryPreviewFactory.makeViewModel())
+        MusicLibraryView(
+            viewModel: MusicLibraryPreviewFactory.makeViewModel(),
+            trackListViewModelFactory: MusicLibraryPreviewFactory.makeTrackListViewModel
+        )
     }
 }
 
 #Preview("Dark") {
     MultiplayerDesignSystem(colorScheme: .dark) {
-        MusicLibraryView(viewModel: MusicLibraryPreviewFactory.makeViewModel())
+        MusicLibraryView(
+            viewModel: MusicLibraryPreviewFactory.makeViewModel(),
+            trackListViewModelFactory: MusicLibraryPreviewFactory.makeTrackListViewModel
+        )
     }
 }

@@ -3,15 +3,15 @@
 import PackageDescription
 
 let package = Package(
-    name: "CoreUI",
+    name: "CorePlayer",
     platforms: [
         .iOS(.v17),
         .macOS(.v14)
     ],
     products: [
         .library(
-            name: "CoreUI",
-            targets: ["CoreUI"]
+            name: "CorePlayer",
+            targets: ["CorePlayer"]
         )
     ],
     dependencies: [
@@ -19,7 +19,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "CoreUI",
+            name: "CorePlayer",
             plugins: [
                 .plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLint")
             ]

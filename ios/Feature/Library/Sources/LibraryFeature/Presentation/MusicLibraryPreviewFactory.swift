@@ -10,6 +10,20 @@ enum MusicLibraryPreviewFactory {
             refreshLibrary: RefreshLibraryUseCase(repository: repository)
         )
     }
+
+    @MainActor
+    static func makeTrackListViewModel(destination: MusicLibraryDestination) -> TrackListViewModel {
+        let repository = PreviewMusicLibraryRepository()
+        let bridge = InMemoryPlaybackQueueBridge()
+        return TrackListViewModel(
+            destination: destination,
+            observePlaylist: ObservePlaylistUseCase(repository: repository),
+            refreshPlaylist: RefreshPlaylistUseCase(repository: repository),
+            observeSavedTracks: ObserveSavedTracksUseCase(repository: repository),
+            refreshSavedTracks: RefreshSavedTracksUseCase(repository: repository),
+            playbackBridge: bridge
+        )
+    }
 }
 
 private final class PreviewMusicLibraryRepository: MusicLibraryRepository, @unchecked Sendable {

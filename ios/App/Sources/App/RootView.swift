@@ -11,8 +11,11 @@ struct RootView: View {
                 WelcomeView(viewModel: appRoot.authCardViewModel)
                     .transition(.opacity)
             case .library:
-                MusicLibraryView(viewModel: appRoot.musicLibraryViewModel)
-                    .transition(.opacity)
+                MusicLibraryView(
+                    viewModel: appRoot.musicLibraryViewModel,
+                    trackListViewModelFactory: appRoot.makeTrackListViewModel
+                )
+                .transition(.opacity)
             }
         }
         .task {

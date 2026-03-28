@@ -14,6 +14,7 @@ final class AppRoot {
 
     let authCardViewModel: YandexMusicAuthCardViewModel
     let musicLibraryViewModel: MusicLibraryViewModel
+    let makeTrackListViewModel: (MusicLibraryDestination) -> TrackListViewModel
 
     var destination: Destination
 
@@ -27,6 +28,7 @@ final class AppRoot {
         let dependencies = AppDependencies.live()
         authCardViewModel = dependencies.authCardViewModel
         musicLibraryViewModel = dependencies.musicLibraryViewModel
+        makeTrackListViewModel = dependencies.makeTrackListViewModel
         observeAuthorizedMusicProvider = dependencies.observeAuthorizedMusicProvider
         completeYandexAuthorization = dependencies.completeYandexAuthorization
         redirectURL = dependencies.oauthConfig.redirectURL
@@ -71,6 +73,7 @@ private struct AppDependencies {
     let completeYandexAuthorization: CompleteYandexAuthorizationUseCase
     let authCardViewModel: YandexMusicAuthCardViewModel
     let musicLibraryViewModel: MusicLibraryViewModel
+    let makeTrackListViewModel: (MusicLibraryDestination) -> TrackListViewModel
 
     @MainActor
     static func live(bundle: Bundle = .main) -> AppDependencies {
@@ -87,6 +90,7 @@ private struct AppDependencies {
         let musicLibraryRepository = YandexMusicRepositoryImpl(
             accessTokenProvider: authRepository
         )
+        let playbackQueueBridge = InMemoryPlaybackQueueBridge()
 
         return AppDependencies(
             oauthConfig: oauthConfig,
@@ -101,7 +105,17 @@ private struct AppDependencies {
             musicLibraryViewModel: MusicLibraryViewModel(
                 observeOwnPlaylists: ObserveOwnPlaylistsUseCase(repository: musicLibraryRepository),
                 refreshLibrary: RefreshLibraryUseCase(repository: musicLibraryRepository)
-            )
+            ),
+            makeTrackListViewModel: { destination in
+                TrackListViewModel(
+                    destination: destination,
+                    observePlaylist: ObservePlaylistUseCase(repository: musicLibraryRepository),
+                    refreshPlaylist: RefreshPlaylistUseCase(repository: musicLibraryRepository),
+                    observeSavedTracks: ObserveSavedTracksUseCase(repository: musicLibraryRepository),
+                    refreshSavedTracks: RefreshSavedTracksUseCase(repository: musicLibraryRepository),
+                    playbackBridge: playbackQueueBridge
+                )
+            }
         )
     }
 }

@@ -76,7 +76,8 @@ public final class MusicLibraryViewModel {
 
             state.selectedPlaylist = MusicLibraryDestination(
                 playlistId: playlist.id,
-                title: playlist.title
+                title: playlist.title,
+                role: playlist.role
             )
 
         case .dismissPlaylistDetail:
@@ -95,6 +96,7 @@ private extension PlaylistSummary {
                 id: id,
                 title: title,
                 trackCount: trackCount,
+                role: role,
                 layout: isFeaturedCard(index: index) ? .featured : .compact,
                 style: isFavourites
                     ? .surface4
