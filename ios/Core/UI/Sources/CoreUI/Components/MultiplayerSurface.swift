@@ -75,8 +75,8 @@ private struct MultiplayerShadowModifier: ViewModifier {
             content.shadow(
                 color: shadow.color,
                 radius: shadow.radius,
-                x: shadow.x,
-                y: shadow.y
+                x: shadow.offsetX,
+                y: shadow.offsetY
             )
         } else {
             content

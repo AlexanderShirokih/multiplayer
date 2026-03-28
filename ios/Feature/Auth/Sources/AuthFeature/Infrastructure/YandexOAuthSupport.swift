@@ -137,7 +137,7 @@ struct YandexAuthorizationURLBuilder: YandexAuthorizationURLBuilding {
             URLQueryItem(name: "device_name", value: deviceName),
             URLQueryItem(name: "state", value: state),
             URLQueryItem(name: "code_challenge", value: codeChallenge),
-            URLQueryItem(name: "code_challenge_method", value: "S256"),
+            URLQueryItem(name: "code_challenge_method", value: "S256")
         ]
 
         guard let url = components.url else {

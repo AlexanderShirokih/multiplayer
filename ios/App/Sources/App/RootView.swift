@@ -1,3 +1,4 @@
+import LibraryFeature
 import SwiftUI
 
 struct RootView: View {
@@ -8,9 +9,9 @@ struct RootView: View {
             switch appRoot.destination {
             case .auth:
                 WelcomeView(viewModel: appRoot.authCardViewModel)
-                .transition(.opacity)
-            case .player:
-                PlayerPlaceholderView()
+                    .transition(.opacity)
+            case .library:
+                MusicLibraryView(viewModel: appRoot.musicLibraryViewModel)
                     .transition(.opacity)
             }
         }

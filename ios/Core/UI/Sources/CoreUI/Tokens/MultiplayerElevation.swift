@@ -4,19 +4,19 @@ import SwiftUI
 public struct MultiplayerShadow {
     public let opacity: Double
     public let radius: CGFloat
-    public let x: CGFloat
-    public let y: CGFloat
+    public let offsetX: CGFloat
+    public let offsetY: CGFloat
 
     public init(
         opacity: Double,
         radius: CGFloat,
-        x: CGFloat = 0,
-        y: CGFloat = 0
+        offsetX: CGFloat = 0,
+        offsetY: CGFloat = 0
     ) {
         self.opacity = opacity
         self.radius = radius
-        self.x = x
-        self.y = y
+        self.offsetX = offsetX
+        self.offsetY = offsetY
     }
 
     public var color: Color {
@@ -32,9 +32,9 @@ public struct MultiplayerElevation {
 
     public init(
         level0: MultiplayerShadow? = nil,
-        level1: MultiplayerShadow = MultiplayerShadow(opacity: 0.12, radius: 8, y: 4),
-        level2: MultiplayerShadow = MultiplayerShadow(opacity: 0.18, radius: 18, y: 10),
-        level3: MultiplayerShadow = MultiplayerShadow(opacity: 0.22, radius: 28, y: 16)
+        level1: MultiplayerShadow = MultiplayerShadow(opacity: 0.12, radius: 8, offsetY: 4),
+        level2: MultiplayerShadow = MultiplayerShadow(opacity: 0.18, radius: 18, offsetY: 10),
+        level3: MultiplayerShadow = MultiplayerShadow(opacity: 0.22, radius: 28, offsetY: 16)
     ) {
         self.level0 = level0
         self.level1 = level1

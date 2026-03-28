@@ -73,6 +73,11 @@ public enum PlaylistVisibility: Sendable {
     case `private`
 }
 
+public enum PlaylistRole: Sendable {
+    case favourites
+    case regular
+}
+
 // MARK: - Service availability
 
 public struct MusicServiceAvailability: Sendable {
@@ -101,6 +106,7 @@ public struct PlaylistSummary: Sendable {
     public let isAvailable: Bool
     public let isCollective: Bool
     public let visibility: PlaylistVisibility?
+    public let role: PlaylistRole
 
     public init(
         id: PlaylistId,
@@ -113,7 +119,8 @@ public struct PlaylistSummary: Sendable {
         durationMs: Int64?,
         isAvailable: Bool,
         isCollective: Bool,
-        visibility: PlaylistVisibility?
+        visibility: PlaylistVisibility?,
+        role: PlaylistRole = .regular
     ) {
         self.id = id
         self.provider = provider
@@ -126,6 +133,7 @@ public struct PlaylistSummary: Sendable {
         self.isAvailable = isAvailable
         self.isCollective = isCollective
         self.visibility = visibility
+        self.role = role
     }
 }
 

@@ -49,8 +49,8 @@ extension Dictionary where Key == String, Value == Any {
     }
 
     func optionalStringOrInt(_ key: String) -> String? {
-        if let s = optionalString(key) { return s }
-        if let n = optionalInt64(key) { return String(n) }
+        if let str = optionalString(key) { return str }
+        if let num = optionalInt64(key) { return String(num) }
         return nil
     }
 
@@ -65,9 +65,9 @@ extension Dictionary where Key == String, Value == Any {
 
     func optionalInt64(_ key: String) -> Int64? {
         switch self[key] {
-        case let n as Int: return Int64(n)
-        case let n as Int64: return n
-        case let n as NSNumber: return n.int64Value
+        case let int as Int: return Int64(int)
+        case let int64 as Int64: return int64
+        case let num as NSNumber: return num.int64Value
         default: return nil
         }
     }

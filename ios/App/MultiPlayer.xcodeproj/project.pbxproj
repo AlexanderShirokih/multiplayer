@@ -13,6 +13,8 @@
 		A00000000000000000000017 /* AppRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000007 /* AppRoot.swift */; };
 		A00000000000000000000018 /* PlayerPlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000008 /* PlayerPlaceholderView.swift */; };
 		A00000000000000000000019 /* AuthFeature in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000084 /* AuthFeature */; };
+		A0000000000000000000001A /* LibraryFeature in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000086 /* LibraryFeature */; };
+		A0000000000000000000001B /* YandexMusicService in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000088 /* YandexMusicService */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,6 +38,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A0000000000000000000001B /* YandexMusicService in Frameworks */,
+				A0000000000000000000001A /* LibraryFeature in Frameworks */,
 				A00000000000000000000019 /* AuthFeature in Frameworks */,
 				A00000000000000000000014 /* CoreUI in Frameworks */,
 			);
@@ -146,6 +150,8 @@
 			packageProductDependencies = (
 				A00000000000000000000084 /* AuthFeature */,
 				A00000000000000000000082 /* CoreUI */,
+				A00000000000000000000086 /* LibraryFeature */,
+				A00000000000000000000088 /* YandexMusicService */,
 			);
 			productName = MultiPlayer;
 			productReference = A00000000000000000000004 /* MultiPlayer.app */;
@@ -178,6 +184,8 @@
 			packageReferences = (
 				A00000000000000000000083 /* XCLocalSwiftPackageReference "../Feature/Auth" */,
 				A00000000000000000000081 /* XCLocalSwiftPackageReference "../Core/UI" */,
+				A00000000000000000000085 /* XCLocalSwiftPackageReference "../Feature/Library" */,
+				A00000000000000000000087 /* XCLocalSwiftPackageReference "../Services/YandexMusic" */,
 			);
 			productRefGroup = A00000000000000000000033 /* Products */;
 			projectDirPath = "";
@@ -405,6 +413,14 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../Feature/Auth;
 		};
+		A00000000000000000000085 /* XCLocalSwiftPackageReference "../Feature/Library" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Feature/Library;
+		};
+		A00000000000000000000087 /* XCLocalSwiftPackageReference "../Services/YandexMusic" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Services/YandexMusic;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -415,6 +431,14 @@
 		A00000000000000000000084 /* AuthFeature */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AuthFeature;
+		};
+		A00000000000000000000086 /* LibraryFeature */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LibraryFeature;
+		};
+		A00000000000000000000088 /* YandexMusicService */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = YandexMusicService;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

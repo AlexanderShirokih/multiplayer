@@ -48,7 +48,8 @@ extension [String: Any] {
             durationMs: optionalInt64("durationMs"),
             isAvailable: optionalBool("available") ?? true,
             isCollective: optionalBool("collective") ?? false,
-            visibility: optionalString("visibility").flatMap(\.toPlaylistVisibility)
+            visibility: optionalString("visibility").flatMap(\.toPlaylistVisibility),
+            role: playlistRole()
         )
     }
 
@@ -90,6 +91,8 @@ extension [String: Any] {
     }
 }
 
+private let yandexFavouritesPlaylistKind: Int64 = 3
+
 // MARK: - Saved tracks
 
 func parseSavedTracksResult(from value: Any, userId: ProviderUserId) throws -> SavedTracksResult {
@@ -114,6 +117,11 @@ func parseSavedTracksResult(from value: Any, userId: ProviderUserId) throws -> S
 }
 
 private extension [String: Any] {
+    func playlistRole() -> PlaylistRole {
+        let kind = optionalInt64("kind")
+        return kind == yandexFavouritesPlaylistKind ? .favourites : .regular
+    }
+
     func toSavedTracks() throws -> SavedTracks {
         guard let ownerId = optionalInt64("uid").map(String.init) else {
             throw MusicLibraryError.invalidResponse(
@@ -209,9 +217,11 @@ private extension [String: Any] {
         switch cover?.optionalString("type") {
         case "pic":
             return cover?.optionalString("uri") ?? optionalString("ogImage")
+
         case "mosaic":
             let firstItem = cover?.optionalAnyArray("itemsUri")?.first as? String
             return firstItem ?? optionalString("ogImage")
+
         default:
             return optionalString("ogImage")
         }

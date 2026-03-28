@@ -202,8 +202,10 @@ public final class URLSessionYandexMusicAPI: YandexMusicAPI, @unchecked Sendable
         switch statusCode {
         case 401:
             return .unauthorized
+
         case 451:
             return .serviceUnavailable(description: errorMessage ?? errorName)
+
         default:
             return .providerError(
                 code: errorName ?? "http_\(statusCode)",

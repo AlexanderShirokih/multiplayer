@@ -124,22 +124,31 @@ public enum YandexAuthException: Error, Equatable, LocalizedError, Sendable {
         switch self {
         case .missingConfiguration:
             return "Yandex OAuth configuration is missing."
+
         case .missingSession:
             return "Yandex session is missing."
+
         case .missingPendingAuthorization:
             return "Pending Yandex authorization request is missing."
+
         case .missingAuthorizationCode:
             return "Yandex OAuth callback does not contain an authorization code."
+
         case .invalidCallbackState:
             return "Yandex OAuth callback state is invalid."
+
         case let .accessDenied(description):
             return description ?? "Yandex OAuth access was denied."
+
         case let .providerError(code, description):
             return description ?? code
+
         case let .networkFailure(reason):
             return reason
+
         case let .refreshFailed(reason):
             return reason
+
         case let .storageFailure(reason):
             return reason
         }

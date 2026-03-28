@@ -24,8 +24,8 @@ public struct MultiplayerTheme {
         self.typography = typography
     }
 
-    public static func `default`(for colorScheme: ColorScheme) -> MultiplayerTheme {
-        MultiplayerTheme(
+    public static func `default`(for colorScheme: ColorScheme) -> Self {
+        Self(
             colors: multiplayerColors(for: colorScheme)
         )
     }
@@ -48,6 +48,7 @@ internal func multiplayerColors(for colorScheme: ColorScheme) -> MultiplayerColo
     switch colorScheme {
     case .dark:
         darkMultiplayerColors()
+
     default:
         lightMultiplayerColors()
     }

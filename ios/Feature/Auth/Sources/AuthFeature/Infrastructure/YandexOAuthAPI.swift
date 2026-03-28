@@ -51,7 +51,7 @@ public final class URLSessionYandexOAuthAPI: YandexOAuthAPI, @unchecked Sendable
                 "client_id": config.clientId.rawValue,
                 "device_id": deviceId,
                 "device_name": deviceName,
-                "code_verifier": codeVerifier,
+                "code_verifier": codeVerifier
             ],
             operation: "exchangeAuthorizationCode"
         )
@@ -68,7 +68,7 @@ public final class URLSessionYandexOAuthAPI: YandexOAuthAPI, @unchecked Sendable
                 "grant_type": "refresh_token",
                 "refresh_token": refreshToken.rawValue,
                 "client_id": config.clientId.rawValue,
-                "client_secret": config.clientSecret,
+                "client_secret": config.clientSecret
             ],
             operation: "refreshAccessToken"
         )
@@ -84,7 +84,7 @@ public final class URLSessionYandexOAuthAPI: YandexOAuthAPI, @unchecked Sendable
             parameters: [
                 "access_token": accessToken.rawValue,
                 "client_id": config.clientId.rawValue,
-                "client_secret": config.clientSecret,
+                "client_secret": config.clientSecret
             ],
             operation: "revokeToken"
         )
@@ -95,7 +95,7 @@ public final class URLSessionYandexOAuthAPI: YandexOAuthAPI, @unchecked Sendable
     ) async throws -> YandexUserIdentity {
         var components = URLComponents(string: "https://login.yandex.ru/info")
         components?.queryItems = [
-            URLQueryItem(name: "format", value: "json"),
+            URLQueryItem(name: "format", value: "json")
         ]
         guard let url = components?.url else {
             throw YandexAuthException.networkFailure(reason: "Unable to build Yandex user info URL.")

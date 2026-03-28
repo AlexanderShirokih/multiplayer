@@ -189,6 +189,15 @@ UI → ViewModel → UseCase → Repository (interface)
 - `#Preview` для каждого компонента
 - `*View` — точка входа, создаёт ViewModel; `*ContentView` — чистый компонент
 - Логически разделять экраны или крупные блоки по **отдельным файлам, по необходимости** — чтобы не раздувать один файл и сохранять читаемость и удобство навигации по коду
+- **SwiftLint** обязателен для iOS-кода (см. подраздел ниже).
+
+### SwiftLint (iOS)
+
+- **Запуск**: из каталога `ios/` выполнить `swiftlint lint` (требует `brew install swiftlint`). Успешное завершение без нарушений — часть проверки после правок Swift-кода в `ios/`.
+- **Подключение в модулях**: SwiftLint подключён как SPM build tool plugin в каждом `Package.swift` (`SwiftLintBuildToolPlugin`) — запускается автоматически при сборке в Xcode. При первом открытии проекта Xcode попросит разрешить плагин (Trust & Enable).
+- **Конфигурация**: `ios/.swiftlint.yml`. Правила и пороги меняют здесь; общие отключения — только с кратким комментарием.
+- **Подавления**: точечно — `// swiftlint:disable:next ИмяПравила` перед конкретной строкой; для блока — `// swiftlint:disable ИмяПравила` / `// swiftlint:enable ИмяПравила`. Глобальные отключения — только через `ios/.swiftlint.yml`, если это осознанное соглашение.
+- **Ссылки**: [SwiftLint](https://github.com/realm/SwiftLint), [Список правил](https://realm.github.io/SwiftLint/rule-directory.html).
 
 ---
 

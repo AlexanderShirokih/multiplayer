@@ -19,7 +19,7 @@ public final class KeychainSecureStore: SecureKeyValueStore, @unchecked Sendable
     public func data(forKey key: String) throws -> Data? {
         let query = baseQuery(forKey: key).merging([
             kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecMatchLimit as String: kSecMatchLimitOne
         ]) { _, newValue in newValue }
 
         var item: CFTypeRef?
@@ -27,8 +27,10 @@ public final class KeychainSecureStore: SecureKeyValueStore, @unchecked Sendable
         switch status {
         case errSecSuccess:
             return item as? Data
+
         case errSecItemNotFound:
             return nil
+
         default:
             throw YandexAuthException.storageFailure(reason: "Keychain read failed with status \(status).")
         }
@@ -38,7 +40,7 @@ public final class KeychainSecureStore: SecureKeyValueStore, @unchecked Sendable
         let query = baseQuery(forKey: key)
         let attributes: [String: Any] = [
             kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
 
         let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
@@ -74,7 +76,7 @@ public final class KeychainSecureStore: SecureKeyValueStore, @unchecked Sendable
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
+            kSecAttrAccount as String: key
         ]
     }
 }

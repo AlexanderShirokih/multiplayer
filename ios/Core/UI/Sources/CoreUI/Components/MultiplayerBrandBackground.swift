@@ -14,7 +14,7 @@ public struct MultiplayerBrandBackground: View {
                     theme.colors.brandVisualPrimary.opacity(0.98),
                     theme.colors.brandVisualPrimary.opacity(0.58),
                     theme.colors.brandVisualPrimaryContainer.opacity(0.22),
-                    .clear,
+                    .clear
                 ],
                 size: 340,
                 blurRadius: 84
@@ -26,7 +26,7 @@ public struct MultiplayerBrandBackground: View {
                 colorStops: [
                     theme.colors.brandVisualPrimaryMuted.opacity(0.9),
                     theme.colors.brandVisualPrimaryContainer.opacity(0.42),
-                    .clear,
+                    .clear
                 ],
                 size: 168,
                 blurRadius: 28
@@ -38,7 +38,7 @@ public struct MultiplayerBrandBackground: View {
                 colorStops: [
                     theme.colors.brandVisualSecondary.opacity(0.88),
                     theme.colors.brandVisualSecondary.opacity(0.34),
-                    .clear,
+                    .clear
                 ],
                 size: 232,
                 blurRadius: 58
@@ -50,7 +50,7 @@ public struct MultiplayerBrandBackground: View {
                 colorStops: [
                     theme.colors.brandVisualSecondary.opacity(0.74),
                     theme.colors.brandVisualSecondary.opacity(0.2),
-                    .clear,
+                    .clear
                 ],
                 size: 96,
                 blurRadius: 18
@@ -61,7 +61,7 @@ public struct MultiplayerBrandBackground: View {
             DecorativeGlow(
                 colorStops: [
                     theme.colors.brandVisualPrimaryContainer.opacity(0.34),
-                    .clear,
+                    .clear
                 ],
                 size: 320,
                 blurRadius: 58

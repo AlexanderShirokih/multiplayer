@@ -1,5 +1,7 @@
 import CoreGraphics
 
+// swiftlint:disable superfluous_disable_command
+// swiftlint:disable identifier_name
 public struct MultiplayerSpacing {
     public let xxs: CGFloat
     public let xs: CGFloat
@@ -30,3 +32,5 @@ public struct MultiplayerSpacing {
         self.xxxl = xxxl
     }
 }
+// swiftlint:enable identifier_name
+// swiftlint:enable superfluous_disable_command

@@ -1,6 +1,10 @@
 import Foundation
 
-public final class YandexAuthRepositoryImpl: YandexAuthRepository, YandexAccessTokenProvider, MusicProviderAuthorizationRepository, @unchecked Sendable {
+public final class YandexAuthRepositoryImpl:
+    YandexAuthRepository,
+    YandexAccessTokenProvider,
+    MusicProviderAuthorizationRepository,
+    @unchecked Sendable {
     private let config: YandexOAuthConfig
     private let oauthAPI: YandexOAuthAPI
     private let sessionStore: YandexSessionStore

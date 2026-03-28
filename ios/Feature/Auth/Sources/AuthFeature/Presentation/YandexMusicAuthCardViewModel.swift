@@ -120,12 +120,15 @@ public final class YandexMusicAuthCardViewModel {
         case .unauthorized:
             state.isLoading = false
             isAwaitingAuthorizationCallback = false
+
         case .authorizing:
             state.isLoading = true
+
         case .authorized:
             state.isLoading = false
             state.isAuthorized = true
             isAwaitingAuthorizationCallback = false
+
         case let .failed(error):
             state.isLoading = false
             isAwaitingAuthorizationCallback = false
@@ -139,12 +142,16 @@ private extension YandexAuthException {
         switch self {
         case .missingConfiguration:
             return "Не настроен Yandex OAuth. Проверьте client_id, client_secret и redirect URI."
+
         case .invalidCallbackState:
             return "Сессия авторизации устарела. Попробуйте войти ещё раз."
+
         case .missingAuthorizationCode:
             return "Яндекс не вернул код авторизации."
+
         case .accessDenied:
             return "Доступ к аккаунту Яндекса не был подтверждён."
+
         default:
             return errorDescription ?? "Не удалось авторизоваться через Яндекс."
         }

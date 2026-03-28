@@ -1,16 +1,19 @@
 import AuthFeature
 import Foundation
+import LibraryFeature
 import Observation
+import YandexMusicService
 
 @Observable
 @MainActor
 final class AppRoot {
     enum Destination: Hashable {
         case auth
-        case player
+        case library
     }
 
     let authCardViewModel: YandexMusicAuthCardViewModel
+    let musicLibraryViewModel: MusicLibraryViewModel
 
     var destination: Destination
 
@@ -23,6 +26,7 @@ final class AppRoot {
     init() {
         let dependencies = AppDependencies.live()
         authCardViewModel = dependencies.authCardViewModel
+        musicLibraryViewModel = dependencies.musicLibraryViewModel
         observeAuthorizedMusicProvider = dependencies.observeAuthorizedMusicProvider
         completeYandexAuthorization = dependencies.completeYandexAuthorization
         redirectURL = dependencies.oauthConfig.redirectURL
@@ -66,6 +70,7 @@ private struct AppDependencies {
     let observeAuthorizedMusicProvider: ObserveAuthorizedMusicProviderUseCase
     let completeYandexAuthorization: CompleteYandexAuthorizationUseCase
     let authCardViewModel: YandexMusicAuthCardViewModel
+    let musicLibraryViewModel: MusicLibraryViewModel
 
     @MainActor
     static func live(bundle: Bundle = .main) -> AppDependencies {
@@ -74,21 +79,28 @@ private struct AppDependencies {
             service: "\(bundle.bundleIdentifier ?? "com.mplayeraudio").auth"
         )
         let sessionStore = KeychainYandexSessionStore(secureStore: secureStore)
-        let repository = YandexAuthRepositoryImpl(
+        let authRepository = YandexAuthRepositoryImpl(
             config: oauthConfig,
             sessionStore: sessionStore,
             secureStore: secureStore
         )
+        let musicLibraryRepository = YandexMusicRepositoryImpl(
+            accessTokenProvider: authRepository
+        )
 
         return AppDependencies(
             oauthConfig: oauthConfig,
-            observeAuthorizedMusicProvider: ObserveAuthorizedMusicProviderUseCase(repository: repository),
-            completeYandexAuthorization: CompleteYandexAuthorizationUseCase(repository: repository),
+            observeAuthorizedMusicProvider: ObserveAuthorizedMusicProviderUseCase(repository: authRepository),
+            completeYandexAuthorization: CompleteYandexAuthorizationUseCase(repository: authRepository),
             authCardViewModel: YandexMusicAuthCardViewModel(
-                startYandexAuthorization: StartYandexAuthorizationUseCase(repository: repository),
-                cancelYandexAuthorization: CancelYandexAuthorizationUseCase(repository: repository),
-                observeYandexSession: ObserveYandexSessionUseCase(repository: repository),
-                observeYandexAuthStatus: ObserveYandexAuthStatusUseCase(repository: repository)
+                startYandexAuthorization: StartYandexAuthorizationUseCase(repository: authRepository),
+                cancelYandexAuthorization: CancelYandexAuthorizationUseCase(repository: authRepository),
+                observeYandexSession: ObserveYandexSessionUseCase(repository: authRepository),
+                observeYandexAuthStatus: ObserveYandexAuthStatusUseCase(repository: authRepository)
+            ),
+            musicLibraryViewModel: MusicLibraryViewModel(
+                observeOwnPlaylists: ObserveOwnPlaylistsUseCase(repository: musicLibraryRepository),
+                refreshLibrary: RefreshLibraryUseCase(repository: musicLibraryRepository)
             )
         )
     }
@@ -100,7 +112,7 @@ private extension AuthorizedMusicProvider? {
         case nil:
             return .auth
         case .some:
-            return .player
+            return .library
         }
     }
 }

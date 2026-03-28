@@ -1,13 +1,14 @@
-@testable import YandexMusicService
 import AuthFeature
 import CoreDomain
 import Foundation
 import XCTest
+@testable import YandexMusicService
 
 final class YandexMusicRepositoryImplTests: XCTestCase {
 
     // MARK: - Own playlists
 
+    // swiftlint:disable:next function_body_length
     func testObserveOwnPlaylistsEmitsRefreshedSummaryResponse() async throws {
         let api = FakeYandexMusicAPI(
             currentUser: ["id": "264684056"],
@@ -27,10 +28,10 @@ final class YandexMusicRepositoryImplTests: XCTestCase {
                     "durationMs": 2757910,
                     "cover": [
                         "type": "mosaic",
-                        "itemsUri": ["avatars.yandex.net/get-music-content/163479/e1a3abf0.a.4056452-1/%%"],
+                        "itemsUri": ["avatars.yandex.net/get-music-content/163479/e1a3abf0.a.4056452-1/%%"]
                     ],
-                    "ogImage": "avatars.yandex.net/get-music-content/163479/e1a3abf0.a.4056452-1/%%",
-                ],
+                    "ogImage": "avatars.yandex.net/get-music-content/163479/e1a3abf0.a.4056452-1/%%"
+                ]
             ]
         )
         let repository = makeRepository(api: api)
@@ -56,6 +57,7 @@ final class YandexMusicRepositoryImplTests: XCTestCase {
 
     // MARK: - Playlist with rich tracks
 
+    // swiftlint:disable:next function_body_length
     func testObservePlaylistEmitsRefreshedRichTrackEntries() async throws {
         let playlistId = PlaylistId(
             ownerId: ProviderUserId(rawValue: "264684056"),
@@ -78,7 +80,7 @@ final class YandexMusicRepositoryImplTests: XCTestCase {
                 "likesCount": 2,
                 "cover": [
                     "type": "mosaic",
-                    "itemsUri": ["avatars.yandex.net/get-music-content/163479/e1a3abf0.a.4056452-1/%%"],
+                    "itemsUri": ["avatars.yandex.net/get-music-content/163479/e1a3abf0.a.4056452-1/%%"]
                 ],
                 "tracks": [
                     [
@@ -97,10 +99,10 @@ final class YandexMusicRepositoryImplTests: XCTestCase {
                             "durationMs": 222000,
                             "lyricsAvailable": true,
                             "artists": [["id": 15, "name": "Artist"]],
-                            "albums": [["id": 4056452]],
-                        ] as [String: Any],
-                    ] as [String: Any],
-                ],
+                            "albums": [["id": 4056452]]
+                        ] as [String: Any]
+                    ] as [String: Any]
+                ]
             ]
         )
         let repository = makeRepository(api: api)
@@ -169,10 +171,10 @@ final class YandexMusicRepositoryImplTests: XCTestCase {
                             "durationMs": 222000,
                             "lyricsAvailable": true,
                             "artists": [["id": 15, "name": "Artist"]],
-                            "albums": [["id": 4056452]],
-                        ] as [String: Any],
-                    ] as [String: Any],
-                ],
+                            "albums": [["id": 4056452]]
+                        ] as [String: Any]
+                    ] as [String: Any]
+                ]
             ]
         )
         let repository = makeRepository(api: api)
