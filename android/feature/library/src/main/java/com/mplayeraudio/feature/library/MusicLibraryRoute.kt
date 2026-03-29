@@ -43,6 +43,7 @@ fun MusicLibraryRoute(
             null -> {
                 MusicLibraryScreen(
                     state = state,
+                    onRefresh = viewModel::onRefresh,
                     onPlaylistClick = viewModel::onPlaylistClick,
                     modifier = modifier,
                 )

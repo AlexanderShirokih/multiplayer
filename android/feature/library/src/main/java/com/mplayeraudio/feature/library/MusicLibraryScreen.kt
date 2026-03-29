@@ -22,6 +22,8 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,9 +52,11 @@ private val CompactArtworkSize = 64.dp
 private val FeaturedArtworkSize = 92.dp
 private val HeroArtworkSize = 108.dp
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MusicLibraryScreen(
     state: MusicLibraryState,
+    onRefresh: () -> Unit,
     onPlaylistClick: (MusicLibraryCard.Playlist) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -72,10 +76,15 @@ fun MusicLibraryScreen(
             )
         } else {
             state.content?.let { content ->
-                LibraryContent(
-                    content = content,
-                    onPlaylistClick = onPlaylistClick,
-                )
+                PullToRefreshBox(
+                    isRefreshing = state.isLoading,
+                    onRefresh = onRefresh,
+                ) {
+                    LibraryContent(
+                        content = content,
+                        onPlaylistClick = onPlaylistClick,
+                    )
+                }
             }
         }
     }
@@ -308,6 +317,7 @@ private fun MusicLibraryScreenPreview() {
                 isLoading = false,
                 content = previewLibraryContent(),
             ),
+            onRefresh = {},
             onPlaylistClick = {},
         )
     }
@@ -322,6 +332,7 @@ private fun MusicLibraryScreenDarkPreview() {
                 isLoading = false,
                 content = previewLibraryContent(),
             ),
+            onRefresh = {},
             onPlaylistClick = {},
         )
     }

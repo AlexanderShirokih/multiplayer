@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val PlaylistCardStyles = listOf(
@@ -37,31 +38,31 @@ class MusicLibraryViewModel(
     init {
         observeOwnPlaylists()
             .onEach { playlists ->
-            val orderedPlaylists = playlists.orderedForPresentation()
-            val cards = buildList {
-                orderedPlaylists.mapIndexedTo(this) { index, playlist ->
-                    playlist.toLibraryCard(index)
+                val orderedPlaylists = playlists.orderedForPresentation()
+                val cards = buildList {
+                    orderedPlaylists.mapIndexedTo(this) { index, playlist ->
+                        playlist.toLibraryCard(index)
+                    }
                 }
-            }
-            _state.update {
-                it.copy(
-                    isLoading = false,
-                    content = MusicLibraryContent(
-                        cards = cards,
-                    ),
-                )
-            }
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        content = MusicLibraryContent(
+                            cards = cards,
+                        ),
+                    )
+                }
             }
             .launchIn(viewModelScope)
 
-        viewModelScope.launch {
-            _state.update { it.copy(isLoading = true) }
-            try {
-                refreshLibrary()
-            } catch (_: MusicLibraryException) {
-                _state.update { it.copy(isLoading = false) }
-            }
+        refreshLibraryContent()
+    }
+
+    fun onRefresh() {
+        if (_state.value.isLoading) {
+            return
         }
+        refreshLibraryContent()
     }
 
     fun onPlaylistClick(playlist: MusicLibraryCard.Playlist) {
@@ -75,6 +76,20 @@ class MusicLibraryViewModel(
                     ),
                 ),
             )
+        }
+    }
+
+    private fun refreshLibraryContent() {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            try {
+                refreshLibrary()
+            } catch (_: MusicLibraryException) {
+                // Обновление могло завершиться без новых данных в observeOwnPlaylists.
+                // В этом случае нужно явно снять loading/PTR.
+            }
+            delay(PullToRefreshHideDelayMs)
+            _state.update { it.copy(isLoading = false) }
         }
     }
 }
@@ -131,3 +146,4 @@ private fun isFeaturedCard(index: Int): Boolean {
 
 private const val FirstFeaturedCardIndex = 2
 private const val FeaturedCardPeriod = 3
+private const val PullToRefreshHideDelayMs = 300L
