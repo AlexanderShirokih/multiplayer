@@ -1,6 +1,8 @@
 package com.mplayeraudio.app
 
 import android.app.Application
+import com.kithara.Kithara
+import com.kithara.LogLevel
 import com.mplayeraudio.core.domain.yandexauth.YandexClientId
 import com.mplayeraudio.feature.auth.yamusic.yandexMusicAuthModule
 import com.mplayeraudio.feature.library.musicLibraryModule
@@ -13,6 +15,8 @@ import org.koin.core.context.startKoin
 class MultiplayerApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+
+        Kithara.initialize(this, LogLevel.Debug)
 
         startKoin {
             androidContext(this@MultiplayerApplication)

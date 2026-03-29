@@ -15,6 +15,7 @@
 		A00000000000000000000019 /* AuthFeature in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000084 /* AuthFeature */; };
 		A0000000000000000000001A /* LibraryFeature in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000086 /* LibraryFeature */; };
 		A0000000000000000000001B /* YandexMusicService in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000088 /* YandexMusicService */; };
+		A0000000000000000000001C /* ServicesKitharaPlayer in Frameworks */ = {isa = PBXBuildFile; productRef = A0000000000000000000008A /* ServicesKitharaPlayer */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +39,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A0000000000000000000001C /* ServicesKitharaPlayer in Frameworks */,
 				A0000000000000000000001B /* YandexMusicService in Frameworks */,
 				A0000000000000000000001A /* LibraryFeature in Frameworks */,
 				A00000000000000000000019 /* AuthFeature in Frameworks */,
@@ -151,6 +153,7 @@
 				A00000000000000000000084 /* AuthFeature */,
 				A00000000000000000000082 /* CoreUI */,
 				A00000000000000000000086 /* LibraryFeature */,
+				A0000000000000000000008A /* ServicesKitharaPlayer */,
 				A00000000000000000000088 /* YandexMusicService */,
 			);
 			productName = MultiPlayer;
@@ -185,6 +188,7 @@
 				A00000000000000000000083 /* XCLocalSwiftPackageReference "../Feature/Auth" */,
 				A00000000000000000000081 /* XCLocalSwiftPackageReference "../Core/UI" */,
 				A00000000000000000000085 /* XCLocalSwiftPackageReference "../Feature/Library" */,
+				A00000000000000000000089 /* XCLocalSwiftPackageReference "../Services/KitharaPlayer" */,
 				A00000000000000000000087 /* XCLocalSwiftPackageReference "../Services/YandexMusic" */,
 			);
 			productRefGroup = A00000000000000000000033 /* Products */;
@@ -421,6 +425,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../Services/YandexMusic;
 		};
+		A00000000000000000000089 /* XCLocalSwiftPackageReference "../Services/KitharaPlayer" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Services/KitharaPlayer;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -439,6 +447,10 @@
 		A00000000000000000000088 /* YandexMusicService */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = YandexMusicService;
+		};
+		A0000000000000000000008A /* ServicesKitharaPlayer */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ServicesKitharaPlayer;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
