@@ -28,7 +28,7 @@ let project = Project(
                     "GENERATE_INFOPLIST_FILE": "NO",
                     "INFOPLIST_FILE": "Resources/Info.plist",
                     "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
-                    "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME": "AccentColor",
+                    "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME": "",
                     "CODE_SIGN_STYLE": "Automatic",
                     "CURRENT_PROJECT_VERSION": "1",
                     "DEVELOPMENT_ASSET_PATHS": "\"Resources/Preview Content\"",
