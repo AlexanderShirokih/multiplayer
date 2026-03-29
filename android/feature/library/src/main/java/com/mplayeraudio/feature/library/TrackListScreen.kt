@@ -104,10 +104,6 @@ internal object TrackListScreenMetrics {
     val trackItemTextSpacing = 2.dp
     val trackIndexWidth = 24.dp
     val activeIndicatorSpacing = 16.dp
-    val activeIndicatorBarWidth = 4.dp
-    val activeIndicatorBarGap = 4.dp
-    val activeIndicatorTallBarHeight = 28.dp
-    val activeIndicatorShortBarHeight = 20.dp
 }
 
 private fun previewTrackListState(): TrackListScreenState {
