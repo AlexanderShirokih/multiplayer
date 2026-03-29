@@ -21,6 +21,7 @@
 
 ```
 android/
+├── scripts/update-kithara-android.sh  # копирование AAR из Kithara в android/libs/
 ├── app/                        # точка входа, Application, навигация
 ├── core/
 │   ├── domain/                 # базовые модели и интерфейсы репозиториев
@@ -36,15 +37,21 @@ android/
     └── yandex/                 # Yandex Music API адаптер
 ```
 
-### iOS (Swift Package Manager local packages)
+### iOS (Tuist)
+
+Источник правды для Xcode-проекта: **`ios/Workspace.swift`**, **`ios/Tuist.swift`**, каталог **`ios/Tuist/ProjectDescriptionHelpers`**, **`ios/**/Project.swift`**. Сгенерированные `*.xcworkspace` и `*.xcodeproj` не коммитятся; перед работой в Xcode выполнить `./ios/scripts/bootstrap-ios.sh` или `cd ios && tuist generate` (см. `docs/build-setup.md`).
 
 ```
 ios/
-├── App/                        # точка входа, AppDelegate, корневая навигация
+├── Workspace.swift             # манифест workspace Tuist
+├── Tuist.swift                 # конфиг Tuist
+├── Tuist/ProjectDescriptionHelpers/
+├── scripts/bootstrap-ios.sh    # Kithara XCFramework + tuist generate
+├── App/                        # точка входа, навигация (Project.swift + Sources)
 ├── Core/
 │   ├── Domain/                 # базовые модели и протоколы репозиториев
 │   ├── Data/                   # сетевая инфраструктура, Ktor/URLSession, хранилище
-│   ├── UI/                     # дизайн-система (локальный SPM CoreUI): SwiftUI-компоненты, тема, токены
+│   ├── UI/                     # дизайн-система CoreUI: SwiftUI-компоненты, тема, токены
 │   └── Player/                 # facade над Kithara (движок плеера)
 ├── Feature/
 │   ├── Auth/                   # авторизация (OAuth / Yandex ID)
@@ -180,7 +187,7 @@ UI → ViewModel → UseCase → Repository (interface)
 ## iOS-конвенции
 
 - Соблюдать официальные **гайдлайны Apple**: [Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/) (поведение и внешний вид в духе платформы), [Swift API Design Guidelines](https://swift.org/documentation/api-design-guidelines/) (имена и форма публичного API), а также актуальную документацию по SwiftUI и Swift Concurrency. Умышленные отступления — только с явным обоснованием.
-- **Дизайн-система**: локальный пакет **`ios/Core/UI`** (SwiftPM, product **`CoreUI`**, `import CoreUI`) — единственный слой общих SwiftUI-примитивов для приложения: тема (**`MultiplayerDesignSystem`**, **`MultiplayerTheme`**), токены (цвета, отступы, радиусы, elevation, иконки), переиспользуемые компоненты (**`MultiplayerText`**, **`MultiplayerSurface`**, фоны вроде **`MultiplayerBrandBackground`** и далее по мере развития). Экраны и корневой UI оборачивают контент в дизайн-систему и читают стиль из темы; **не хардкодить** произвольные цвета, отступы и скругления в `Feature/*` и `App` — только через токены и компоненты **`CoreUI`**, кроме осознанных исключений согласованно с командой.
+- **Дизайн-система**: модуль **`ios/Core/UI`** (таргет **`CoreUI`**, `import CoreUI`) — единственный слой общих SwiftUI-примитивов для приложения: тема (**`MultiplayerDesignSystem`**, **`MultiplayerTheme`**), токены (цвета, отступы, радиусы, elevation, иконки), переиспользуемые компоненты (**`MultiplayerText`**, **`MultiplayerSurface`**, фоны вроде **`MultiplayerBrandBackground`** и далее по мере развития). Экраны и корневой UI оборачивают контент в дизайн-систему и читают стиль из темы; **не хардкодить** произвольные цвета, отступы и скругления в `Feature/*` и `App` — только через токены и компоненты **`CoreUI`**, кроме осознанных исключений согласованно с командой.
 - Новые общие SwiftUI-компоненты и preview helpers добавлять в **`ios/Core/UI`**, а не дублировать по feature-модулям.
 - Архитектура UI: **MVVM** — состояние вниз, действия вверх
 - Реактивность: только **`AsyncSequence` / `AsyncStream`** для асинхронных последовательностей значений во времени; подписка из SwiftUI — через `task` / `.task` и стандартные async-паттерны.
@@ -197,7 +204,7 @@ UI → ViewModel → UseCase → Repository (interface)
 ### SwiftLint (iOS)
 
 - **Запуск**: из каталога `ios/` выполнить `swiftlint lint` (требует `brew install swiftlint`). Успешное завершение без нарушений — часть проверки после правок Swift-кода в `ios/`.
-- **Подключение в модулях**: SwiftLint подключён как SPM build tool plugin в каждом `Package.swift` (`SwiftLintBuildToolPlugin`) — запускается автоматически при сборке в Xcode. При первом открытии проекта Xcode попросит разрешить плагин (Trust & Enable).
+- **Подключение в модулях**: после перехода на Tuist линт запускается вручную или в CI командой `swiftlint lint` из `ios/` (см. `ios/.swiftlint.yml`).
 - **Конфигурация**: `ios/.swiftlint.yml`. Правила и пороги меняют здесь; общие отключения — только с кратким комментарием.
 - **Подавления**: точечно — `// swiftlint:disable:next ИмяПравила` перед конкретной строкой; для блока — `// swiftlint:disable ИмяПравила` / `// swiftlint:enable ИмяПравила`. Глобальные отключения — только через `ios/.swiftlint.yml`, если это осознанное соглашение.
 - **Ссылки**: [SwiftLint](https://github.com/realm/SwiftLint), [Список правил](https://realm.github.io/SwiftLint/rule-directory.html).

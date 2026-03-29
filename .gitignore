@@ -1,2 +1,9 @@
 # Локальные настройки Claude
 .claude/settings.local.json
+
+# Tuist / Xcode (генерируется из ios/Workspace.swift и ios/**/Project.swift)
+/*.xcworkspace
+/ios/*.xcworkspace
+/ios/**/*.xcodeproj
+**/DerivedData/
+**/Derived/

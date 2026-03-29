@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 KITHARA_DIR="${KITHARA_DIR:?Set KITHARA_DIR to the Kithara repository path}"
 KITHARA_DIR="$(cd "$KITHARA_DIR" && pwd)"
 KITHARA_OUTPUT_DIR="$KITHARA_DIR/android/lib/build/outputs/aar"

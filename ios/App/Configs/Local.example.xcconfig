@@ -4,5 +4,4 @@ YANDEX_OAUTH_REDIRECT_SCHEME = mplayeraudio
 YANDEX_OAUTH_REDIRECT_HOST = oauth
 YANDEX_OAUTH_REDIRECT_PATH = /yandex
 YANDEX_OAUTH_DEVICE_NAME = MultiPlayer
-KITHARA_DIR = /absolute/path/to/kithara
-KITHARA_LOCAL_DEV = 1
+KITHARA_DIR = /path/to/kithara
