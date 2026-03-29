@@ -1,4 +1,5 @@
 import CoreDomain
+import CryptoKit
 import Foundation
 
 // MARK: - Protocol
@@ -30,15 +31,35 @@ public protocol YandexMusicAPI: Sendable {
         accessToken: String,
         trackIds: [String]
     ) async throws -> [[String: Any]]
+
+    func fetchTrackDownloadInfo(
+        accessToken: String,
+        trackId: String
+    ) async throws -> [[String: Any]]
+
+    func fetchTrackFileInfo(
+        accessToken: String,
+        trackId: String
+    ) async throws -> [String: Any]
+
+    func fetchDownloadInfoURL(
+        accessToken: String,
+        url: String
+    ) async throws -> String
 }
 
 // MARK: - URLSession implementation
 
 public final class URLSessionYandexMusicAPI: YandexMusicAPI, @unchecked Sendable {
     private let session: URLSession
+    private let streamingConfig: YandexMusicStreamingConfig
 
-    public init(session: URLSession = .shared) {
+    public init(
+        session: URLSession = .shared,
+        streamingConfig: YandexMusicStreamingConfig = .init()
+    ) {
         self.session = session
+        self.streamingConfig = streamingConfig
     }
 
     public func fetchAvailability(accessToken: String) async throws -> [String: Any] {
@@ -128,17 +149,116 @@ public final class URLSessionYandexMusicAPI: YandexMusicAPI, @unchecked Sendable
         return array
     }
 
-    // MARK: - Private
+    public func fetchTrackDownloadInfo(
+        accessToken: String,
+        trackId: String
+    ) async throws -> [[String: Any]] {
+        let request = streamingConfig.isDownloadInfoEnabled
+            ? buildStreamingDownloadInfoRequest(
+                trackId: trackId,
+                timestampSeconds: currentTimestampSeconds(),
+                signingSecret: streamingConfig.downloadInfoSigningSecret,
+                clientHeader: streamingConfig.downloadInfoClientHeader
+            )
+            : nil
+        let result = try await getWrappedResult(
+            url: yandexMusicURL(path: "tracks/\(trackId)/download-info"),
+            accessToken: accessToken,
+            requestParameters: request?.parameters ?? [:],
+            extraHeaders: request?.headers ?? [:]
+        )
+        guard let array = result as? [[String: Any]] else {
+            throw MusicLibraryError.invalidResponse(
+                description: "download-info result is not a JSON array of objects."
+            )
+        }
+        return array
+    }
 
-    private func getWrappedResult(url: String, accessToken: String) async throws -> Any {
+    public func fetchTrackFileInfo(
+        accessToken: String,
+        trackId: String
+    ) async throws -> [String: Any] {
+        guard streamingConfig.isFileInfoEnabled else {
+            throw MusicLibraryError.invalidResponse(
+                description: "Yandex full track file-info configuration is missing."
+            )
+        }
+        let request = buildTrackFileInfoRequest(
+            trackId: trackId,
+            timestampSeconds: currentTimestampSeconds(),
+            signingSecret: streamingConfig.fileInfoSigningSecret,
+            clientHeader: streamingConfig.fileInfoClientHeader
+        )
+        var urlRequest = URLRequest(url: URL(string: yandexMusicURL(path: "get-file-info"))!)
+        urlRequest.httpMethod = "GET"
+        urlRequest.setValue("OAuth \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.headers.forEach { key, value in
+            urlRequest.setValue(value, forHTTPHeaderField: key)
+        }
+
+        var components = URLComponents(url: urlRequest.url!, resolvingAgainstBaseURL: false)
+        components?.queryItems = request.parameters.map { key, value in
+            URLQueryItem(name: key, value: value)
+        }
+        urlRequest.url = components?.url
+
+        let data = try await perform(request: urlRequest)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw MusicLibraryError.invalidResponse(
+                description: "get-file-info response is not a JSON object."
+            )
+        }
+        guard let result = json["result"] as? [String: Any] else {
+            throw MusicLibraryError.invalidResponse(
+                description: "Yandex Music get-file-info response does not contain result."
+            )
+        }
+        return result
+    }
+
+    public func fetchDownloadInfoURL(
+        accessToken: String,
+        url: String
+    ) async throws -> String {
         var request = URLRequest(url: URL(string: url)!)
         request.httpMethod = "GET"
         request.setValue("OAuth \(accessToken)", forHTTPHeaderField: "Authorization")
         let data = try await perform(request: request)
+        guard let xml = String(data: data, encoding: .utf8) else {
+            throw MusicLibraryError.invalidResponse(
+                description: "download-info response is not valid UTF-8."
+            )
+        }
+        return xml
+    }
+}
+
+private extension URLSessionYandexMusicAPI {
+    func getWrappedResult(
+        url: String,
+        accessToken: String,
+        requestParameters: [String: String] = [:],
+        extraHeaders: [String: String] = [:]
+    ) async throws -> Any {
+        var request = URLRequest(url: URL(string: url)!)
+        request.httpMethod = "GET"
+        request.setValue("OAuth \(accessToken)", forHTTPHeaderField: "Authorization")
+        extraHeaders.forEach { key, value in
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        if !requestParameters.isEmpty {
+            var components = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)
+            components?.queryItems = requestParameters.map { key, value in
+                URLQueryItem(name: key, value: value)
+            }
+            request.url = components?.url
+        }
+        let data = try await perform(request: request)
         return try parseWrappedResult(from: data)
     }
 
-    private func postWrappedForm(
+    func postWrappedForm(
         url: String,
         accessToken: String,
         parameters: [(String, String)]
@@ -152,7 +272,7 @@ public final class URLSessionYandexMusicAPI: YandexMusicAPI, @unchecked Sendable
         return try parseWrappedResult(from: data)
     }
 
-    private func parseWrappedResult(from data: Data) throws -> Any {
+    func parseWrappedResult(from data: Data) throws -> Any {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw MusicLibraryError.invalidResponse(
                 description: "Yandex Music response is not a JSON object."
@@ -166,7 +286,7 @@ public final class URLSessionYandexMusicAPI: YandexMusicAPI, @unchecked Sendable
         return result
     }
 
-    private func perform(request: URLRequest) async throws -> Data {
+    func perform(request: URLRequest) async throws -> Data {
         log(request)
         do {
             let (data, response) = try await session.data(for: request)
@@ -186,7 +306,7 @@ public final class URLSessionYandexMusicAPI: YandexMusicAPI, @unchecked Sendable
         }
     }
 
-    private func providerError(from data: Data, statusCode: Int) -> MusicLibraryError {
+    func providerError(from data: Data, statusCode: Int) -> MusicLibraryError {
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
         let errorValue = json?["error"]
         var errorName: String?
@@ -214,14 +334,14 @@ public final class URLSessionYandexMusicAPI: YandexMusicAPI, @unchecked Sendable
         }
     }
 
-    private func formBody(_ parameters: [(String, String)]) -> Data {
+    func formBody(_ parameters: [(String, String)]) -> Data {
         let body = parameters
             .map { key, value in "\(key.urlQueryEscaped)=\(value.urlQueryEscaped)" }
             .joined(separator: "&")
         return Data(body.utf8)
     }
 
-    private func log(_ request: URLRequest) {
+    func log(_ request: URLRequest) {
         #if DEBUG
         let method = request.httpMethod ?? "GET"
         let path = request.url?.path ?? "/"
@@ -234,7 +354,15 @@ private func yandexMusicURL(path: String) -> String {
     "\(yandexMusicAPIBaseURL)/\(path)"
 }
 
+private func currentTimestampSeconds() -> Int64 {
+    Int64(Date().timeIntervalSince1970)
+}
+
 private let yandexMusicAPIBaseURL = "https://api.music.yandex.net"
+private let yandexMusicClientHeaderName = "X-Yandex-Music-Client"
+private let fileInfoQuality = "lossless"
+private let fileInfoCodecs = "mp3"
+private let fileInfoTransport = "raw"
 
 private extension String {
     var urlQueryEscaped: String {
@@ -242,4 +370,58 @@ private extension String {
         allowed.remove(charactersIn: "&=+")
         return addingPercentEncoding(withAllowedCharacters: allowed) ?? self
     }
+}
+
+private struct SignedDownloadInfoRequest {
+    let parameters: [String: String]
+    let headers: [String: String]
+}
+
+private func buildStreamingDownloadInfoRequest(
+    trackId: String,
+    timestampSeconds: Int64,
+    signingSecret: String,
+    clientHeader: String
+) -> SignedDownloadInfoRequest {
+    let payload = "\(trackId)\(timestampSeconds)"
+    let signature = hmacSHA256Base64(payload: payload, secret: signingSecret)
+    return SignedDownloadInfoRequest(
+        parameters: [
+            "can_use_streaming": "true",
+            "ts": "\(timestampSeconds)",
+            "sign": signature
+        ],
+        headers: [yandexMusicClientHeaderName: clientHeader]
+    )
+}
+
+private func buildTrackFileInfoRequest(
+    trackId: String,
+    timestampSeconds: Int64,
+    signingSecret: String,
+    clientHeader: String
+) -> SignedDownloadInfoRequest {
+    let payload = "\(timestampSeconds)\(trackId)\(fileInfoQuality)\(fileInfoCodecs)\(fileInfoTransport)"
+    let signature = hmacSHA256Base64(payload: payload, secret: signingSecret)
+        .replacingOccurrences(of: "=", with: "")
+    return SignedDownloadInfoRequest(
+        parameters: [
+            "ts": "\(timestampSeconds)",
+            "trackId": trackId,
+            "quality": fileInfoQuality,
+            "codecs": fileInfoCodecs,
+            "transports": fileInfoTransport,
+            "sign": signature
+        ],
+        headers: [yandexMusicClientHeaderName: clientHeader]
+    )
+}
+
+private func hmacSHA256Base64(payload: String, secret: String) -> String {
+    let key = SymmetricKey(data: Data(secret.utf8))
+    let signature = HMAC<SHA256>.authenticationCode(
+        for: Data(payload.utf8),
+        using: key
+    )
+    return Data(signature).base64EncodedString()
 }

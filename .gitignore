@@ -5,5 +5,6 @@
 /*.xcworkspace
 /ios/*.xcworkspace
 /ios/**/*.xcodeproj
+/ios/.derived-data/
 **/DerivedData/
 **/Derived/

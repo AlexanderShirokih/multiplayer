@@ -260,6 +260,27 @@ private final class FakeYandexMusicAPI: YandexMusicAPI, @unchecked Sendable {
     func fetchTracks(accessToken: String, trackIds: [String]) async throws -> [[String: Any]] {
         tracksResponse
     }
+
+    func fetchTrackDownloadInfo(
+        accessToken: String,
+        trackId: String
+    ) async throws -> [[String: Any]] {
+        []
+    }
+
+    func fetchTrackFileInfo(
+        accessToken: String,
+        trackId: String
+    ) async throws -> [String: Any] {
+        [:]
+    }
+
+    func fetchDownloadInfoURL(
+        accessToken: String,
+        url: String
+    ) async throws -> String {
+        ""
+    }
 }
 
 private struct FakeYandexAccessTokenProvider: YandexAccessTokenProvider {

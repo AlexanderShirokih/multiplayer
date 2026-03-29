@@ -17,6 +17,7 @@ extension PlaylistTrackEntry {
         return TrackListItemState(
             queueItem: PlaybackQueueItem(
                 id: trackQueueItemId(position: position, trackId: trackId),
+                trackId: trackRef.trackId,
                 title: preview?.title ?? "",
                 subtitle: artistLine(from: preview?.artists),
                 durationMs: preview?.durationMs ?? 0
@@ -34,6 +35,7 @@ extension SavedTrackEntry {
         TrackListItemState(
             queueItem: PlaybackQueueItem(
                 id: trackQueueItemId(position: position, trackId: trackRef.trackId.rawValue),
+                trackId: trackRef.trackId,
                 title: track?.title ?? "",
                 subtitle: artistLine(from: track?.artists),
                 durationMs: track?.durationMs ?? 0

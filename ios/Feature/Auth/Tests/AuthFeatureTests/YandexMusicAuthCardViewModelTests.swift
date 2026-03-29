@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class YandexMusicAuthCardViewModelTests: XCTestCase {
-    func testOnLoginTappedEmitsOpenExternalAuthEffect() async throws {
+    func testOnLoginTappedEmitsPresentAuthWebViewEffect() async throws {
         let repository = FakeAuthRepository()
         let viewModel = makeViewModel(repository: repository)
         viewModel.start()
@@ -19,7 +19,12 @@ final class YandexMusicAuthCardViewModelTests: XCTestCase {
 
         XCTAssertEqual(
             effect,
-            .openExternalAuth(URL(string: "https://oauth.yandex.ru/authorize")!)
+            .presentAuthWebView(
+                YandexAuthorizationRequest(
+                    url: URL(string: "https://oauth.yandex.ru/authorize")!,
+                    callbackURLPrefix: "https://music.yandex.ru/"
+                )
+            )
         )
         XCTAssertTrue(viewModel.state.isLoading)
     }
@@ -74,19 +79,32 @@ final class YandexMusicAuthCardViewModelTests: XCTestCase {
     private func makeViewModel(repository: FakeAuthRepository) -> YandexMusicAuthCardViewModel {
         YandexMusicAuthCardViewModel(
             startYandexAuthorization: StartYandexAuthorizationUseCase(repository: repository),
+            completeYandexAuthorization: CompleteYandexAuthorizationUseCase(repository: repository),
             cancelYandexAuthorization: CancelYandexAuthorizationUseCase(repository: repository),
             observeYandexSession: ObserveYandexSessionUseCase(repository: repository),
             observeYandexAuthStatus: ObserveYandexAuthStatusUseCase(repository: repository)
         )
     }
 
-    func testReturningWithoutCallbackCancelsLoadingState() async {
+    func testAuthorizationCallbackCompletesAuthorization() async {
         let repository = FakeAuthRepository()
         let viewModel = makeViewModel(repository: repository)
         viewModel.start()
 
         await viewModel.onLoginTapped()
-        await viewModel.onAuthorizationFlowReturnedWithoutCallback()
+        let callbackURL = URL(string: "https://music.yandex.ru/#access_token=token-123&state=state-123")!
+        await viewModel.onAuthorizationCallback(callbackURL)
+
+        XCTAssertEqual(repository.completedCallbackURL, callbackURL)
+    }
+
+    func testDismissWithoutCallbackCancelsLoadingState() async {
+        let repository = FakeAuthRepository()
+        let viewModel = makeViewModel(repository: repository)
+        viewModel.start()
+
+        await viewModel.onLoginTapped()
+        await viewModel.onAuthorizationDismissedWithoutCallback()
 
         await assertEventuallyFalse(viewModel.state.isLoading)
         XCTAssertFalse(viewModel.state.isLoading)
@@ -120,6 +138,7 @@ private final class FakeAuthRepository: YandexAuthRepository, @unchecked Sendabl
     let sessionRelay = AsyncValueRelay<YandexAuthSession?>(nil)
     let statusRelay = AsyncValueRelay<YandexAuthStatus>(.unauthorized)
     private(set) var cancelCalls = 0
+    private(set) var completedCallbackURL: URL?
 
     func currentSession() -> YandexAuthSession? {
         sessionRelay.currentValue
@@ -135,11 +154,18 @@ private final class FakeAuthRepository: YandexAuthRepository, @unchecked Sendabl
 
     func createAuthorizationRequest() async throws -> YandexAuthorizationRequest {
         statusRelay.yield(.authorizing)
-        return YandexAuthorizationRequest(url: URL(string: "https://oauth.yandex.ru/authorize")!)
+        return YandexAuthorizationRequest(
+            url: URL(string: "https://oauth.yandex.ru/authorize")!,
+            callbackURLPrefix: "https://music.yandex.ru/"
+        )
     }
 
     func completeAuthorization(callbackURL: URL) async throws -> YandexAuthSession {
-        throw YandexAuthException.missingAuthorizationCode
+        completedCallbackURL = callbackURL
+        throw YandexAuthException.providerError(
+            code: "missing_access_token",
+            description: "Yandex OAuth callback does not contain an access token."
+        )
     }
 
     func cancelAuthorization() async {

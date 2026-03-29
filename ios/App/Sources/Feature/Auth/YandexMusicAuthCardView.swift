@@ -5,11 +5,11 @@ import SwiftUI
 struct YandexMusicAuthCardView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.multiplayerTheme) private var theme
-    @Environment(\.openURL) private var openURL
 
     let viewModel: YandexMusicAuthCardViewModel
 
     @State private var alertMessage: String?
+    @State private var authRequest: YandexAuthorizationRequest?
 
     private var palette: MultiplayerColors {
         MultiplayerTheme.default(for: colorScheme).colors
@@ -95,16 +95,36 @@ struct YandexMusicAuthCardView: View {
             let effectStream = viewModel.effectStream()
             for await effect in effectStream {
                 switch effect {
-                case let .openExternalAuth(url):
-                    openURL(url) { accepted in
-                        if !accepted {
-                            viewModel.onBrowserLaunchFailed()
-                        }
-                    }
+                case let .presentAuthWebView(request):
+                    authRequest = request
+
                 case let .showAlert(message):
                     alertMessage = message
                 }
             }
+        }
+        .fullScreenCover(item: $authRequest) { request in
+            YandexMusicAuthWebViewScreen(
+                request: request,
+                onClose: {
+                    authRequest = nil
+                    Task {
+                        await viewModel.onAuthorizationDismissedWithoutCallback()
+                    }
+                },
+                onAuthorizationCallback: { callbackURL in
+                    authRequest = nil
+                    Task {
+                        await viewModel.onAuthorizationCallback(callbackURL)
+                    }
+                },
+                onLaunchFailure: {
+                    authRequest = nil
+                    Task {
+                        await viewModel.onAuthWebViewLaunchFailed()
+                    }
+                }
+            )
         }
         .alert(
             "Ошибка авторизации",
@@ -148,6 +168,7 @@ enum AuthPreviewFactory {
         let repository = PreviewYandexAuthRepository(isAuthorized: isAuthorized)
         let viewModel = YandexMusicAuthCardViewModel(
             startYandexAuthorization: StartYandexAuthorizationUseCase(repository: repository),
+            completeYandexAuthorization: CompleteYandexAuthorizationUseCase(repository: repository),
             cancelYandexAuthorization: CancelYandexAuthorizationUseCase(repository: repository),
             observeYandexSession: ObserveYandexSessionUseCase(repository: repository),
             observeYandexAuthStatus: ObserveYandexAuthStatusUseCase(repository: repository)
@@ -206,11 +227,17 @@ private final class PreviewYandexAuthRepository: YandexAuthRepository, @unchecke
     }
 
     func createAuthorizationRequest() async throws -> YandexAuthorizationRequest {
-        return YandexAuthorizationRequest(url: URL(string: "https://oauth.yandex.ru/authorize")!)
+        YandexAuthorizationRequest(
+            url: URL(string: "https://oauth.yandex.ru/authorize")!,
+            callbackURLPrefix: "https://music.yandex.ru/"
+        )
     }
 
     func completeAuthorization(callbackURL: URL) async throws -> YandexAuthSession {
-        throw YandexAuthException.missingAuthorizationCode
+        throw YandexAuthException.providerError(
+            code: "missing_access_token",
+            description: "Yandex OAuth callback does not contain an access token."
+        )
     }
 
     func cancelAuthorization() async {}

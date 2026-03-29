@@ -1,14 +1,23 @@
+import CoreDomain
 import Foundation
 
 public struct PlaybackQueueItem: Equatable, Sendable {
     public let id: String
+    public let trackId: TrackId
     public let title: String
     public let subtitle: String
     /// Длительность трека в миллисекундах.
     public let durationMs: Int64
 
-    public init(id: String, title: String, subtitle: String, durationMs: Int64) {
+    public init(
+        id: String,
+        trackId: TrackId,
+        title: String,
+        subtitle: String,
+        durationMs: Int64
+    ) {
         self.id = id
+        self.trackId = trackId
         self.title = title
         self.subtitle = subtitle
         self.durationMs = durationMs

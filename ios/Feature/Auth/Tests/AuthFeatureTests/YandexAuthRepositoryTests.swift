@@ -8,34 +8,53 @@ final class YandexAuthRepositoryTests: XCTestCase {
     func testCompleteAuthorizationSavesSessionAndEmitsAuthorizedState() async throws {
         let sessionStore = InMemorySessionStore()
         let secureStore = InMemorySecureStore()
-        let oauthAPI = FakeYandexOAuthAPI(
-            exchangePayload: OAuthTokenPayload(
-                tokenType: "bearer",
-                accessToken: YandexAccessToken(rawValue: "access-token"),
-                refreshToken: YandexRefreshToken(rawValue: "refresh-token"),
-                expiresInSeconds: 3600,
-                scopes: ["login:info"]
-            ),
-            userIdentity: sampleUser
-        )
+        let oauthAPI = FakeYandexOAuthAPI(userIdentity: sampleUser)
         let repository = makeRepository(
             oauthAPI: oauthAPI,
             sessionStore: sessionStore,
             secureStore: secureStore
         )
 
-        _ = try await repository.createAuthorizationRequest()
+        let request = try await repository.createAuthorizationRequest()
         let session = try await repository.completeAuthorization(
-            callbackURL: URL(string: "mplayeraudio://oauth/yandex?code=code-123&state=state-123")!
+            callbackURL: URL(
+                string: "https://music.yandex.ru/#access_token=access-token" +
+                    "&token_type=bearer&expires_in=3600&scope=login%3Ainfo&state=state-123"
+            )!
         )
 
+        XCTAssertEqual(request.callbackURLPrefix, "https://music.yandex.ru/")
         XCTAssertEqual(session.accessToken.rawValue, "access-token")
         XCTAssertEqual(sessionStore.cachedSession, session)
 
         var iterator = repository.observeStatus().makeAsyncIterator()
         let authorizedStatus = await iterator.next()
         XCTAssertEqual(authorizedStatus, .authorized(session))
-        XCTAssertEqual(oauthAPI.exchangeCalls, 1)
+        XCTAssertEqual(session.clientId, YandexClientId(rawValue: "music-client-id"))
+    }
+
+    func testCompleteAuthorizationUsesMusicTokenFlow() async throws {
+        let sessionStore = InMemorySessionStore()
+        let oauthAPI = FakeYandexOAuthAPI(userIdentity: sampleUser)
+        let repository = makeRepository(
+            oauthAPI: oauthAPI,
+            sessionStore: sessionStore,
+            authorizationRedirectURL: URL(string: "https://music.yandex.ru/")!
+        )
+
+        let request = try await repository.createAuthorizationRequest()
+        let session = try await repository.completeAuthorization(
+            callbackURL: URL(
+                string: "https://music.yandex.ru/#access_token=music-token" +
+                    "&token_type=bearer&expires_in=31536000" +
+                    "&scope=login%3Ainfo%20music%3Acontent&state=state-123"
+            )!
+        )
+
+        XCTAssertEqual(request.callbackURLPrefix, "https://music.yandex.ru/")
+        XCTAssertEqual(session.accessToken.rawValue, "music-token")
+        XCTAssertEqual(session.clientId, YandexClientId(rawValue: "music-client-id"))
+        XCTAssertEqual(session.scopes, ["login:info", "music:content"])
     }
 
     func testCompleteAuthorizationRejectsInvalidCallbackState() async throws {
@@ -45,7 +64,9 @@ final class YandexAuthRepositoryTests: XCTestCase {
 
         do {
             _ = try await repository.completeAuthorization(
-                callbackURL: URL(string: "mplayeraudio://oauth/yandex?code=code-123&state=unexpected-state")!
+                callbackURL: URL(
+                    string: "https://music.yandex.ru/#access_token=token-123&state=unexpected-state"
+                )!
             )
             XCTFail("Expected invalid callback state error")
         } catch {
@@ -53,33 +74,29 @@ final class YandexAuthRepositoryTests: XCTestCase {
         }
     }
 
-    func testValidAccessTokenRefreshesExpiredSession() async throws {
+    func testValidAccessTokenForceRefreshClearsSessionWhenUnsupported() async throws {
         let sessionStore = InMemorySessionStore(
             session: expiredSession(
                 accessToken: "stale-token",
                 refreshToken: "refresh-token"
             )
         )
-        let oauthAPI = FakeYandexOAuthAPI(
-            refreshPayload: OAuthTokenPayload(
-                tokenType: "bearer",
-                accessToken: YandexAccessToken(rawValue: "fresh-token"),
-                refreshToken: YandexRefreshToken(rawValue: "fresh-refresh-token"),
-                expiresInSeconds: 7200,
-                scopes: ["login:info"]
-            ),
-            userIdentity: sampleUser
-        )
         let repository = makeRepository(
-            oauthAPI: oauthAPI,
+            oauthAPI: FakeYandexOAuthAPI(userIdentity: sampleUser),
             sessionStore: sessionStore
         )
 
-        let accessToken = try await repository.validAccessToken()
+        do {
+            _ = try await repository.validAccessToken(forceRefresh: true)
+            XCTFail("Expected refresh unsupported error")
+        } catch let error as YandexAuthException {
+            XCTAssertEqual(
+                error,
+                .refreshFailed(reason: "Повторная авторизация требуется заново. Обновление токена не поддерживается.")
+            )
+        }
 
-        XCTAssertEqual(accessToken, "fresh-token")
-        XCTAssertEqual(sessionStore.cachedSession?.accessToken.rawValue, "fresh-token")
-        XCTAssertEqual(oauthAPI.refreshCalls, 1)
+        XCTAssertNil(sessionStore.cachedSession)
     }
 
     func testCancelAuthorizationClearsPendingStateAndResetsStatus() async throws {
@@ -94,7 +111,9 @@ final class YandexAuthRepositoryTests: XCTestCase {
 
         do {
             _ = try await repository.completeAuthorization(
-                callbackURL: URL(string: "mplayeraudio://oauth/yandex?code=code-123&state=state-123")!
+                callbackURL: URL(
+                    string: "https://music.yandex.ru/#access_token=token-123&state=state-123"
+                )!
             )
             XCTFail("Expected missing pending authorization after cancellation")
         } catch {
@@ -105,13 +124,12 @@ final class YandexAuthRepositoryTests: XCTestCase {
     private func makeRepository(
         oauthAPI: FakeYandexOAuthAPI = FakeYandexOAuthAPI(userIdentity: sampleUser),
         sessionStore: InMemorySessionStore = InMemorySessionStore(),
-        secureStore: InMemorySecureStore = InMemorySecureStore()
+        secureStore: InMemorySecureStore = InMemorySecureStore(),
+        authorizationRedirectURL: URL? = nil
     ) -> YandexAuthRepositoryImpl {
         let config = YandexOAuthConfig(
-            clientId: YandexClientId(rawValue: "client-id"),
-            clientSecret: "client-secret",
-            redirectURL: URL(string: "mplayeraudio://oauth/yandex")!,
-            deviceName: "MultiPlayer"
+            clientId: YandexClientId(rawValue: "music-client-id"),
+            authorizationRedirectURL: authorizationRedirectURL ?? URL(string: "https://music.yandex.ru/")!
         )
         let fixedNow = self.fixedNow
 
@@ -121,7 +139,7 @@ final class YandexAuthRepositoryTests: XCTestCase {
             sessionStore: sessionStore,
             pendingAuthorizationStore: KeychainYandexPendingAuthorizationStore(secureStore: secureStore),
             deviceMetadataProvider: FakeDeviceMetadataProvider(secureStore: secureStore),
-            pkceGenerator: FakePkceGenerator(),
+            stateGenerator: FakeAuthorizationStateGenerator(),
             authorizationURLBuilder: YandexAuthorizationURLBuilder(),
             callbackParser: YandexAuthorizationCallbackParser(),
             now: { fixedNow }
@@ -140,7 +158,7 @@ final class YandexAuthRepositoryTests: XCTestCase {
             scopes: ["login:info"],
             deviceId: YandexDeviceId(rawValue: "device-123"),
             user: sampleUser,
-            clientId: YandexClientId(rawValue: "client-id")
+            clientId: YandexClientId(rawValue: "music-client-id")
         )
     }
 }
@@ -211,80 +229,22 @@ private struct FakeDeviceMetadataProvider: YandexDeviceMetadataProviding {
         return YandexDeviceId(rawValue: value)
     }
 
-    func deviceName() -> String {
-        "Test Device"
-    }
 }
 
-private struct FakePkceGenerator: PkceGenerating {
-    func generate() throws -> PkcePayload {
-        PkcePayload(
-            verifier: "verifier-123",
-            challenge: "challenge-456",
-            state: "state-123"
-        )
+private struct FakeAuthorizationStateGenerator: AuthorizationStateGenerating {
+    func generate() throws -> AuthorizationStatePayload {
+        AuthorizationStatePayload(state: "state-123")
     }
 }
 
 private final class FakeYandexOAuthAPI: YandexOAuthAPI, @unchecked Sendable {
-    private let exchangePayload: OAuthTokenPayload?
-    private let refreshPayload: OAuthTokenPayload?
     private let userIdentity: YandexUserIdentity
-    private let refreshException: YandexAuthException?
-
-    private(set) var exchangeCalls = 0
-    private(set) var refreshCalls = 0
 
     init(
-        exchangePayload: OAuthTokenPayload? = nil,
-        refreshPayload: OAuthTokenPayload? = nil,
-        userIdentity: YandexUserIdentity,
-        refreshException: YandexAuthException? = nil
+        userIdentity: YandexUserIdentity
     ) {
-        self.exchangePayload = exchangePayload
-        self.refreshPayload = refreshPayload
         self.userIdentity = userIdentity
-        self.refreshException = refreshException
     }
-
-    func exchangeAuthorizationCode(
-        config: YandexOAuthConfig,
-        code: String,
-        codeVerifier: String,
-        deviceId: String,
-        deviceName: String
-    ) async throws -> OAuthTokenPayload {
-        exchangeCalls += 1
-        return exchangePayload ?? OAuthTokenPayload(
-            tokenType: "bearer",
-            accessToken: YandexAccessToken(rawValue: "access-token"),
-            refreshToken: YandexRefreshToken(rawValue: "refresh-token"),
-            expiresInSeconds: 3600,
-            scopes: ["login:info"]
-        )
-    }
-
-    func refreshAccessToken(
-        config: YandexOAuthConfig,
-        refreshToken: YandexRefreshToken
-    ) async throws -> OAuthTokenPayload {
-        refreshCalls += 1
-        if let refreshException {
-            throw refreshException
-        }
-        return refreshPayload ?? OAuthTokenPayload(
-            tokenType: "bearer",
-            accessToken: YandexAccessToken(rawValue: "fresh-token"),
-            refreshToken: YandexRefreshToken(rawValue: "fresh-refresh-token"),
-            expiresInSeconds: 3600,
-            scopes: ["login:info"]
-        )
-    }
-
-    func revokeToken(
-        config: YandexOAuthConfig,
-        accessToken: YandexAccessToken
-    ) async throws {}
 
     func fetchUserIdentity(
         accessToken: YandexAccessToken

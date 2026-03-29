@@ -16,17 +16,6 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>com.mplayeraudio.oauth</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>$(YANDEX_OAUTH_REDIRECT_SCHEME)</string>
-			</array>
-		</dict>
-	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
@@ -44,17 +33,15 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>YandexOAuthClientID</key>
-	<string>$(YANDEX_OAUTH_CLIENT_ID)</string>
-	<key>YandexOAuthClientSecret</key>
-	<string>$(YANDEX_OAUTH_CLIENT_SECRET)</string>
-	<key>YandexOAuthDeviceName</key>
-	<string>$(YANDEX_OAUTH_DEVICE_NAME)</string>
-	<key>YandexOAuthRedirectHost</key>
-	<string>$(YANDEX_OAUTH_REDIRECT_HOST)</string>
-	<key>YandexOAuthRedirectPath</key>
-	<string>$(YANDEX_OAUTH_REDIRECT_PATH)</string>
-	<key>YandexOAuthRedirectScheme</key>
-	<string>$(YANDEX_OAUTH_REDIRECT_SCHEME)</string>
+	<key>YandexAuthClientID</key>
+	<string>$(YANDEX_AUTH_CLIENT_ID)</string>
+	<key>YandexMusicFileInfoClient</key>
+	<string>$(YANDEX_MUSIC_FILE_INFO_CLIENT)</string>
+	<key>YandexMusicFileInfoSecret</key>
+	<string>$(YANDEX_MUSIC_FILE_INFO_SECRET)</string>
+	<key>YandexMusicStreamingClient</key>
+	<string>$(YANDEX_MUSIC_STREAMING_CLIENT)</string>
+	<key>YandexMusicStreamingSecret</key>
+	<string>$(YANDEX_MUSIC_STREAMING_SECRET)</string>
 </dict>
 </plist>

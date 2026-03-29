@@ -10,10 +10,9 @@ public final class YandexAuthRepositoryImpl:
     private let sessionStore: YandexSessionStore
     private let pendingAuthorizationStore: YandexPendingAuthorizationStore
     private let deviceMetadataProvider: YandexDeviceMetadataProviding
-    private let pkceGenerator: PkceGenerating
+    private let stateGenerator: AuthorizationStateGenerating
     private let authorizationURLBuilder: YandexAuthorizationURLBuilding
     private let callbackParser: YandexAuthorizationCallbackParsing
-    private let tokenRefresher: YandexTokenRefresher
     private let now: @Sendable () -> Date
     private let statusRelay: AsyncValueRelay<YandexAuthStatus>
 
@@ -22,18 +21,15 @@ public final class YandexAuthRepositoryImpl:
         sessionStore: YandexSessionStore,
         secureStore: SecureKeyValueStore,
         urlSession: URLSession = .shared,
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.init(
             config: config,
             oauthAPI: URLSessionYandexOAuthAPI(session: urlSession),
             sessionStore: sessionStore,
             pendingAuthorizationStore: KeychainYandexPendingAuthorizationStore(secureStore: secureStore),
-            deviceMetadataProvider: AppleDeviceMetadataProvider(
-                configuredName: config.deviceName,
-                secureStore: secureStore
-            ),
-            pkceGenerator: SecurePkceGenerator(),
+            deviceMetadataProvider: AppleDeviceMetadataProvider(secureStore: secureStore),
+            stateGenerator: SecureAuthorizationStateGenerator(),
             authorizationURLBuilder: YandexAuthorizationURLBuilder(),
             callbackParser: YandexAuthorizationCallbackParser(),
             now: now
@@ -46,25 +42,20 @@ public final class YandexAuthRepositoryImpl:
         sessionStore: YandexSessionStore,
         pendingAuthorizationStore: YandexPendingAuthorizationStore,
         deviceMetadataProvider: YandexDeviceMetadataProviding,
-        pkceGenerator: PkceGenerating,
+        stateGenerator: AuthorizationStateGenerating,
         authorizationURLBuilder: YandexAuthorizationURLBuilding,
         callbackParser: YandexAuthorizationCallbackParsing,
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.config = config
         self.oauthAPI = oauthAPI
         self.sessionStore = sessionStore
         self.pendingAuthorizationStore = pendingAuthorizationStore
         self.deviceMetadataProvider = deviceMetadataProvider
-        self.pkceGenerator = pkceGenerator
+        self.stateGenerator = stateGenerator
         self.authorizationURLBuilder = authorizationURLBuilder
         self.callbackParser = callbackParser
         self.now = now
-        tokenRefresher = YandexTokenRefresher(
-            oauthAPI: oauthAPI,
-            config: config,
-            now: now
-        )
         statusRelay = AsyncValueRelay(
             sessionStore.cachedSession.map(YandexAuthStatus.authorized) ?? .unauthorized
         )
@@ -105,27 +96,23 @@ public final class YandexAuthRepositoryImpl:
     public func createAuthorizationRequest() async throws -> YandexAuthorizationRequest {
         try config.requireAuthorizationConfig()
         let deviceId = try await deviceMetadataProvider.deviceId()
-        let deviceName = deviceMetadataProvider.deviceName()
-        let pkcePayload = try pkceGenerator.generate()
+        let statePayload = try stateGenerator.generate()
         let authorizationURL = try authorizationURLBuilder.buildAuthorizationURL(
             config: config,
-            state: pkcePayload.state,
-            codeChallenge: pkcePayload.challenge,
-            deviceId: deviceId,
-            deviceName: deviceName
+            state: statePayload.state
         )
 
         try await pendingAuthorizationStore.save(
             PendingYandexAuthorization(
-                state: pkcePayload.state,
-                codeVerifier: pkcePayload.verifier,
-                deviceId: deviceId,
-                deviceName: deviceName,
-                requestedAt: now()
+                state: statePayload.state,
+                deviceId: deviceId
             )
         )
         statusRelay.yield(.authorizing)
-        return YandexAuthorizationRequest(url: authorizationURL)
+        return YandexAuthorizationRequest(
+            url: authorizationURL,
+            callbackURLPrefix: config.authorizationRedirectURL.absoluteString
+        )
     }
 
     public func completeAuthorization(callbackURL: URL) async throws -> YandexAuthSession {
@@ -135,21 +122,14 @@ public final class YandexAuthRepositoryImpl:
 
         do {
             let callback = callbackParser.parse(callbackURL)
-            try await pendingAuthorizationStore.clear()
             try callback.throwIfProviderError()
-            let code = try callback.requiredAuthorizationCode()
             try callback.requireMatchingState(expectedState: pendingAuthorization.state)
+            try await pendingAuthorizationStore.clear()
 
-            let tokenPayload = try await oauthAPI.exchangeAuthorizationCode(
-                config: config,
-                code: code,
-                codeVerifier: pendingAuthorization.codeVerifier,
-                deviceId: pendingAuthorization.deviceId.rawValue,
-                deviceName: pendingAuthorization.deviceName
-            )
+            let tokenPayload = try callback.requiredTokenPayload()
             let userIdentity = try await oauthAPI.fetchUserIdentity(accessToken: tokenPayload.accessToken)
             let session = tokenPayload.session(
-                config: config,
+                clientId: config.clientId,
                 userIdentity: userIdentity,
                 deviceId: pendingAuthorization.deviceId,
                 now: now
@@ -174,14 +154,6 @@ public final class YandexAuthRepositoryImpl:
     }
 
     public func logout() async {
-        if let existingSession = currentSession(),
-           !config.clientSecret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            try? await oauthAPI.revokeToken(
-                config: config,
-                accessToken: existingSession.accessToken
-            )
-        }
-
         try? await pendingAuthorizationStore.clear()
         try? await sessionStore.clear()
         statusRelay.yield(.unauthorized)
@@ -189,25 +161,15 @@ public final class YandexAuthRepositoryImpl:
 
     public func validAccessToken(forceRefresh: Bool = false) async throws -> String {
         let session = try requireSession()
-        if !forceRefresh && !tokenRefresher.shouldRefresh(session) {
+        if !forceRefresh && !session.requiresReauthorization(currentDate: now()) {
             return session.accessToken.rawValue
         }
 
-        do {
-            try config.requireRefreshConfig()
-            let refreshedSession = try await tokenRefresher.refresh(session)
-            try await sessionStore.save(refreshedSession)
-            statusRelay.yield(.authorized(refreshedSession))
-            return refreshedSession.accessToken.rawValue
-        } catch let error as YandexAuthException {
-            if case .refreshFailed = error {
-                try? await sessionStore.clear()
-                statusRelay.yield(.unauthorized)
-            }
-            throw error
-        } catch {
-            throw YandexAuthException.refreshFailed(reason: error.localizedDescription)
-        }
+        try? await sessionStore.clear()
+        statusRelay.yield(.unauthorized)
+        throw YandexAuthException.refreshFailed(
+            reason: "Повторная авторизация требуется заново. Обновление токена не поддерживается."
+        )
     }
 
     private func requireSession() throws -> YandexAuthSession {
@@ -225,7 +187,7 @@ public final class YandexAuthRepositoryImpl:
 
 private extension OAuthTokenPayload {
     func session(
-        config: YandexOAuthConfig,
+        clientId: YandexClientId,
         userIdentity: YandexUserIdentity,
         deviceId: YandexDeviceId,
         now: @escaping @Sendable () -> Date
@@ -238,7 +200,7 @@ private extension OAuthTokenPayload {
             scopes: scopes,
             deviceId: deviceId,
             user: userIdentity,
-            clientId: config.clientId
+            clientId: clientId
         )
     }
 }
@@ -252,16 +214,36 @@ private extension ParsedAuthorizationCallback {
         throw YandexAuthException.providerError(code: error, description: errorDescription)
     }
 
-    func requiredAuthorizationCode() throws -> String {
-        guard let code, !code.isEmpty else {
-            throw YandexAuthException.missingAuthorizationCode
-        }
-        return code
-    }
-
     func requireMatchingState(expectedState: String) throws {
         guard state == expectedState else {
             throw YandexAuthException.invalidCallbackState
         }
+    }
+
+    func requiredTokenPayload() throws -> OAuthTokenPayload {
+        guard let accessToken else {
+            throw YandexAuthException.providerError(
+                code: "missing_access_token",
+                description: "Yandex OAuth callback does not contain an access token."
+            )
+        }
+
+        return OAuthTokenPayload(
+            tokenType: tokenType ?? "bearer",
+            accessToken: accessToken,
+            refreshToken: nil,
+            expiresInSeconds: expiresInSeconds,
+            scopes: scopes
+        )
+    }
+}
+
+private extension YandexAuthSession {
+    func requiresReauthorization(currentDate: Date) -> Bool {
+        guard let expiresAt else {
+            return false
+        }
+
+        return expiresAt <= currentDate.addingTimeInterval(5 * 60)
     }
 }

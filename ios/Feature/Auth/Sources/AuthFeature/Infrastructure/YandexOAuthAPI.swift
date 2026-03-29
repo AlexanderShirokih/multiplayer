@@ -1,24 +1,6 @@
 import Foundation
 
 public protocol YandexOAuthAPI: Sendable {
-    func exchangeAuthorizationCode(
-        config: YandexOAuthConfig,
-        code: String,
-        codeVerifier: String,
-        deviceId: String,
-        deviceName: String
-    ) async throws -> OAuthTokenPayload
-
-    func refreshAccessToken(
-        config: YandexOAuthConfig,
-        refreshToken: YandexRefreshToken
-    ) async throws -> OAuthTokenPayload
-
-    func revokeToken(
-        config: YandexOAuthConfig,
-        accessToken: YandexAccessToken
-    ) async throws
-
     func fetchUserIdentity(
         accessToken: YandexAccessToken
     ) async throws -> YandexUserIdentity
@@ -34,60 +16,6 @@ public final class URLSessionYandexOAuthAPI: YandexOAuthAPI, @unchecked Sendable
     ) {
         self.session = session
         self.decoder = decoder
-    }
-
-    public func exchangeAuthorizationCode(
-        config: YandexOAuthConfig,
-        code: String,
-        codeVerifier: String,
-        deviceId: String,
-        deviceName: String
-    ) async throws -> OAuthTokenPayload {
-        let data = try await submitForm(
-            url: URL(string: "https://oauth.yandex.ru/token")!,
-            parameters: [
-                "grant_type": "authorization_code",
-                "code": code,
-                "client_id": config.clientId.rawValue,
-                "device_id": deviceId,
-                "device_name": deviceName,
-                "code_verifier": codeVerifier
-            ],
-            operation: "exchangeAuthorizationCode"
-        )
-        return try decodeTokenPayload(from: data)
-    }
-
-    public func refreshAccessToken(
-        config: YandexOAuthConfig,
-        refreshToken: YandexRefreshToken
-    ) async throws -> OAuthTokenPayload {
-        let data = try await submitForm(
-            url: URL(string: "https://oauth.yandex.ru/token")!,
-            parameters: [
-                "grant_type": "refresh_token",
-                "refresh_token": refreshToken.rawValue,
-                "client_id": config.clientId.rawValue,
-                "client_secret": config.clientSecret
-            ],
-            operation: "refreshAccessToken"
-        )
-        return try decodeTokenPayload(from: data)
-    }
-
-    public func revokeToken(
-        config: YandexOAuthConfig,
-        accessToken: YandexAccessToken
-    ) async throws {
-        _ = try await submitForm(
-            url: URL(string: "https://oauth.yandex.ru/revoke_token")!,
-            parameters: [
-                "access_token": accessToken.rawValue,
-                "client_id": config.clientId.rawValue,
-                "client_secret": config.clientSecret
-            ],
-            operation: "revokeToken"
-        )
     }
 
     public func fetchUserIdentity(
@@ -136,21 +64,6 @@ public final class URLSessionYandexOAuthAPI: YandexOAuthAPI, @unchecked Sendable
         )
     }
 
-    private func submitForm(
-        url: URL,
-        parameters: [String: String],
-        operation: String
-    ) async throws -> Data {
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(
-            "application/x-www-form-urlencoded; charset=utf-8",
-            forHTTPHeaderField: "Content-Type"
-        )
-        request.httpBody = percentEncodedFormBody(parameters)
-        return try await perform(request: request, operation: operation)
-    }
-
     private func perform(
         request: URLRequest,
         operation: String
@@ -193,73 +106,12 @@ public final class URLSessionYandexOAuthAPI: YandexOAuthAPI, @unchecked Sendable
         }
     }
 
-    private func decodeTokenPayload(from data: Data) throws -> OAuthTokenPayload {
-        let dto: YandexTokenDTO
-        do {
-            dto = try decoder.decode(YandexTokenDTO.self, from: data)
-        } catch {
-            throw YandexAuthException.providerError(
-                code: "invalid_token_payload",
-                description: "Yandex OAuth response does not contain access_token."
-            )
-        }
-
-        guard let accessToken = dto.accessToken else {
-            throw YandexAuthException.providerError(
-                code: "invalid_token_payload",
-                description: "Yandex OAuth response does not contain access_token."
-            )
-        }
-
-        let scopes = dto.scope?
-            .split(separator: " ")
-            .map { String($0) }
-            .filter { !$0.isEmpty }
-
-        return OAuthTokenPayload(
-            tokenType: dto.tokenType ?? "bearer",
-            accessToken: YandexAccessToken(rawValue: accessToken),
-            refreshToken: dto.refreshToken.map { YandexRefreshToken(rawValue: $0) },
-            expiresInSeconds: dto.expiresIn,
-            scopes: Set(scopes ?? [])
-        )
-    }
-
-    private func percentEncodedFormBody(_ parameters: [String: String]) -> Data {
-        let body = parameters
-            .sorted { $0.key < $1.key }
-            .map { key, value in
-                "\(key.urlQueryEscaped)=\(value.urlQueryEscaped)"
-            }
-            .joined(separator: "&")
-        return Data(body.utf8)
-    }
-
-    private func logRequest(
-        _ request: URLRequest,
-        operation: String
-    ) {
+    private func logRequest(_ request: URLRequest, operation: String) {
         #if DEBUG
         let method = request.httpMethod ?? "GET"
         let path = request.url?.path ?? "/"
         print("[YandexOAuth] \(operation): \(method) \(path)")
         #endif
-    }
-}
-
-private struct YandexTokenDTO: Decodable {
-    let accessToken: String?
-    let tokenType: String?
-    let refreshToken: String?
-    let expiresIn: Int?
-    let scope: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case accessToken = "access_token"
-        case tokenType = "token_type"
-        case refreshToken = "refresh_token"
-        case expiresIn = "expires_in"
-        case scope
     }
 }
 
@@ -320,10 +172,3 @@ private struct LossyString: Decodable {
     }
 }
 
-private extension String {
-    var urlQueryEscaped: String {
-        var allowedCharacters = CharacterSet.urlQueryAllowed
-        allowedCharacters.remove(charactersIn: "&=+")
-        return addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? self
-    }
-}

@@ -11,14 +11,19 @@ private let featuredArtworkSize: CGFloat = 92
 
 public struct MusicLibraryView: View {
     @State private var viewModel: MusicLibraryViewModel
+    @State private var isResetAuthorizationConfirmationPresented = false
+
     private let trackListViewModelFactory: (MusicLibraryDestination) -> TrackListViewModel
+    private let onResetAuthorization: (@Sendable () async -> Void)?
 
     public init(
         viewModel: MusicLibraryViewModel,
-        trackListViewModelFactory: @escaping (MusicLibraryDestination) -> TrackListViewModel
+        trackListViewModelFactory: @escaping (MusicLibraryDestination) -> TrackListViewModel,
+        onResetAuthorization: (@Sendable () async -> Void)? = nil
     ) {
         _viewModel = State(initialValue: viewModel)
         self.trackListViewModelFactory = trackListViewModelFactory
+        self.onResetAuthorization = onResetAuthorization
     }
 
     public var body: some View {
@@ -30,6 +35,32 @@ public struct MusicLibraryView: View {
             .navigationDestination(item: selectedPlaylistBinding) { destination in
                 TrackListView(viewModel: trackListViewModelFactory(destination))
             }
+#if DEBUG
+            .toolbar {
+                if onResetAuthorization != nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Сбросить auth") {
+                            isResetAuthorizationConfirmationPresented = true
+                        }
+                    }
+                }
+            }
+            .confirmationDialog(
+                "Сбросить авторизацию Яндекс Музыки?",
+                isPresented: $isResetAuthorizationConfirmationPresented,
+                titleVisibility: .visible
+            ) {
+                Button("Сбросить", role: .destructive) {
+                    Task {
+                        await onResetAuthorization?()
+                    }
+                }
+
+                Button("Отмена", role: .cancel) {}
+            } message: {
+                Text("Приложение очистит локальную сессию и вернёт вас на экран входа.")
+            }
+#endif
         }
         .task {
             viewModel.start()

@@ -40,11 +40,20 @@ public struct YandexDeviceId: RawRepresentable, Codable, Hashable, Sendable {
     }
 }
 
-public struct YandexAuthorizationRequest: Equatable, Sendable {
+public struct YandexAuthorizationRequest: Equatable, Identifiable, Sendable {
     public let url: URL
+    public let callbackURLPrefix: String
 
-    public init(url: URL) {
+    public var id: String {
+        "\(url.absoluteString)|\(callbackURLPrefix)"
+    }
+
+    public init(
+        url: URL,
+        callbackURLPrefix: String
+    ) {
         self.url = url
+        self.callbackURLPrefix = callbackURLPrefix
     }
 }
 
@@ -112,7 +121,6 @@ public enum YandexAuthException: Error, Equatable, LocalizedError, Sendable {
     case missingConfiguration
     case missingSession
     case missingPendingAuthorization
-    case missingAuthorizationCode
     case invalidCallbackState
     case accessDenied(description: String?)
     case providerError(code: String, description: String?)
@@ -130,9 +138,6 @@ public enum YandexAuthException: Error, Equatable, LocalizedError, Sendable {
 
         case .missingPendingAuthorization:
             return "Pending Yandex authorization request is missing."
-
-        case .missingAuthorizationCode:
-            return "Yandex OAuth callback does not contain an authorization code."
 
         case .invalidCallbackState:
             return "Yandex OAuth callback state is invalid."

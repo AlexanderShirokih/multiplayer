@@ -36,6 +36,18 @@ public struct CancelYandexAuthorizationUseCase: Sendable {
     }
 }
 
+public struct LogoutYandexAuthorizationUseCase: Sendable {
+    private let repository: YandexAuthRepository
+
+    public init(repository: YandexAuthRepository) {
+        self.repository = repository
+    }
+
+    public func callAsFunction() async {
+        await repository.logout()
+    }
+}
+
 public struct ObserveYandexSessionUseCase: Sendable {
     private let repository: YandexAuthRepository
 

@@ -1,7 +1,9 @@
 import AuthFeature
+import CorePlayer
 import Foundation
 import LibraryFeature
 import Observation
+import ServicesKitharaPlayer
 import YandexMusicService
 
 @Observable
@@ -15,23 +17,20 @@ final class AppRoot {
     let authCardViewModel: YandexMusicAuthCardViewModel
     let musicLibraryViewModel: MusicLibraryViewModel
     let makeTrackListViewModel: (MusicLibraryDestination) -> TrackListViewModel
+    let resetAuthorization: @MainActor @Sendable () async -> Void
 
     var destination: Destination
 
     private let observeAuthorizedMusicProvider: ObserveAuthorizedMusicProviderUseCase
-    private let completeYandexAuthorization: CompleteYandexAuthorizationUseCase
-    private let redirectURL: URL
     private var observationTask: Task<Void, Never>?
-    private var isHandlingAuthorizationCallback = false
 
     init() {
         let dependencies = AppDependencies.live()
         authCardViewModel = dependencies.authCardViewModel
         musicLibraryViewModel = dependencies.musicLibraryViewModel
         makeTrackListViewModel = dependencies.makeTrackListViewModel
+        resetAuthorization = dependencies.resetAuthorization
         observeAuthorizedMusicProvider = dependencies.observeAuthorizedMusicProvider
-        completeYandexAuthorization = dependencies.completeYandexAuthorization
-        redirectURL = dependencies.oauthConfig.redirectURL
         destination = dependencies.observeAuthorizedMusicProvider.currentAuthorizedProvider().toDestination()
     }
 
@@ -47,36 +46,17 @@ final class AppRoot {
             }
         }
     }
-
-    func handleIncomingURL(_ url: URL) async {
-        guard url.normalizedOAuthURL == redirectURL.normalizedOAuthURL else {
-            return
-        }
-
-        isHandlingAuthorizationCallback = true
-        defer { isHandlingAuthorizationCallback = false }
-        _ = try? await completeYandexAuthorization(callbackURL: url)
-    }
-
-    func handleAppDidBecomeActive() async {
-        guard !isHandlingAuthorizationCallback else {
-            return
-        }
-
-        await authCardViewModel.onAuthorizationFlowReturnedWithoutCallback()
-    }
 }
 
 private struct AppDependencies {
-    let oauthConfig: YandexOAuthConfig
     let observeAuthorizedMusicProvider: ObserveAuthorizedMusicProviderUseCase
-    let completeYandexAuthorization: CompleteYandexAuthorizationUseCase
     let authCardViewModel: YandexMusicAuthCardViewModel
     let musicLibraryViewModel: MusicLibraryViewModel
     let makeTrackListViewModel: (MusicLibraryDestination) -> TrackListViewModel
+    let resetAuthorization: @MainActor @Sendable () async -> Void
 
     @MainActor
-    static func live(bundle: Bundle = .main) -> AppDependencies {
+    static func live(bundle: Bundle = .main) -> Self {
         let oauthConfig = bundle.yandexOAuthConfig
         let secureStore = KeychainSecureStore(
             service: "\(bundle.bundleIdentifier ?? "com.mplayeraudio").auth"
@@ -87,37 +67,77 @@ private struct AppDependencies {
             sessionStore: sessionStore,
             secureStore: secureStore
         )
-        let musicLibraryRepository = YandexMusicRepositoryImpl(
-            accessTokenProvider: authRepository
+        let logoutYandexAuthorization = LogoutYandexAuthorizationUseCase(repository: authRepository)
+        let musicServices = makeMusicServices(
+            bundle: bundle,
+            authRepository: authRepository
         )
-        let playbackQueueBridge = InMemoryPlaybackQueueBridge()
 
-        return AppDependencies(
-            oauthConfig: oauthConfig,
+        return Self(
             observeAuthorizedMusicProvider: ObserveAuthorizedMusicProviderUseCase(repository: authRepository),
-            completeYandexAuthorization: CompleteYandexAuthorizationUseCase(repository: authRepository),
-            authCardViewModel: YandexMusicAuthCardViewModel(
-                startYandexAuthorization: StartYandexAuthorizationUseCase(repository: authRepository),
-                cancelYandexAuthorization: CancelYandexAuthorizationUseCase(repository: authRepository),
-                observeYandexSession: ObserveYandexSessionUseCase(repository: authRepository),
-                observeYandexAuthStatus: ObserveYandexAuthStatusUseCase(repository: authRepository)
-            ),
+            authCardViewModel: makeAuthCardViewModel(authRepository: authRepository),
             musicLibraryViewModel: MusicLibraryViewModel(
-                observeOwnPlaylists: ObserveOwnPlaylistsUseCase(repository: musicLibraryRepository),
-                refreshLibrary: RefreshLibraryUseCase(repository: musicLibraryRepository)
+                observeOwnPlaylists: ObserveOwnPlaylistsUseCase(repository: musicServices.repository),
+                refreshLibrary: RefreshLibraryUseCase(repository: musicServices.repository)
             ),
             makeTrackListViewModel: { destination in
                 TrackListViewModel(
                     destination: destination,
-                    observePlaylist: ObservePlaylistUseCase(repository: musicLibraryRepository),
-                    refreshPlaylist: RefreshPlaylistUseCase(repository: musicLibraryRepository),
-                    observeSavedTracks: ObserveSavedTracksUseCase(repository: musicLibraryRepository),
-                    refreshSavedTracks: RefreshSavedTracksUseCase(repository: musicLibraryRepository),
-                    playbackBridge: playbackQueueBridge
+                    observePlaylist: ObservePlaylistUseCase(repository: musicServices.repository),
+                    refreshPlaylist: RefreshPlaylistUseCase(repository: musicServices.repository),
+                    observeSavedTracks: ObserveSavedTracksUseCase(repository: musicServices.repository),
+                    refreshSavedTracks: RefreshSavedTracksUseCase(repository: musicServices.repository),
+                    playbackBridge: musicServices.playbackQueueBridge
                 )
+            },
+            resetAuthorization: {
+                await logoutYandexAuthorization()
             }
         )
     }
+
+    @MainActor
+    private static func makeAuthCardViewModel(
+        authRepository: YandexAuthRepositoryImpl
+    ) -> YandexMusicAuthCardViewModel {
+        YandexMusicAuthCardViewModel(
+            startYandexAuthorization: StartYandexAuthorizationUseCase(repository: authRepository),
+            completeYandexAuthorization: CompleteYandexAuthorizationUseCase(repository: authRepository),
+            cancelYandexAuthorization: CancelYandexAuthorizationUseCase(repository: authRepository),
+            observeYandexSession: ObserveYandexSessionUseCase(repository: authRepository),
+            observeYandexAuthStatus: ObserveYandexAuthStatusUseCase(repository: authRepository)
+        )
+    }
+
+    @MainActor
+    private static func makeMusicServices(
+        bundle: Bundle,
+        authRepository: YandexAuthRepositoryImpl
+    ) -> MusicServices {
+        let yandexMusicAPI = URLSessionYandexMusicAPI(
+            streamingConfig: bundle.yandexMusicStreamingConfig
+        )
+        let repository = YandexMusicRepositoryImpl(
+            accessTokenProvider: authRepository,
+            api: yandexMusicAPI
+        )
+        let trackStreamURLProvider = YandexTrackStreamUrlProvider(
+            accessTokenProvider: authRepository,
+            api: yandexMusicAPI
+        )
+        let playbackQueueBridge = ServicesKitharaPlayerModule.makePlaybackQueueBridge(
+            urlProvider: trackStreamURLProvider
+        )
+        return MusicServices(
+            repository: repository,
+            playbackQueueBridge: playbackQueueBridge
+        )
+    }
+}
+
+private struct MusicServices {
+    let repository: YandexMusicRepositoryImpl
+    let playbackQueueBridge: PlaybackQueueBridge
 }
 
 private extension AuthorizedMusicProvider? {
@@ -125,46 +145,33 @@ private extension AuthorizedMusicProvider? {
         switch self {
         case nil:
             return .auth
+
         case .some:
             return .library
         }
     }
 }
 
-private extension URL {
-    var normalizedOAuthURL: String {
-        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)
-        components?.query = nil
-        components?.fragment = nil
-        return components?.string ?? absoluteString
-    }
-}
-
 private extension Bundle {
     var yandexOAuthConfig: YandexOAuthConfig {
         let info = infoDictionary ?? [:]
-        let clientId = (info["YandexOAuthClientID"] as? String) ?? ""
-        let clientSecret = (info["YandexOAuthClientSecret"] as? String) ?? ""
-        let scheme = ((info["YandexOAuthRedirectScheme"] as? String) ?? "mplayeraudio")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let host = ((info["YandexOAuthRedirectHost"] as? String) ?? "oauth")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let path = ((info["YandexOAuthRedirectPath"] as? String) ?? "/yandex")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let deviceName = (info["YandexOAuthDeviceName"] as? String)?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        var components = URLComponents()
-        components.scheme = scheme.isEmpty ? "mplayeraudio" : scheme
-        components.host = host.isEmpty ? "oauth" : host
-        components.path = path.isEmpty ? "/yandex" : path
-
-        let redirectURL = components.url ?? URL(string: "mplayeraudio://oauth/yandex")!
+        let clientId = (info["YandexAuthClientID"] as? String) ?? ""
+        let authorizationRedirectURL = URL(string: "https://music.yandex.ru/")!
         return YandexOAuthConfig(
             clientId: YandexClientId(rawValue: clientId),
-            clientSecret: clientSecret,
-            redirectURL: redirectURL,
-            deviceName: deviceName
+            authorizationRedirectURL: authorizationRedirectURL
+        )
+    }
+
+    var yandexMusicStreamingConfig: YandexMusicStreamingConfig {
+        let info = infoDictionary ?? [:]
+        return YandexMusicStreamingConfig(
+            downloadInfoSigningSecret: (info["YandexMusicStreamingSecret"] as? String) ?? "",
+            downloadInfoClientHeader: (info["YandexMusicStreamingClient"] as? String)
+                ?? "YandexMusicAndroid/24022571",
+            fileInfoSigningSecret: (info["YandexMusicFileInfoSecret"] as? String) ?? "",
+            fileInfoClientHeader: (info["YandexMusicFileInfoClient"] as? String)
+                ?? "YandexMusicDesktopAppWindows/5.13.2"
         )
     }
 }

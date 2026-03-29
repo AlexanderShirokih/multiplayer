@@ -10,10 +10,12 @@ struct RootView: View {
             case .auth:
                 WelcomeView(viewModel: appRoot.authCardViewModel)
                     .transition(.opacity)
+
             case .library:
                 MusicLibraryView(
                     viewModel: appRoot.musicLibraryViewModel,
-                    trackListViewModelFactory: appRoot.makeTrackListViewModel
+                    trackListViewModelFactory: appRoot.makeTrackListViewModel,
+                    onResetAuthorization: appRoot.resetAuthorization
                 )
                 .transition(.opacity)
             }
