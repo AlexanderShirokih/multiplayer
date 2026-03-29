@@ -177,6 +177,7 @@ private fun PlaylistTrackEntry.toItemState(): TrackListItemState {
     return TrackListItemState(
         queueItem = PlaybackQueueItem(
             id = trackQueueItemId(position = position, trackId = trackRef.trackId.value),
+            trackId = trackRef.trackId,
             title = preview?.title.orEmpty(),
             subtitle = preview?.artists.artistNames(),
             durationMs = preview?.durationMs ?: 0L,
@@ -192,6 +193,7 @@ private fun SavedTrackEntry.toItemState(): TrackListItemState {
     return TrackListItemState(
         queueItem = PlaybackQueueItem(
             id = trackQueueItemId(position = position, trackId = trackRef.trackId.value),
+            trackId = trackRef.trackId,
             title = track?.title.orEmpty(),
             subtitle = track?.artists.artistNames(),
             durationMs = track?.durationMs ?: 0L,

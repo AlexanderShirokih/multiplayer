@@ -29,4 +29,14 @@ internal interface YandexMusicApi {
         accessToken: String,
         trackIds: List<String>,
     ): JsonArray
+
+    suspend fun fetchTrackDownloadInfo(
+        accessToken: String,
+        trackId: String,
+    ): JsonArray
+
+    suspend fun fetchDownloadInfoUrl(
+        accessToken: String,
+        url: String,
+    ): String
 }

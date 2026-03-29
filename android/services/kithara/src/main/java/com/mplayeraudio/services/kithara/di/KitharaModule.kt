@@ -1,0 +1,30 @@
+package com.mplayeraudio.services.kithara.di
+
+import com.mplayeraudio.core.player.PlaybackQueueBridge
+import com.mplayeraudio.services.kithara.AudioPlaybackEngine
+import com.mplayeraudio.services.kithara.KitharaAudioPlaybackEngine
+import com.mplayeraudio.services.kithara.KitharaPlaybackQueueBridge
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import org.koin.core.module.Module
+import org.koin.core.qualifier.named
+import org.koin.dsl.module
+
+private const val KitharaScopeQualifier = "kitharaPlaybackScope"
+
+fun kitharaModule(): Module = module {
+    single(named(KitharaScopeQualifier)) {
+        CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    }
+    single<AudioPlaybackEngine> {
+        KitharaAudioPlaybackEngine(scope = get(named(KitharaScopeQualifier)))
+    }
+    single<PlaybackQueueBridge> {
+        KitharaPlaybackQueueBridge(
+            engine = get(),
+            urlProvider = get(),
+            scope = get<CoroutineScope>(named(KitharaScopeQualifier)),
+        )
+    }
+}

@@ -20,6 +20,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 
+@Suppress("TooManyFunctions")
 internal class KtorYandexMusicApi(
     private val httpClient: HttpClient,
     private val json: Json,
@@ -83,6 +84,32 @@ internal class KtorYandexMusicApi(
             trackIds.forEach { append("track-ids", it) }
             append("with-positions", "true")
         }.jsonArray
+    }
+
+    override suspend fun fetchTrackDownloadInfo(
+        accessToken: String,
+        trackId: String,
+    ): JsonArray {
+        return getWrappedResult(
+            url = yandexMusicUrl("tracks/$trackId/download-info"),
+            accessToken = accessToken,
+        ).jsonArray
+    }
+
+    override suspend fun fetchDownloadInfoUrl(
+        accessToken: String,
+        url: String,
+    ): String {
+        val response = httpClient.get(url) {
+            header(HttpHeaders.Authorization, "OAuth $accessToken")
+        }
+        if (!response.status.isSuccess()) {
+            throw MusicLibraryException.ProviderError(
+                code = "http_${response.status.value}",
+                description = "Failed to fetch download info from $url",
+            )
+        }
+        return response.bodyAsText()
     }
 
     private suspend fun getWrappedResult(

@@ -1,16 +1,14 @@
 package com.mplayeraudio.services.yandex
 
-import com.mplayeraudio.core.domain.musiclibrary.MusicLibraryException
 import com.mplayeraudio.core.domain.musiclibrary.MusicLibraryRepository
 import com.mplayeraudio.core.domain.musiclibrary.MusicServiceAvailability
 import com.mplayeraudio.core.domain.musiclibrary.Playlist
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistId
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistSummary
-import com.mplayeraudio.core.domain.musiclibrary.ProviderUserId
 import com.mplayeraudio.core.domain.musiclibrary.SavedTracksResult
 import com.mplayeraudio.core.domain.musiclibrary.Track
 import com.mplayeraudio.core.domain.musiclibrary.TrackRef
-import com.mplayeraudio.core.domain.yandexauth.YandexAccessTokenProvider
+import com.mplayeraudio.services.yandex.internal.YandexMusicRequestRunner
 import com.mplayeraudio.services.yandex.internal.toApiTrackId
 import com.mplayeraudio.services.yandex.internal.toAvailability
 import com.mplayeraudio.services.yandex.internal.toCurrentUserId
@@ -26,14 +24,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.jsonObject
 
 internal class YandexMusicRepositoryImpl(
-    private val accessTokenProvider: YandexAccessTokenProvider,
+    private val requestRunner: YandexMusicRequestRunner,
     private val api: YandexMusicApi,
 ) : MusicLibraryRepository {
-
-    private val requestRunner = YandexMusicRequestRunner(
-        accessTokenProvider = accessTokenProvider,
-        api = api,
-    )
     private val availabilityState = MutableStateFlow<MusicServiceAvailability?>(null)
     private val ownPlaylistsState = MutableStateFlow<List<PlaylistSummary>>(emptyList())
     private val playlistState = MutableStateFlow<Map<PlaylistId, Playlist>>(emptyMap())
@@ -127,41 +120,5 @@ internal class YandexMusicRepositoryImpl(
             updatedTracks[track.preview.ref] = track
         }
         trackState.value = updatedTracks
-    }
-}
-
-private class YandexMusicRequestRunner(
-    private val accessTokenProvider: YandexAccessTokenProvider,
-    private val api: YandexMusicApi,
-) {
-
-    @Volatile
-    private var cachedUserId: ProviderUserId? = null
-
-    suspend fun <T> withCurrentUserId(
-        block: suspend (accessToken: String, userId: ProviderUserId) -> T,
-    ): T {
-        return withAuthorizedRequest { accessToken ->
-            block(accessToken, requireCurrentUserId(accessToken))
-        }
-    }
-
-    suspend fun <T> withAuthorizedRequest(
-        block: suspend (accessToken: String) -> T,
-    ): T {
-        val currentToken = accessTokenProvider.getValidAccessToken(forceRefresh = false)
-        return try {
-            block(currentToken)
-        } catch (_: MusicLibraryException.Unauthorized) {
-            val refreshedToken = accessTokenProvider.getValidAccessToken(forceRefresh = true)
-            block(refreshedToken)
-        }
-    }
-
-    private suspend fun requireCurrentUserId(accessToken: String): ProviderUserId {
-        cachedUserId?.let { return it }
-        val userId = api.fetchCurrentUser(accessToken).toCurrentUserId()
-        cachedUserId = userId
-        return userId
     }
 }

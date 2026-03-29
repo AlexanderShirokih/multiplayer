@@ -1,9 +1,11 @@
 package com.mplayeraudio.core.player
 
+import com.mplayeraudio.core.domain.musiclibrary.TrackId
 import kotlinx.coroutines.flow.Flow
 
 data class PlaybackQueueItem(
     val id: String,
+    val trackId: TrackId,
     val title: String,
     val subtitle: String,
     val durationMs: Long,
