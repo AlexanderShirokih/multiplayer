@@ -26,6 +26,10 @@ internal data class ParsedAuthorizationCallback(
     val state: String?,
     val error: String?,
     val errorDescription: String?,
+    val accessToken: YandexAccessToken?,
+    val tokenType: String?,
+    val expiresInSeconds: Long?,
+    val scopes: Set<String>,
 )
 
 internal data class PkcePayload(

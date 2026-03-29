@@ -7,7 +7,9 @@ import com.mplayeraudio.services.yandex.internal.YandexMusicRequestRunner
 import com.mplayeraudio.services.yandex.internal.network.YandexMusicApi
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.security.MessageDigest
@@ -24,6 +26,10 @@ internal class YandexTrackStreamUrlProvider(
     }
 
     private suspend fun resolveStreamUrl(accessToken: String, trackId: String): String {
+        resolveFullTrackUrl(accessToken, trackId)?.let { fullTrackUrl ->
+            return fullTrackUrl
+        }
+
         val downloadInfoArray = api.fetchTrackDownloadInfo(accessToken, trackId)
         if (downloadInfoArray.isEmpty()) {
             throw MusicLibraryException.InvalidResponse(
@@ -33,26 +39,28 @@ internal class YandexTrackStreamUrlProvider(
 
         val bestEntry = downloadInfoArray
             .map { it.jsonObject }
-            .filter { !it.booleanOrFalse("preview") }
-            .maxByOrNull { it.intOrZero("bitrateInKbps") }
-            ?: downloadInfoArray.first().jsonObject
-
-        val isDirect = bestEntry.booleanOrFalse("direct")
-        if (isDirect) {
-            return bestEntry.requireString("downloadInfoUrl")
-        }
+            .selectBestDownloadInfo()
 
         val downloadInfoUrl = bestEntry.requireString("downloadInfoUrl")
-        val xmlResponse = api.fetchDownloadInfoUrl(accessToken, downloadInfoUrl)
-        return buildSignedUrl(xmlResponse)
+        val streamUrl = if (bestEntry.booleanOrFalse("direct")) {
+            downloadInfoUrl
+        } else {
+            // Legacy download-info responses point to XML metadata that must be converted into
+            // a signed /get-mp3/ URL.
+            val xmlResponse = api.fetchDownloadInfoUrl(accessToken, downloadInfoUrl)
+            buildSignedUrl(xmlResponse)
+        }
+        return streamUrl
     }
 
-    private fun JsonObject.booleanOrFalse(key: String): Boolean {
-        return this[key]?.jsonPrimitive?.boolean ?: false
-    }
-
-    private fun JsonObject.intOrZero(key: String): Int {
-        return this[key]?.jsonPrimitive?.int ?: 0
+    private suspend fun resolveFullTrackUrl(accessToken: String, trackId: String): String? {
+        return try {
+            val fileInfo = api.fetchTrackFileInfo(accessToken, trackId)
+            val downloadInfo = fileInfo["downloadInfo"]?.jsonObject
+            downloadInfo?.firstDownloadUrl()
+        } catch (_: MusicLibraryException) {
+            null
+        }
     }
 
     private fun JsonObject.requireString(key: String): String {
@@ -61,6 +69,70 @@ internal class YandexTrackStreamUrlProvider(
                 description = "Missing '$key' in download info response.",
             )
     }
+}
+
+private fun List<JsonObject>.selectBestDownloadInfo(): JsonObject {
+    val priorities = listOf<(JsonObject) -> Boolean>(
+        { entry ->
+            !entry.booleanOrFalse("preview") &&
+                entry.booleanOrFalse("direct") &&
+                entry.stringOrNull("container") == PreferredStreamingContainer &&
+                entry.stringOrNull("codec") == PreferredCodec
+        },
+        { entry ->
+            !entry.booleanOrFalse("preview") &&
+                entry.booleanOrFalse("direct") &&
+                entry.stringOrNull("container") == PreferredStreamingContainer
+        },
+        { entry ->
+            !entry.booleanOrFalse("preview") &&
+                entry.booleanOrFalse("direct") &&
+                entry.stringOrNull("codec") == PreferredCodec
+        },
+        { entry ->
+            !entry.booleanOrFalse("preview") && entry.booleanOrFalse("direct")
+        },
+        { entry ->
+            !entry.booleanOrFalse("preview") && entry.stringOrNull("codec") == PreferredCodec
+        },
+        { entry ->
+            !entry.booleanOrFalse("preview")
+        },
+    )
+
+    priorities.forEach { predicate ->
+        selectHighestBitrate(predicate)?.let { return it }
+    }
+
+    return first()
+}
+
+private inline fun List<JsonObject>.selectHighestBitrate(
+    predicate: (JsonObject) -> Boolean,
+): JsonObject? {
+    return filter(predicate)
+        .maxByOrNull { entry -> entry.intOrZero("bitrateInKbps") }
+}
+
+private fun JsonObject.booleanOrFalse(key: String): Boolean {
+    return this[key]?.jsonPrimitive?.boolean ?: false
+}
+
+private fun JsonObject.intOrZero(key: String): Int {
+    return this[key]?.jsonPrimitive?.int ?: 0
+}
+
+private fun JsonObject.stringOrNull(key: String): String? {
+    return this[key]?.jsonPrimitive?.contentOrNull
+}
+
+private fun JsonObject.firstDownloadUrl(): String? {
+    return stringOrNull("url")
+        ?: this["urls"]
+            ?.jsonArray
+            ?.firstOrNull()
+            ?.jsonPrimitive
+            ?.contentOrNull
 }
 
 internal fun buildSignedUrl(xmlResponse: String): String {
@@ -97,3 +169,5 @@ private fun String.extractXmlTag(tag: String): String {
 }
 
 private const val SigningSalt = "XGRlBW9FXlekgbPrRHuSiA"
+private const val PreferredCodec = "mp3"
+private const val PreferredStreamingContainer = "hls"

@@ -54,6 +54,18 @@ internal fun Project.configureYandexAuthBuild(applicationExtension: ApplicationE
         "YANDEX_REDIRECT_URI",
         YandexAuthDefaults.redirectUri,
     )
+    val yandexAuthorizationClientId = localProperties.getProperty(
+        "YANDEX_AUTH_CLIENT_ID",
+        yandexClientId,
+    )
+    val yandexAuthorizationRedirectUri = localProperties.getProperty(
+        "YANDEX_AUTH_REDIRECT_URI",
+        yandexRedirectUri,
+    )
+    val yandexAuthorizationResponseType = localProperties.getProperty(
+        "YANDEX_AUTH_RESPONSE_TYPE",
+        "code",
+    )
 
     val redirectComponents = try {
         URI(yandexRedirectUri)
@@ -83,6 +95,21 @@ internal fun Project.configureYandexAuthBuild(applicationExtension: ApplicationE
             "String",
             "YANDEX_REDIRECT_URI",
             "\"${yandexRedirectUri.escapeForBuildConfig()}\""
+        )
+        buildConfigField(
+            "String",
+            "YANDEX_AUTH_CLIENT_ID",
+            "\"${yandexAuthorizationClientId.escapeForBuildConfig()}\""
+        )
+        buildConfigField(
+            "String",
+            "YANDEX_AUTH_REDIRECT_URI",
+            "\"${yandexAuthorizationRedirectUri.escapeForBuildConfig()}\""
+        )
+        buildConfigField(
+            "String",
+            "YANDEX_AUTH_RESPONSE_TYPE",
+            "\"${yandexAuthorizationResponseType.escapeForBuildConfig()}\""
         )
 
         manifestPlaceholders["yandexAuthScheme"] = yandexRedirectScheme

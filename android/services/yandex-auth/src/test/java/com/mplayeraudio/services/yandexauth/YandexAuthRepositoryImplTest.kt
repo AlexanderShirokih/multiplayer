@@ -4,6 +4,7 @@ import com.mplayeraudio.core.domain.yandexauth.YandexAccessToken
 import com.mplayeraudio.core.domain.yandexauth.YandexAuthException
 import com.mplayeraudio.core.domain.yandexauth.YandexAuthSession
 import com.mplayeraudio.core.domain.yandexauth.YandexAuthStatus
+import com.mplayeraudio.core.domain.yandexauth.YandexAuthorizationResponseType
 import com.mplayeraudio.core.domain.yandexauth.YandexClientId
 import com.mplayeraudio.core.domain.yandexauth.YandexDeviceId
 import com.mplayeraudio.core.domain.yandexauth.YandexRefreshToken
@@ -101,6 +102,34 @@ class YandexAuthRepositoryImplTest {
     }
 
     @Test
+    fun `completeAuthorization accepts access token fragment callback`() = runTest {
+        val sessionStore = FakeSessionStore()
+        val oauthApi = FakeYandexOAuthApi(userIdentity = user)
+        val repository = repository(
+            config = config.copy(
+                authorizationClientId = YandexClientId("music-client-id"),
+                authorizationRedirectUri = "https://music.yandex.ru/",
+                authorizationResponseType = YandexAuthorizationResponseType.Token,
+            ),
+            oauthApi = oauthApi,
+            sessionStore = sessionStore,
+        )
+
+        repository.createAuthorizationRequest()
+        val callbackUri =
+            "https://music.yandex.ru/" +
+                "#access_token=music-token&token_type=bearer&expires_in=31536000&state=state-123"
+        val session = repository.completeAuthorization(
+            callbackUri = callbackUri,
+        )
+
+        assertEquals("music-token", session.accessToken.value)
+        assertEquals("music-client-id", session.clientId.value)
+        assertEquals(0, oauthApi.exchangeCalls)
+        assertEquals(session, sessionStore.get())
+    }
+
+    @Test
     fun `getValidAccessToken refreshes expired session and persists new token`() = runTest {
         val sessionStore = FakeSessionStore(
             session = expiredSession(accessToken = "stale-token", refreshToken = "refresh-token"),
@@ -177,6 +206,7 @@ class YandexAuthRepositoryImplTest {
     }
 
     private fun repository(
+        config: YandexOAuthConfig = this.config,
         oauthApi: FakeYandexOAuthApi = FakeYandexOAuthApi(userIdentity = user),
         sessionStore: FakeSessionStore = FakeSessionStore(),
         pendingAuthStore: FakePendingAuthStore = FakePendingAuthStore(),

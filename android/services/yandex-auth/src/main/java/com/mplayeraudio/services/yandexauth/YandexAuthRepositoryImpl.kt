@@ -78,6 +78,8 @@ internal class YandexAuthRepositoryImpl(
                 deviceId = deviceId,
                 deviceName = deviceName,
             ),
+            callbackUrlPrefix = config.authorizationRedirectUri,
+            responseType = config.authorizationResponseType,
         )
         pendingAuthStore.save(
             pendingAuthorization = PendingYandexAuthorization(
@@ -98,18 +100,18 @@ internal class YandexAuthRepositoryImpl(
 
         return try {
             val callback = callbackParser.parse(callbackUri)
-            pendingAuthStore.clear()
             callback.throwIfProviderError()
-            val code = callback.requireAuthorizationCode()
             callback.requireMatchingState(expectedState = pendingAuthorization.state)
+            pendingAuthStore.clear()
 
-            val tokenPayload = oauthApi.exchangeAuthorizationCode(
-                config = config,
-                code = code,
-                codeVerifier = pendingAuthorization.codeVerifier,
-                deviceId = pendingAuthorization.deviceId.value,
-                deviceName = pendingAuthorization.deviceName,
-            )
+            val tokenPayload = callback.accessTokenPayloadOrNull()
+                ?: oauthApi.exchangeAuthorizationCode(
+                    config = config,
+                    code = callback.requireAuthorizationCode(),
+                    codeVerifier = pendingAuthorization.codeVerifier,
+                    deviceId = pendingAuthorization.deviceId.value,
+                    deviceName = pendingAuthorization.deviceName,
+                )
             val userIdentity = oauthApi.fetchUserIdentity(tokenPayload.accessToken)
             val session = tokenPayload.toSession(
                 userIdentity = userIdentity,
@@ -199,7 +201,19 @@ internal class YandexAuthRepositoryImpl(
             scopes = scopes,
             deviceId = deviceId,
             user = userIdentity,
-            clientId = YandexClientId(config.clientId.value),
+            clientId = YandexClientId(config.authorizationClientId.value),
+        )
+    }
+
+    private fun com.mplayeraudio.services.yandexauth.internal.ParsedAuthorizationCallback.accessTokenPayloadOrNull():
+        com.mplayeraudio.services.yandexauth.internal.OAuthTokenPayload? {
+        val accessToken = accessToken ?: return null
+        return com.mplayeraudio.services.yandexauth.internal.OAuthTokenPayload(
+            tokenType = tokenType ?: "bearer",
+            accessToken = accessToken,
+            refreshToken = null,
+            expiresInSeconds = expiresInSeconds,
+            scopes = scopes,
         )
     }
 

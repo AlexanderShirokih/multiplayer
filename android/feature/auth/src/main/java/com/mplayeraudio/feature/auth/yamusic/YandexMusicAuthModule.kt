@@ -11,6 +11,7 @@ fun yandexMusicAuthModule() = module {
     viewModel {
         YandexMusicAuthCardViewModel(
             startYandexAuthorization = get(),
+            completeYandexAuthorization = get(),
             observeYandexSession = get(),
             observeYandexAuthStatus = get(),
         )

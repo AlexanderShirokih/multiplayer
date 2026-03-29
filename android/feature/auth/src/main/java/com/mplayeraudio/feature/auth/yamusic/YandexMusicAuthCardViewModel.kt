@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mplayeraudio.core.domain.yandexauth.YandexAuthException
 import com.mplayeraudio.core.domain.yandexauth.YandexAuthStatus
+import com.mplayeraudio.core.domain.yandexauth.YandexAuthorizationRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -19,13 +20,10 @@ import kotlinx.coroutines.launch
 data class YandexMusicAuthCardState(
     val isLoading: Boolean = false,
     val isAuthorized: Boolean = false,
+    val authorizationRequest: YandexAuthorizationRequest? = null,
 )
 
 sealed interface YandexMusicAuthCardEffect {
-    data class OpenExternalAuth(
-        val url: String,
-    ) : YandexMusicAuthCardEffect
-
     data class ShowToast(
         val message: String,
     ) : YandexMusicAuthCardEffect
@@ -33,6 +31,7 @@ sealed interface YandexMusicAuthCardEffect {
 
 class YandexMusicAuthCardViewModel(
     private val startYandexAuthorization: StartYandexAuthorizationUseCase,
+    private val completeYandexAuthorization: CompleteYandexAuthorizationUseCase,
     observeYandexSession: ObserveYandexSessionUseCase,
     observeYandexAuthStatus: ObserveYandexAuthStatusUseCase,
 ) : ViewModel() {
@@ -62,7 +61,12 @@ class YandexMusicAuthCardViewModel(
 
             try {
                 val request = startYandexAuthorization()
-                _effects.emit(YandexMusicAuthCardEffect.OpenExternalAuth(request.url))
+                _state.update { currentState ->
+                    currentState.copy(
+                        isLoading = false,
+                        authorizationRequest = request,
+                    )
+                }
             } catch (exception: YandexAuthException) {
                 _state.update { currentState -> currentState.copy(isLoading = false) }
                 _effects.emit(YandexMusicAuthCardEffect.ShowToast(exception.toUserMessage()))
@@ -70,12 +74,37 @@ class YandexMusicAuthCardViewModel(
         }
     }
 
-    fun onBrowserLaunchFailed() {
-        _state.update { currentState -> currentState.copy(isLoading = false) }
+    fun onAuthorizationCallbackReceived(callbackUri: String) {
+        viewModelScope.launch {
+            _state.update { currentState -> currentState.copy(isLoading = true) }
+            try {
+                completeYandexAuthorization(callbackUri)
+            } catch (_: YandexAuthException) {
+                // Ошибка уже попадёт в observeYandexAuthStatus и превратится в пользовательское сообщение.
+            }
+        }
+    }
+
+    fun onAuthorizationCancelled() {
+        _state.update { currentState ->
+            currentState.copy(
+                isLoading = false,
+                authorizationRequest = null,
+            )
+        }
+    }
+
+    fun onAuthorizationLaunchFailed() {
+        _state.update { currentState ->
+            currentState.copy(
+                isLoading = false,
+                authorizationRequest = null,
+            )
+        }
         viewModelScope.launch {
             _effects.emit(
                 YandexMusicAuthCardEffect.ShowToast(
-                    "Не удалось открыть страницу авторизации Яндекса.",
+                    "Не удалось запустить встроенную авторизацию Яндекса.",
                 ),
             )
         }
@@ -88,7 +117,9 @@ class YandexMusicAuthCardViewModel(
     private fun handleAuthStatus(status: YandexAuthStatus) {
         when (status) {
             YandexAuthStatus.Authorizing -> {
-                _state.update { currentState -> currentState.copy(isLoading = true) }
+                _state.update { currentState ->
+                    currentState.copy(isLoading = currentState.authorizationRequest == null)
+                }
             }
 
             is YandexAuthStatus.Authorized -> {
@@ -96,12 +127,18 @@ class YandexMusicAuthCardViewModel(
                     currentState.copy(
                         isLoading = false,
                         isAuthorized = true,
+                        authorizationRequest = null,
                     )
                 }
             }
 
             is YandexAuthStatus.Failed -> {
-                _state.update { currentState -> currentState.copy(isLoading = false) }
+                _state.update { currentState ->
+                    currentState.copy(
+                        isLoading = false,
+                        authorizationRequest = null,
+                    )
+                }
                 viewModelScope.launch {
                     _effects.emit(
                         YandexMusicAuthCardEffect.ShowToast(
@@ -114,7 +151,10 @@ class YandexMusicAuthCardViewModel(
 
             YandexAuthStatus.Unauthorized -> {
                 _state.update { currentState ->
-                    currentState.copy(isLoading = false)
+                    currentState.copy(
+                        isLoading = false,
+                        authorizationRequest = null,
+                    )
                 }
             }
         }

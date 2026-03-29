@@ -4,6 +4,7 @@ import com.mplayeraudio.core.domain.yandexauth.YandexAuthRepository
 import com.mplayeraudio.core.domain.yandexauth.YandexAuthSession
 import com.mplayeraudio.core.domain.yandexauth.YandexAuthStatus
 import com.mplayeraudio.core.domain.yandexauth.YandexAuthorizationRequest
+import com.mplayeraudio.core.domain.yandexauth.YandexAuthorizationResponseType
 import com.mplayeraudio.core.domain.yandexauth.YandexAuthException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -38,20 +39,22 @@ class YandexMusicAuthCardViewModelTest {
     }
 
     @Test
-    fun `onLoginClicked emits browser effect and loading state`() = runTest(dispatcher) {
+    fun `onLoginClicked stores embedded auth request and stops loading after webview opens`() = runTest(dispatcher) {
         val repository = FakeYandexAuthRepository()
         val viewModel = viewModel(repository)
-        val effectDeferred = async { viewModel.effects.first() }
 
         viewModel.onLoginClicked()
         advanceUntilIdle()
 
-        val effect = effectDeferred.await()
         assertEquals(
-            YandexMusicAuthCardEffect.OpenExternalAuth("https://oauth.yandex.ru/authorize"),
-            effect,
+            YandexAuthorizationRequest(
+                url = "https://oauth.yandex.ru/authorize",
+                callbackUrlPrefix = "https://music.yandex.ru/",
+                responseType = YandexAuthorizationResponseType.Token,
+            ),
+            viewModel.state.value.authorizationRequest,
         )
-        assertTrue(viewModel.state.value.isLoading)
+        assertFalse(viewModel.state.value.isLoading)
         viewModel.dispose()
     }
 
@@ -109,6 +112,7 @@ class YandexMusicAuthCardViewModelTest {
     private fun viewModel(repository: FakeYandexAuthRepository): YandexMusicAuthCardViewModel {
         return YandexMusicAuthCardViewModel(
             startYandexAuthorization = StartYandexAuthorizationUseCase(repository),
+            completeYandexAuthorization = CompleteYandexAuthorizationUseCase(repository),
             observeYandexSession = ObserveYandexSessionUseCase(repository),
             observeYandexAuthStatus = ObserveYandexAuthStatusUseCase(repository),
         )
@@ -125,7 +129,11 @@ private class FakeYandexAuthRepository : YandexAuthRepository {
 
     override suspend fun createAuthorizationRequest(): YandexAuthorizationRequest {
         status.value = YandexAuthStatus.Authorizing
-        return YandexAuthorizationRequest(url = "https://oauth.yandex.ru/authorize")
+        return YandexAuthorizationRequest(
+            url = "https://oauth.yandex.ru/authorize",
+            callbackUrlPrefix = "https://music.yandex.ru/",
+            responseType = YandexAuthorizationResponseType.Token,
+        )
     }
 
     override suspend fun completeAuthorization(callbackUri: String): YandexAuthSession {

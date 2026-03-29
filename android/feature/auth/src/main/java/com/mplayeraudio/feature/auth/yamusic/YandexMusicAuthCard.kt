@@ -118,7 +118,7 @@ fun YandexMusicAuthCard(
                         )
                     } else {
                         val buttonText = when {
-                            state.isAuthorized -> "Аккаунт подключён"
+                            state.isAuthorized -> stringResource(R.string.auth_connected_button)
                             else -> stringResource(R.string.auth_login_button)
                         }
                         Box(

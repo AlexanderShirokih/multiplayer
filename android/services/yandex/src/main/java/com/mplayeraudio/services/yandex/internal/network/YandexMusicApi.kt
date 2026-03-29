@@ -35,6 +35,11 @@ internal interface YandexMusicApi {
         trackId: String,
     ): JsonArray
 
+    suspend fun fetchTrackFileInfo(
+        accessToken: String,
+        trackId: String,
+    ): JsonObject
+
     suspend fun fetchDownloadInfoUrl(
         accessToken: String,
         url: String,

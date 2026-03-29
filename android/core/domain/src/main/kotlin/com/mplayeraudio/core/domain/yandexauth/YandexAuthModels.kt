@@ -17,8 +17,15 @@ value class YandexUserId(val value: String)
 @JvmInline
 value class YandexDeviceId(val value: String)
 
+enum class YandexAuthorizationResponseType {
+    Code,
+    Token,
+}
+
 data class YandexAuthorizationRequest(
     val url: String,
+    val callbackUrlPrefix: String,
+    val responseType: YandexAuthorizationResponseType,
 )
 
 data class YandexUserIdentity(

@@ -8,6 +8,7 @@ import com.mplayeraudio.core.domain.musiclibrary.ProviderUserId
 import com.mplayeraudio.core.domain.musiclibrary.TrackRef
 import com.mplayeraudio.core.domain.musiclibrary.SavedTracksResult
 import com.mplayeraudio.core.domain.yandexauth.YandexAccessTokenProvider
+import com.mplayeraudio.services.yandex.internal.YandexMusicRequestRunner
 import com.mplayeraudio.services.yandex.internal.network.YandexMusicApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -273,11 +274,14 @@ class YandexMusicRepositoryImplTest {
         api: YandexMusicApi,
     ): YandexMusicRepositoryImpl {
         return YandexMusicRepositoryImpl(
-            accessTokenProvider = object : YandexAccessTokenProvider {
-                override fun accessTokenFlow(): Flow<String?> = emptyFlow()
+            requestRunner = YandexMusicRequestRunner(
+                accessTokenProvider = object : YandexAccessTokenProvider {
+                    override fun accessTokenFlow(): Flow<String?> = emptyFlow()
 
-                override suspend fun getValidAccessToken(forceRefresh: Boolean): String = "token"
-            },
+                    override suspend fun getValidAccessToken(forceRefresh: Boolean): String = "token"
+                },
+                api = api,
+            ),
             api = api,
         )
     }
@@ -294,6 +298,8 @@ private class FakeYandexMusicApi(
     private val playlist: JsonObject = JsonObject(emptyMap()),
     private val savedTracks: JsonElement = JsonObject(emptyMap()),
     private val tracks: JsonArray = JsonArray(emptyList()),
+    private val trackDownloadInfo: JsonArray = JsonArray(emptyList()),
+    private val downloadInfoUrlResponse: String = "",
 ) : YandexMusicApi {
 
     override suspend fun fetchAvailability(accessToken: String): JsonObject = availability
@@ -307,4 +313,10 @@ private class FakeYandexMusicApi(
     override suspend fun fetchSavedTracks(accessToken: String, userId: String): JsonElement = savedTracks
 
     override suspend fun fetchTracks(accessToken: String, trackIds: List<String>): JsonArray = tracks
+
+    override suspend fun fetchTrackDownloadInfo(accessToken: String, trackId: String): JsonArray = trackDownloadInfo
+
+    override suspend fun fetchTrackFileInfo(accessToken: String, trackId: String): JsonObject = JsonObject(emptyMap())
+
+    override suspend fun fetchDownloadInfoUrl(accessToken: String, url: String): String = downloadInfoUrlResponse
 }

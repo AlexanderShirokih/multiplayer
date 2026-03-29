@@ -3,6 +3,7 @@ package com.mplayeraudio.app
 import android.app.Application
 import com.kithara.Kithara
 import com.kithara.LogLevel
+import com.mplayeraudio.core.domain.yandexauth.YandexAuthorizationResponseType
 import com.mplayeraudio.core.domain.yandexauth.YandexClientId
 import com.mplayeraudio.feature.auth.yamusic.yandexMusicAuthModule
 import com.mplayeraudio.feature.library.musicLibraryModule
@@ -38,6 +39,16 @@ class MultiplayerApplication : Application() {
             clientSecret = BuildConfig.YANDEX_CLIENT_SECRET,
             redirectUri = BuildConfig.YANDEX_REDIRECT_URI,
             deviceName = getString(R.string.app_name),
+            authorizationClientId = YandexClientId(BuildConfig.YANDEX_AUTH_CLIENT_ID),
+            authorizationRedirectUri = BuildConfig.YANDEX_AUTH_REDIRECT_URI,
+            authorizationResponseType = yandexAuthorizationResponseType(),
         )
+    }
+
+    private fun yandexAuthorizationResponseType(): YandexAuthorizationResponseType {
+        return when (BuildConfig.YANDEX_AUTH_RESPONSE_TYPE.lowercase()) {
+            "token" -> YandexAuthorizationResponseType.Token
+            else -> YandexAuthorizationResponseType.Code
+        }
     }
 }
