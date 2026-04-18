@@ -23,6 +23,7 @@ let project = Project(
                 .project(target: "AuthFeature", path: "../Feature/Auth"),
                 .project(target: "LibraryFeature", path: "../Feature/Library"),
                 .project(target: "DeviceMusicService", path: "../Services/DeviceMusic"),
+                .project(target: "NowPlayingService", path: "../Services/NowPlaying"),
                 .project(target: "YandexMusicService", path: "../Services/YandexMusic"),
                 .project(target: "ServicesKitharaPlayer", path: "../Services/KitharaPlayer")
             ],

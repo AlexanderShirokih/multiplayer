@@ -36,21 +36,31 @@ cd /path/to/kithara && just xcframework
 KITHARA_DIR = /path/to/kithara
 ```
 
-4. Включить режим локального бинаря Kithara — переменная окружения `KITHARA_LOCAL_DEV=1`. Без неё `Package.swift` пакета Kithara пытается скачать `KitharaFFIInternal.xcframework.zip` из релиза на GitHub и завершается ошибкой `404`; с ней SwiftPM подхватывает локальный `KITHARA_DIR/apple/KitharaFFIInternal.xcframework`. Экспортировать в той же сессии, из которой запускается генерация и `xcodebuild`:
+4. Если нужен локальный бинарь Kithara, включить режим локальной сборки. Без него `Package.swift` пакета Kithara пытается скачать `KitharaFFIInternal.xcframework.zip` из релиза на GitHub и может завершиться ошибкой `404`; с локальным режимом SwiftPM подхватывает `KITHARA_DIR/apple/KitharaFFIInternal.xcframework`.
+
+Для `bootstrap-ios.sh` есть явный флаг:
+
+```bash
+./ios/scripts/bootstrap-ios.sh --local-build
+```
+
+Он экспортирует `KITHARA_LOCAL_DEV=1` на время `tuist generate`.
+
+5. Если запускать `tuist`, `tuist test` или `xcodebuild` вручную, переменная `KITHARA_LOCAL_DEV=1` по-прежнему должна быть в окружении:
 
 ```bash
 export KITHARA_LOCAL_DEV=1
 ```
 
-5. Сгенерировать Xcode workspace и открыть его:
+6. Сгенерировать Xcode workspace и открыть его:
 
 ```bash
-KITHARA_LOCAL_DEV=1 ./ios/scripts/bootstrap-ios.sh
+./ios/scripts/bootstrap-ios.sh --local-build
 ```
 
 Скрипт проверяет `KITHARA_DIR`, при необходимости запускает `just xcframework` в Kithara и выполняет `tuist generate` из каталога `ios/`. Альтернатива вручную: `cd ios && KITHARA_LOCAL_DEV=1 tuist generate` (при необходимости предварительно `export KITHARA_DIR=...`).
 
-6. Открыть `ios/MultiPlayer.xcworkspace` в Xcode. Если запускать `xcodebuild` из терминала, переменная `KITHARA_LOCAL_DEV=1` тоже должна быть в окружении при `-resolvePackageDependencies` и сборке, например:
+7. Открыть `ios/MultiPlayer.xcworkspace` в Xcode. Если запускать `xcodebuild` из терминала, переменная `KITHARA_LOCAL_DEV=1` тоже должна быть в окружении при `-resolvePackageDependencies` и сборке, например:
 
 ```bash
 cd ios
@@ -63,7 +73,7 @@ KITHARA_LOCAL_DEV=1 xcodebuild \
   build
 ```
 
-7. Проверка линтера (после правок Swift):
+8. Проверка линтера (после правок Swift):
 
 ```bash
 cd ios && swiftlint lint

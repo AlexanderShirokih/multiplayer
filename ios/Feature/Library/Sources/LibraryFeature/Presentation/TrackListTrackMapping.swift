@@ -21,7 +21,8 @@ extension PlaylistTrackEntry {
                 source: .remote(provider: provider),
                 title: preview?.title ?? "",
                 subtitle: artistLine(from: preview?.artists),
-                durationMs: preview?.durationMs ?? 0
+                durationMs: preview?.durationMs ?? 0,
+                artworkUri: preview?.coverUriTemplate
             ),
             title: preview?.title ?? "",
             artist: artistLine(from: preview?.artists),
@@ -40,7 +41,8 @@ extension SavedTrackEntry {
                 source: .remote(provider: provider),
                 title: track?.title ?? "",
                 subtitle: artistLine(from: track?.artists),
-                durationMs: track?.durationMs ?? 0
+                durationMs: track?.durationMs ?? 0,
+                artworkUri: track?.coverUriTemplate
             ),
             title: track?.title ?? "",
             artist: artistLine(from: track?.artists),

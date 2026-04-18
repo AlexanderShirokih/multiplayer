@@ -39,7 +39,7 @@ android/
 
 ### iOS (Tuist)
 
-Источник правды для Xcode-проекта: **`ios/Workspace.swift`**, **`ios/Tuist.swift`**, каталог **`ios/Tuist/ProjectDescriptionHelpers`**, **`ios/**/Project.swift`**. Сгенерированные `*.xcworkspace` и `*.xcodeproj` не коммитятся; перед работой в Xcode выполнить `./ios/scripts/bootstrap-ios.sh` или `cd ios && tuist generate` (см. `docs/build-setup.md`).
+Источник правды для Xcode-проекта: **`ios/Workspace.swift`**, **`ios/Tuist.swift`**, каталог **`ios/Tuist/ProjectDescriptionHelpers`**, **`ios/**/Project.swift`**. Сгенерированные `*.xcworkspace` и `*.xcodeproj` не коммитятся; перед работой в Xcode выполнить `./ios/scripts/bootstrap-ios.sh` или `cd ios && tuist generate` (см. `BUILD.md`).
 
 ```
 ios/

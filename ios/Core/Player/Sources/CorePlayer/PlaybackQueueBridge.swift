@@ -24,6 +24,7 @@ public struct PlaybackQueueItem: Equatable, Sendable {
     public let subtitle: String
     /// Длительность трека в миллисекундах.
     public let durationMs: Int64
+    public let artworkUri: String?
 
     public init(
         id: String,
@@ -31,7 +32,8 @@ public struct PlaybackQueueItem: Equatable, Sendable {
         source: PlayableSource,
         title: String,
         subtitle: String,
-        durationMs: Int64
+        durationMs: Int64,
+        artworkUri: String? = nil
     ) {
         self.id = id
         self.trackId = trackId
@@ -39,6 +41,7 @@ public struct PlaybackQueueItem: Equatable, Sendable {
         self.title = title
         self.subtitle = subtitle
         self.durationMs = durationMs
+        self.artworkUri = artworkUri
     }
 
     public var descriptor: PlaybackQueueItemDescriptor {

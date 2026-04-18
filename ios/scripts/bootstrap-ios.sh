@@ -2,8 +2,55 @@
 set -euo pipefail
 
 # Готовит локальную среду для iOS: Kithara XCFramework и tuist generate.
-# Запуск: из корня репозитория — ./ios/scripts/bootstrap-ios.sh
-# или из ios/ — ./scripts/bootstrap-ios.sh
+# Запуск: из корня репозитория — ./ios/scripts/bootstrap-ios.sh [--local-build]
+# или из ios/ — ./scripts/bootstrap-ios.sh [--local-build]
+
+print_usage() {
+  cat <<'EOF'
+Использование:
+  ./ios/scripts/bootstrap-ios.sh [--local-build]
+
+Опции:
+  --local-build  Экспортирует KITHARA_LOCAL_DEV=1, чтобы SwiftPM использовал
+                 локальный KitharaFFIInternal.xcframework вместо скачивания zip.
+  -h, --help     Показать эту справку.
+EOF
+}
+
+is_truthy() {
+  case "${1:-}" in
+    1|true|TRUE|yes|YES)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+USE_LOCAL_BUILD=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --local-build)
+      USE_LOCAL_BUILD=1
+      ;;
+    -h|--help)
+      print_usage
+      exit 0
+      ;;
+    *)
+      echo "Неизвестный аргумент: $1" >&2
+      print_usage >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+if is_truthy "${KITHARA_LOCAL_DEV:-}"; then
+  USE_LOCAL_BUILD=1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IOS_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -47,6 +94,11 @@ if ! command -v tuist >/dev/null 2>&1; then
 fi
 
 export KITHARA_DIR
+
+if [[ "${USE_LOCAL_BUILD}" == "1" ]]; then
+  export KITHARA_LOCAL_DEV=1
+  echo "Включен локальный режим Kithara (KITHARA_LOCAL_DEV=1)."
+fi
 
 cd "${IOS_ROOT}"
 tuist generate

@@ -5,6 +5,7 @@ import CorePlayer
 import DeviceMusicService
 import Foundation
 import LibraryFeature
+import NowPlayingService
 import Observation
 import ServicesKitharaPlayer
 import UIKit
@@ -21,6 +22,7 @@ final class AppRoot {
     let authCardViewModel: YandexMusicAuthCardViewModel
     let musicLibraryViewModel: MusicLibraryViewModel
     let makeTrackListViewModel: (MusicLibraryDestination) -> TrackListViewModel
+    let nowPlayingCenter: NowPlayingCenter
     let resetAuthorization: @MainActor @Sendable () async -> Void
 
     var destination: Destination
@@ -34,6 +36,7 @@ final class AppRoot {
         authCardViewModel = dependencies.authCardViewModel
         musicLibraryViewModel = dependencies.musicLibraryViewModel
         makeTrackListViewModel = dependencies.makeTrackListViewModel
+        nowPlayingCenter = dependencies.nowPlayingCenter
         resetAuthorization = dependencies.resetAuthorization
         observeAuthorizedMusicProvider = dependencies.observeAuthorizedMusicProvider
         destination = Self.destination(
@@ -48,6 +51,7 @@ final class AppRoot {
     }
 
     func start() {
+        nowPlayingCenter.start()
         guard observationTask == nil else { return }
 
         authCardViewModel.start()
@@ -82,6 +86,7 @@ private struct AppDependencies {
     let authCardViewModel: YandexMusicAuthCardViewModel
     let musicLibraryViewModel: MusicLibraryViewModel
     let makeTrackListViewModel: (MusicLibraryDestination) -> TrackListViewModel
+    let nowPlayingCenter: NowPlayingCenter
     let resetAuthorization: @MainActor @Sendable () async -> Void
 
     @MainActor
@@ -111,6 +116,7 @@ private struct AppDependencies {
                 refreshLibrary: RefreshLibraryUseCase(library: musicServices.library)
             ),
             makeTrackListViewModel: makeTrackListViewModel,
+            nowPlayingCenter: musicServices.nowPlayingCenter,
             resetAuthorization: {
                 await logoutYandexAuthorization()
             }
@@ -159,9 +165,11 @@ private struct AppDependencies {
         let playbackQueueBridge = ServicesKitharaPlayerModule.makePlaybackQueueBridge(
             urlResolver: urlResolver
         )
+        let nowPlayingCenter = NowPlayingServiceModule.make(playbackBridge: playbackQueueBridge)
         return MusicServices(
             library: library,
             playbackQueueBridge: playbackQueueBridge,
+            nowPlayingCenter: nowPlayingCenter,
             deviceAuthorizationController: deviceServices.authorizationController
         )
     }
@@ -201,6 +209,7 @@ private struct AppDependencies {
 private struct MusicServices {
     let library: MusicLibrary
     let playbackQueueBridge: PlaybackQueueBridge
+    let nowPlayingCenter: NowPlayingCenter
     let deviceAuthorizationController: DeviceMediaAuthorizationController
 }
 

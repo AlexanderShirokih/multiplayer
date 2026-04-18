@@ -10,6 +10,7 @@ let workspace = Workspace(
         "Feature/Auth",
         "Feature/Library",
         "Services/DeviceMusic",
+        "Services/NowPlaying",
         "Services/YandexMusic",
         "Services/KitharaPlayer",
         "App"

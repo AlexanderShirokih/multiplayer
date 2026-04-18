@@ -47,4 +47,4 @@ AGENTS.md           — инструкции для AI-агентов
 
 ### iOS: сборка
 
-Xcode-проект генерируется Tuist; подробности — [docs/build-setup.md](docs/build-setup.md). Кратко: `./ios/scripts/bootstrap-ios.sh`, затем открыть `ios/MultiPlayer.xcworkspace`.
+Xcode-проект генерируется Tuist; подробности — [BUILD.md](BUILD.md). Кратко: `./ios/scripts/bootstrap-ios.sh --local-build`, затем открыть `ios/MultiPlayer.xcworkspace`.

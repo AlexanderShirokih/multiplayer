@@ -29,7 +29,7 @@ public enum KitharaDirectory {
                 Или экспортируйте переменную окружения перед `tuist generate`:
                 export KITHARA_DIR=/путь/к/kithara
 
-                См. docs/build-setup.md (раздел iOS).
+                См. BUILD.md (раздел iOS).
                 """
             )
         }
