@@ -89,6 +89,9 @@ final class TrackListViewModelTests: XCTestCase {
             playbackBridge: InMemoryPlaybackQueueBridge(),
             requestDeviceMediaAccess: RequestDeviceMediaAccessUseCase(
                 controller: FakeDeviceMediaAuthorizationController(status: .denied)
+            ),
+            readDeviceMediaAccessStatus: ReadDeviceMediaAccessStatusUseCase(
+                controller: FakeDeviceMediaAuthorizationController(status: .denied)
             )
         )
 
@@ -100,7 +103,9 @@ final class TrackListViewModelTests: XCTestCase {
     }
 
     func testDeviceNonEmptyPlaylistWithDeniedPermissionShowsTracks() async {
-        let library = FakeMusicLibrary(playlist: playlistFixture())
+        let library = FakeMusicLibrary(
+            playlist: playlistFixture(provider: .device, title: "Треки с устройства")
+        )
         let viewModel = TrackListViewModel(
             destination: MusicLibraryDestination(
                 ref: PlaylistRef(provider: .device, id: playlistFixtureId),
@@ -114,6 +119,9 @@ final class TrackListViewModelTests: XCTestCase {
             playbackBridge: InMemoryPlaybackQueueBridge(),
             requestDeviceMediaAccess: RequestDeviceMediaAccessUseCase(
                 controller: FakeDeviceMediaAuthorizationController(status: .denied)
+            ),
+            readDeviceMediaAccessStatus: ReadDeviceMediaAccessStatusUseCase(
+                controller: FakeDeviceMediaAuthorizationController(status: .denied)
             )
         )
 
@@ -122,6 +130,46 @@ final class TrackListViewModelTests: XCTestCase {
 
         XCTAssertNil(viewModel.status)
         XCTAssertEqual(library.refreshPlaylistCallCount, 1)
+    }
+
+    func testDevicePermissionDeniedRefreshesAfterReturningFromSettings() async {
+        let library = FakeMusicLibrary(playlist: emptyDevicePlaylist())
+        let controller = FakeDeviceMediaAuthorizationController(status: .denied)
+        let viewModel = TrackListViewModel(
+            destination: MusicLibraryDestination(
+                ref: PlaylistRef(provider: .device, id: playlistFixtureId),
+                title: "Треки с устройства",
+                role: .regular
+            ),
+            observePlaylist: ObservePlaylistUseCase(library: library),
+            refreshPlaylist: RefreshPlaylistUseCase(library: library),
+            observeSavedTracks: ObserveSavedTracksUseCase(library: library),
+            refreshSavedTracks: RefreshSavedTracksUseCase(library: library),
+            playbackBridge: InMemoryPlaybackQueueBridge(),
+            requestDeviceMediaAccess: RequestDeviceMediaAccessUseCase(
+                controller: controller
+            ),
+            readDeviceMediaAccessStatus: ReadDeviceMediaAccessStatusUseCase(
+                controller: controller
+            ),
+            openSystemSettings: {}
+        )
+
+        viewModel.start()
+        await waitUntil { viewModel.status == .permissionDenied }
+
+        controller.status = .authorized
+        library.setPlaylist(
+            playlistFixture(provider: .device, title: "Треки с устройства")
+        )
+
+        viewModel.onAppDidBecomeActive()
+
+        await waitUntil { viewModel.trackRows.count == 2 }
+
+        XCTAssertNil(viewModel.status)
+        XCTAssertEqual(viewModel.feedbackActionTitle, "Повторить")
+        XCTAssertEqual(library.refreshPlaylistCallCount, 2)
     }
 
     private func waitUntil(
@@ -145,8 +193,8 @@ private final class FakeMusicLibrary: MusicLibrary, @unchecked Sendable {
     private let playlistRelay = AsyncValueRelay<Playlist?>(nil)
     private let savedTracksRelay = AsyncValueRelay<SavedTracksResult?>(nil)
 
-    private let playlistFixture: Playlist?
-    private let savedTracksFixture: SavedTracksResult?
+    private var playlistFixture: Playlist?
+    private var savedTracksFixture: SavedTracksResult?
 
     var refreshPlaylistCallCount = 0
     var refreshSavedTracksCallCount = 0
@@ -154,6 +202,10 @@ private final class FakeMusicLibrary: MusicLibrary, @unchecked Sendable {
     init(playlist: Playlist? = nil, savedTracksResult: SavedTracksResult? = nil) {
         playlistFixture = playlist
         savedTracksFixture = savedTracksResult
+    }
+
+    func setPlaylist(_ playlist: Playlist?) {
+        playlistFixture = playlist
     }
 
     func observeAvailability() -> AsyncStream<MusicServiceAvailability> {
@@ -200,8 +252,12 @@ private final class FakeMusicLibrary: MusicLibrary, @unchecked Sendable {
     }
 }
 
-private struct FakeDeviceMediaAuthorizationController: DeviceMediaAuthorizationController {
-    let status: DeviceMediaAuthorizationStatus
+private final class FakeDeviceMediaAuthorizationController: DeviceMediaAuthorizationController, @unchecked Sendable {
+    var status: DeviceMediaAuthorizationStatus
+
+    init(status: DeviceMediaAuthorizationStatus) {
+        self.status = status
+    }
 
     func authorizationStatus() -> DeviceMediaAuthorizationStatus {
         status
@@ -289,13 +345,16 @@ private func emptyDevicePlaylist() -> Playlist {
     )
 }
 
-private func playlistFixture() -> Playlist {
+private func playlistFixture(
+    provider: MusicProviderId = .yandexMusic,
+    title: String = "Road Trip"
+) -> Playlist {
     Playlist(
         summary: PlaylistSummary(
             id: playlistFixtureId,
-            provider: .yandexMusic,
+            provider: provider,
             playlistUuid: nil,
-            title: "Road Trip",
+            title: title,
             ownerName: nil,
             coverUriTemplate: nil,
             trackCount: 2,

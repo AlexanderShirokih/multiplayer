@@ -29,6 +29,7 @@ public final class TrackListViewModel {
     private let observeSavedTracks: ObserveSavedTracksUseCase
     private let playbackBridge: PlaybackQueueBridge
     private let requestDeviceMediaAccess: RequestDeviceMediaAccessUseCase
+    private let readDeviceMediaAccessStatus: ReadDeviceMediaAccessStatusUseCase
     private let openSystemSettings: (@MainActor @Sendable () -> Void)?
 
     private var observationTasks: [Task<Void, Never>] = []
@@ -45,7 +46,12 @@ public final class TrackListViewModel {
         observeSavedTracks: ObserveSavedTracksUseCase,
         refreshSavedTracks: RefreshSavedTracksUseCase,
         playbackBridge: PlaybackQueueBridge,
-        requestDeviceMediaAccess: RequestDeviceMediaAccessUseCase = RequestDeviceMediaAccessUseCase(controller: nil),
+        requestDeviceMediaAccess: RequestDeviceMediaAccessUseCase = RequestDeviceMediaAccessUseCase(
+            controller: nil
+        ),
+        readDeviceMediaAccessStatus: ReadDeviceMediaAccessStatusUseCase = ReadDeviceMediaAccessStatusUseCase(
+            controller: nil
+        ),
         openSystemSettings: (@MainActor @Sendable () -> Void)? = nil
     ) {
         self.destination = destination
@@ -55,6 +61,7 @@ public final class TrackListViewModel {
         self.refreshSavedTracks = refreshSavedTracks
         self.playbackBridge = playbackBridge
         self.requestDeviceMediaAccess = requestDeviceMediaAccess
+        self.readDeviceMediaAccessStatus = readDeviceMediaAccessStatus
         self.openSystemSettings = openSystemSettings
         self.title = destination.title
     }
@@ -137,6 +144,15 @@ public extension TrackListViewModel {
         } else {
             onRetry()
         }
+    }
+
+    func onAppDidBecomeActive() {
+        guard destination.ref.provider == .device, status == .permissionDenied else { return }
+
+        let authorizationStatus = readDeviceMediaAccessStatus()
+        guard authorizationStatus == .authorized else { return }
+
+        refresh()
     }
 
     public var feedbackActionTitle: String? {

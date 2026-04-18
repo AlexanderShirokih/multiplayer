@@ -101,6 +101,7 @@ private struct AppDependencies {
             bundle: bundle,
             authRepository: authRepository
         )
+        let makeTrackListViewModel = makeTrackListViewModelFactory(musicServices: musicServices)
 
         return Self(
             observeAuthorizedMusicProvider: ObserveAuthorizedMusicProviderUseCase(repository: authRepository),
@@ -109,20 +110,7 @@ private struct AppDependencies {
                 observeOwnPlaylists: ObserveOwnPlaylistsUseCase(library: musicServices.library),
                 refreshLibrary: RefreshLibraryUseCase(library: musicServices.library)
             ),
-            makeTrackListViewModel: { destination in
-                TrackListViewModel(
-                    destination: destination,
-                    observePlaylist: ObservePlaylistUseCase(library: musicServices.library),
-                    refreshPlaylist: RefreshPlaylistUseCase(library: musicServices.library),
-                    observeSavedTracks: ObserveSavedTracksUseCase(library: musicServices.library),
-                    refreshSavedTracks: RefreshSavedTracksUseCase(library: musicServices.library),
-                    playbackBridge: musicServices.playbackQueueBridge,
-                    requestDeviceMediaAccess: RequestDeviceMediaAccessUseCase(
-                        controller: musicServices.deviceAuthorizationController
-                    ),
-                    openSystemSettings: openAppSettings
-                )
-            },
+            makeTrackListViewModel: makeTrackListViewModel,
             resetAuthorization: {
                 await logoutYandexAuthorization()
             }
@@ -176,6 +164,29 @@ private struct AppDependencies {
             playbackQueueBridge: playbackQueueBridge,
             deviceAuthorizationController: deviceServices.authorizationController
         )
+    }
+
+    @MainActor
+    private static func makeTrackListViewModelFactory(
+        musicServices: MusicServices
+    ) -> (MusicLibraryDestination) -> TrackListViewModel {
+        { destination in
+            TrackListViewModel(
+                destination: destination,
+                observePlaylist: ObservePlaylistUseCase(library: musicServices.library),
+                refreshPlaylist: RefreshPlaylistUseCase(library: musicServices.library),
+                observeSavedTracks: ObserveSavedTracksUseCase(library: musicServices.library),
+                refreshSavedTracks: RefreshSavedTracksUseCase(library: musicServices.library),
+                playbackBridge: musicServices.playbackQueueBridge,
+                requestDeviceMediaAccess: RequestDeviceMediaAccessUseCase(
+                    controller: musicServices.deviceAuthorizationController
+                ),
+                readDeviceMediaAccessStatus: ReadDeviceMediaAccessStatusUseCase(
+                    controller: musicServices.deviceAuthorizationController
+                ),
+                openSystemSettings: openAppSettings
+            )
+        }
     }
 
     @MainActor

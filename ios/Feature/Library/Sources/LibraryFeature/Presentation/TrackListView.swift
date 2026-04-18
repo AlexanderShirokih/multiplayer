@@ -4,6 +4,7 @@ import SwiftUI
 private let trackListContentMaxWidth: CGFloat = 420
 
 public struct TrackListView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel: TrackListViewModel
 
     public init(viewModel: TrackListViewModel) {
@@ -48,6 +49,10 @@ public struct TrackListView: View {
         #endif
         .task {
             viewModel.start()
+        }
+        .onChange(of: scenePhase) { newPhase in
+            guard newPhase == .active else { return }
+            viewModel.onAppDidBecomeActive()
         }
         .onDisappear {
             viewModel.stop()

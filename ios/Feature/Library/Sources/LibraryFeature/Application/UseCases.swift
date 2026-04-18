@@ -87,3 +87,15 @@ public struct RequestDeviceMediaAccessUseCase: Sendable {
         return await controller.requestAuthorization()
     }
 }
+
+public struct ReadDeviceMediaAccessStatusUseCase: Sendable {
+    private let controller: DeviceMediaAuthorizationController?
+
+    public init(controller: DeviceMediaAuthorizationController?) {
+        self.controller = controller
+    }
+
+    public func callAsFunction() -> DeviceMediaAuthorizationStatus {
+        controller?.authorizationStatus() ?? .authorized
+    }
+}
