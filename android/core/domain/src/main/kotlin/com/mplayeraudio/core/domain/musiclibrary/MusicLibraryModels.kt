@@ -1,6 +1,7 @@
 package com.mplayeraudio.core.domain.musiclibrary
 
 enum class MusicProviderId {
+    Device,
     YandexMusic,
 }
 
@@ -22,6 +23,11 @@ value class AlbumId(val value: String)
 data class PlaylistId(
     val ownerId: ProviderUserId,
     val kind: PlaylistKind,
+)
+
+data class PlaylistRef(
+    val provider: MusicProviderId,
+    val id: PlaylistId,
 )
 
 data class TrackRef(
@@ -156,5 +162,9 @@ sealed class MusicLibraryException(
     ) : MusicLibraryException(
         message = reason,
         cause = original,
+    )
+
+    data object PermissionDenied : MusicLibraryException(
+        message = "Required device media permission was denied.",
     )
 }

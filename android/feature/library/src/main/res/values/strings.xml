@@ -12,4 +12,7 @@
     <string name="track_list_private_library_message">Эта медиатека недоступна для просмотра.</string>
     <string name="track_list_empty_message">В этом списке пока нет треков.</string>
     <string name="track_list_retry">Повторить</string>
+    <string name="device_permission_denied_title">Нужен доступ к аудиофайлам</string>
+    <string name="device_permission_denied_description">Разрешите доступ к трекам на устройстве в настройках приложения, чтобы открыть этот плейлист.</string>
+    <string name="device_permission_denied_cta">Открыть настройки</string>
 </resources>

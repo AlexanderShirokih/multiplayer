@@ -2,12 +2,14 @@ package com.mplayeraudio.feature.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mplayeraudio.core.domain.musiclibrary.MusicProviderId
 import com.mplayeraudio.core.domain.musiclibrary.Playlist
-import com.mplayeraudio.core.domain.musiclibrary.PlaylistId
+import com.mplayeraudio.core.domain.musiclibrary.PlaylistRef
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistRole
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistTrackEntry
 import com.mplayeraudio.core.domain.musiclibrary.SavedTrackEntry
 import com.mplayeraudio.core.domain.musiclibrary.SavedTracksResult
+import com.mplayeraudio.core.player.PlayableSource
 import com.mplayeraudio.core.player.PlaybackQueueBridge
 import com.mplayeraudio.core.player.PlaybackQueueItem
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +22,7 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 data class LibraryTrackListDestination(
-    val playlistId: PlaylistId,
+    val ref: PlaylistRef,
     val title: String,
     val role: PlaylistRole,
 )
@@ -78,7 +80,7 @@ class TrackListViewModel(
                 .onEach(::consumeSavedTracks)
                 .launchIn(viewModelScope)
 
-            PlaylistRole.Regular -> observePlaylist(destination.playlistId)
+            PlaylistRole.Regular -> observePlaylist(destination.ref)
                 .onEach { playlist ->
                     playlist ?: return@onEach
                     consumePlaylist(playlist)
@@ -110,7 +112,7 @@ class TrackListViewModel(
             try {
                 when (destination.role) {
                     PlaylistRole.Favourites -> refreshSavedTracks()
-                    PlaylistRole.Regular -> refreshPlaylist(destination.playlistId)
+                    PlaylistRole.Regular -> refreshPlaylist(destination.ref)
                 }
             } catch (_: Exception) {
                 _state.update { currentState ->
@@ -126,7 +128,9 @@ class TrackListViewModel(
     private fun consumePlaylist(playlist: Playlist) {
         publishContent(
             title = playlist.summary.title,
-            tracks = playlist.tracks.map { entry -> entry.toItemState() },
+            tracks = playlist.tracks.map { entry ->
+                entry.toItemState(provider = destination.ref.provider)
+            },
         )
     }
 
@@ -135,7 +139,9 @@ class TrackListViewModel(
             is SavedTracksResult.Available -> {
                 publishContent(
                     title = destination.title,
-                    tracks = result.value.tracks.map { entry -> entry.toItemState() },
+                    tracks = result.value.tracks.map { entry ->
+                        entry.toItemState(provider = destination.ref.provider)
+                    },
                 )
             }
 
@@ -172,12 +178,15 @@ class TrackListViewModel(
     }
 }
 
-private fun PlaylistTrackEntry.toItemState(): TrackListItemState {
+private fun PlaylistTrackEntry.toItemState(
+    provider: MusicProviderId,
+): TrackListItemState {
     val preview = track?.preview
     return TrackListItemState(
         queueItem = PlaybackQueueItem(
             id = trackQueueItemId(position = position, trackId = trackRef.trackId.value),
             trackId = trackRef.trackId,
+            source = trackRef.trackId.toPlayableSource(provider = provider),
             title = preview?.title.orEmpty(),
             subtitle = preview?.artists.artistNames(),
             durationMs = preview?.durationMs ?: 0L,
@@ -189,11 +198,14 @@ private fun PlaylistTrackEntry.toItemState(): TrackListItemState {
     )
 }
 
-private fun SavedTrackEntry.toItemState(): TrackListItemState {
+private fun SavedTrackEntry.toItemState(
+    provider: MusicProviderId,
+): TrackListItemState {
     return TrackListItemState(
         queueItem = PlaybackQueueItem(
             id = trackQueueItemId(position = position, trackId = trackRef.trackId.value),
             trackId = trackRef.trackId,
+            source = trackRef.trackId.toPlayableSource(provider = provider),
             title = track?.title.orEmpty(),
             subtitle = track?.artists.artistNames(),
             durationMs = track?.durationMs ?: 0L,
@@ -210,6 +222,12 @@ private fun trackQueueItemId(
     trackId: String,
 ): String {
     return "$position:$trackId"
+}
+
+private fun com.mplayeraudio.core.domain.musiclibrary.TrackId.toPlayableSource(
+    provider: MusicProviderId,
+): PlayableSource {
+    return PlayableSource.Remote(provider)
 }
 
 private fun formatTrackDuration(durationMs: Long?): String {

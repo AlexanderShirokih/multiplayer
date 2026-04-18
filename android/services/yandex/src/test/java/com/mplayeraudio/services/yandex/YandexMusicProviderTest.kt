@@ -5,7 +5,6 @@ import com.mplayeraudio.core.domain.musiclibrary.PlaylistId
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistKind
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistVisibility
 import com.mplayeraudio.core.domain.musiclibrary.ProviderUserId
-import com.mplayeraudio.core.domain.musiclibrary.TrackRef
 import com.mplayeraudio.core.domain.musiclibrary.SavedTracksResult
 import com.mplayeraudio.core.domain.yandexauth.YandexAccessTokenProvider
 import com.mplayeraudio.services.yandex.internal.YandexMusicRequestRunner
@@ -24,7 +23,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class YandexMusicRepositoryImplTest {
+class YandexMusicProviderTest {
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -32,7 +31,7 @@ class YandexMusicRepositoryImplTest {
     }
 
     @Test
-    fun `observeOwnPlaylists emits refreshed summary response`() = runTest {
+    fun `observePlaylists emits refreshed summary response`() = runTest {
         val repository = repository(
             api = FakeYandexMusicApi(
                 currentUser = jsonObject(
@@ -81,8 +80,8 @@ class YandexMusicRepositoryImplTest {
             ),
         )
 
-        repository.refreshOwnPlaylists()
-        val playlists = repository.observeOwnPlaylists().first()
+        repository.refreshPlaylists()
+        val playlists = repository.observePlaylists().first()
 
         assertEquals(1, playlists.size)
         val summary = playlists.first()
@@ -200,80 +199,10 @@ class YandexMusicRepositoryImplTest {
         assertTrue(result is SavedTracksResult.PrivateLibrary)
     }
 
-    @Test
-    fun `observeTracks emits cached tracks after refreshPlaylist`() = runTest {
-        val repository = repository(
-            api = FakeYandexMusicApi(
-                playlist = jsonObject(
-                    """
-                    {
-                      "owner": {
-                        "uid": 264684056,
-                        "name": "Александр Широких"
-                      },
-                      "playlistUuid": "6852c997-215a-6b20-8574-762e75b7e593",
-                      "available": true,
-                      "uid": 264684056,
-                      "kind": 1008,
-                      "title": "shared",
-                      "trackCount": 1,
-                      "tracks": [
-                        {
-                          "id": 33207297,
-                          "timestamp": "2024-07-18T10:16:52+00:00",
-                          "track": {
-                            "id": "33207297",
-                            "title": "Track title",
-                            "available": true,
-                            "availableForPremiumUsers": true,
-                            "availableFullWithoutPermission": false,
-                            "coverUri": "avatars.yandex.net/get-music-content/163479/e1a3abf0.a.4056452-1/%%",
-                            "durationMs": 222000,
-                            "lyricsAvailable": true,
-                            "artists": [
-                              {
-                                "id": 15,
-                                "name": "Artist"
-                              }
-                            ],
-                            "albums": [
-                              {
-                                "id": 4056452
-                              }
-                            ]
-                          }
-                        }
-                      ]
-                    }
-                    """.trimIndent(),
-                ),
-            ),
-        )
-
-        repository.refreshPlaylist(
-            PlaylistId(
-                ownerId = ProviderUserId("264684056"),
-                kind = PlaylistKind(1008),
-            ),
-        )
-
-        val tracks = repository.observeTracks(
-            listOf(
-                TrackRef(
-                    trackId = com.mplayeraudio.core.domain.musiclibrary.TrackId("33207297"),
-                    albumId = com.mplayeraudio.core.domain.musiclibrary.AlbumId("4056452"),
-                ),
-            ),
-        ).first()
-
-        assertEquals(1, tracks.size)
-        assertEquals("Track title", tracks.first().preview.title)
-    }
-
     private fun repository(
         api: YandexMusicApi,
-    ): YandexMusicRepositoryImpl {
-        return YandexMusicRepositoryImpl(
+    ): YandexMusicProvider {
+        return YandexMusicProvider(
             requestRunner = YandexMusicRequestRunner(
                 accessTokenProvider = object : YandexAccessTokenProvider {
                     override fun accessTokenFlow(): Flow<String?> = emptyFlow()

@@ -2,6 +2,7 @@ package com.mplayeraudio.feature.library
 
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistId
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistRole
+import com.mplayeraudio.core.domain.musiclibrary.MusicProviderId
 import com.mplayeraudio.core.ui.components.MultiplayerCardSurfaceStyle
 
 data class MusicLibraryState(
@@ -18,6 +19,7 @@ sealed interface MusicLibraryCard {
 
     data class Playlist(
         val id: PlaylistId,
+        val provider: MusicProviderId,
         val title: String,
         val trackCount: Int,
         val role: PlaylistRole,
@@ -26,7 +28,7 @@ sealed interface MusicLibraryCard {
         val artwork: PlaylistCardArtwork,
         val artworkSeed: Int,
     ) : MusicLibraryCard {
-        override val key: String = id.toString()
+        override val key: String = "$provider:$id"
     }
 }
 

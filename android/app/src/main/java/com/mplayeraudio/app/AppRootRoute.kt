@@ -21,7 +21,10 @@ fun AppRootRoute(
         label = "app-screen",
     ) { destination ->
         when (destination) {
-            AppDestination.Auth -> AuthWelcomeRoute(modifier = modifier)
+            AppDestination.Auth -> AuthWelcomeRoute(
+                onListenLocalClick = viewModel::openDeviceOnlyMode,
+                modifier = modifier,
+            )
             AppDestination.Main -> MusicLibraryRoute(modifier = modifier)
         }
     }

@@ -32,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.mplayeraudio.core.domain.musiclibrary.MusicProviderId
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistId
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistKind
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistRole
@@ -275,6 +276,7 @@ private fun previewLibraryContent(): MusicLibraryContent {
         cards = listOf(
             MusicLibraryCard.Playlist(
                 id = previewPlaylistId(1),
+                provider = MusicProviderId.YandexMusic,
                 title = "Ночной код",
                 trackCount = 248,
                 role = PlaylistRole.Regular,
@@ -285,6 +287,7 @@ private fun previewLibraryContent(): MusicLibraryContent {
             ),
             MusicLibraryCard.Playlist(
                 id = previewPlaylistId(2),
+                provider = MusicProviderId.YandexMusic,
                 title = "Любимые",
                 trackCount = 248,
                 role = PlaylistRole.Favourites,
@@ -295,6 +298,7 @@ private fun previewLibraryContent(): MusicLibraryContent {
             ),
             MusicLibraryCard.Playlist(
                 id = previewPlaylistId(3),
+                provider = MusicProviderId.YandexMusic,
                 title = "Маршрут дня",
                 trackCount = 64,
                 role = PlaylistRole.Regular,
@@ -346,6 +350,7 @@ private fun LibraryPlaylistCardCompactDarkPreview() {
         LibraryPlaylistCard(
             playlist = MusicLibraryCard.Playlist(
                 id = previewPlaylistId(11),
+                provider = MusicProviderId.YandexMusic,
                 title = "После полуночи",
                 trackCount = 87,
                 role = PlaylistRole.Regular,
@@ -367,6 +372,7 @@ private fun LibraryPlaylistCardFeaturedDarkPreview() {
         LibraryPlaylistCard(
             playlist = MusicLibraryCard.Playlist(
                 id = previewPlaylistId(12),
+                provider = MusicProviderId.YandexMusic,
                 title = "Сигналы города",
                 trackCount = 152,
                 role = PlaylistRole.Regular,

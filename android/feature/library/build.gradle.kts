@@ -8,6 +8,8 @@ dependencies {
     implementation(projects.core.domain)
     implementation(projects.core.ui)
     implementation(projects.core.player)
+    implementation(projects.services.deviceMusic)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material.icons.core)
     implementation(platform(libs.koin.bom))
     implementation(libs.androidx.lifecycle.viewmodel.ktx)

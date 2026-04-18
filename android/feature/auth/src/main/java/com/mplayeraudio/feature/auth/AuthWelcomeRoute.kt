@@ -19,6 +19,7 @@ import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun AuthWelcomeRoute(
+    onListenLocalClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -49,6 +50,7 @@ fun AuthWelcomeRoute(
                     }
                 }
             },
+            onListenLocalClick = onListenLocalClick,
             modifier = Modifier.fillMaxSize(),
         )
 

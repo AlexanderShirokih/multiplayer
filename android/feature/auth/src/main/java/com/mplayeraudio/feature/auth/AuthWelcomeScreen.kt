@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +32,7 @@ import com.mplayeraudio.feature.auth.yamusic.YandexMusicAuthCardState
 @Composable
 fun AuthWelcomeScreen(
     loginContent: @Composable ColumnScope.() -> Unit,
+    onListenLocalClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = MultiplayerTheme.colors
@@ -78,6 +80,17 @@ fun AuthWelcomeScreen(
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             loginContent()
+
+            TextButton(
+                onClick = onListenLocalClick,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                MultiplayerText(
+                    text = stringResource(R.string.auth_welcome_listen_local),
+                    style = MultiplayerTheme.typography.label,
+                    color = colors.accent,
+                )
+            }
         }
     }
 }
@@ -171,6 +184,7 @@ private fun AuthWelcomeScreenPreview() {
                     modifier = Modifier.fillMaxWidth(),
                 )
             },
+            onListenLocalClick = {},
         )
     }
 }
@@ -187,6 +201,7 @@ private fun AuthWelcomeScreenLightPreview() {
                     modifier = Modifier.fillMaxWidth(),
                 )
             },
+            onListenLocalClick = {},
         )
     }
 }

@@ -1,6 +1,10 @@
 package com.mplayeraudio.services.kithara.di
 
+import com.mplayeraudio.core.domain.musiclibrary.MusicProviderId
+import com.mplayeraudio.core.domain.musiclibrary.TrackStreamUrlProvider
+import com.mplayeraudio.core.player.PlayableUrlResolver
 import com.mplayeraudio.core.player.PlaybackQueueBridge
+import com.mplayeraudio.services.kithara.CompositePlayableUrlResolver
 import com.mplayeraudio.services.kithara.AudioPlaybackEngine
 import com.mplayeraudio.services.kithara.KitharaAudioPlaybackEngine
 import com.mplayeraudio.services.kithara.KitharaPlaybackQueueBridge
@@ -20,10 +24,22 @@ fun kitharaModule(): Module = module {
     single<AudioPlaybackEngine> {
         KitharaAudioPlaybackEngine(scope = get(named(KitharaScopeQualifier)))
     }
+    single<PlayableUrlResolver> {
+        CompositePlayableUrlResolver(
+            providers = mapOf(
+                MusicProviderId.YandexMusic to get<TrackStreamUrlProvider>(
+                    named(MusicProviderId.YandexMusic.name),
+                ),
+                MusicProviderId.Device to get<TrackStreamUrlProvider>(
+                    named(MusicProviderId.Device.name),
+                ),
+            ),
+        )
+    }
     single<PlaybackQueueBridge> {
         KitharaPlaybackQueueBridge(
             engine = get(),
-            urlProvider = get(),
+            urlResolver = get(),
             scope = get<CoroutineScope>(named(KitharaScopeQualifier)),
         )
     }

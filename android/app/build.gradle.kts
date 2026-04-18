@@ -14,6 +14,7 @@ dependencies {
     implementation(projects.feature.player)
     implementation(projects.feature.search)
     implementation(projects.services.kithara)
+    implementation(projects.services.deviceMusic)
     implementation(projects.services.yandex)
     implementation(projects.services.yandexAuth)
     implementation(files("${rootProject.projectDir}/libs/kithara.aar"))

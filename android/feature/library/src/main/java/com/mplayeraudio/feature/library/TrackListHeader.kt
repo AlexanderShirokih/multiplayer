@@ -27,7 +27,7 @@ import com.mplayeraudio.core.ui.theme.MultiplayerTheme
 @Composable
 internal fun TrackListHeader(
     title: String,
-    subtitle: String,
+    subtitle: String?,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -54,12 +54,14 @@ internal fun TrackListHeader(
             style = typography.pageTitle,
             color = primaryTextColor,
         )
-        Spacer(modifier = Modifier.height(spacing.sm))
-        MultiplayerText(
-            text = subtitle,
-            style = typography.label,
-            color = secondaryTextColor,
-        )
+        subtitle?.let { value ->
+            Spacer(modifier = Modifier.height(spacing.sm))
+            MultiplayerText(
+                text = value,
+                style = typography.label,
+                color = secondaryTextColor,
+            )
+        }
     }
 }
 

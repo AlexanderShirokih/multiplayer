@@ -1,5 +1,10 @@
 package com.mplayeraudio.feature.library
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,13 +21,18 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mplayeraudio.core.domain.musiclibrary.MusicProviderId
 import com.mplayeraudio.core.player.NowPlayingStripViewModel
 import com.mplayeraudio.core.player.PlaybackQueueBridge
 import com.mplayeraudio.core.ui.components.MultiplayerBrandBackgroundDecor
@@ -30,10 +40,12 @@ import com.mplayeraudio.core.ui.components.MultiplayerSurface
 import com.mplayeraudio.core.ui.components.MultiplayerText
 import com.mplayeraudio.core.ui.model.MultiplayerTrackListItemState
 import com.mplayeraudio.core.ui.theme.MultiplayerTheme
+import com.mplayeraudio.services.devicemusic.MediaAudioPermission
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import org.koin.core.parameter.parametersOf
 
+@Suppress("LongMethod")
 @Composable
 fun TrackListRoute(
     destination: LibraryTrackListDestination,
@@ -41,11 +53,32 @@ fun TrackListRoute(
     modifier: Modifier = Modifier,
     playbackBridge: PlaybackQueueBridge = koinInject(),
     viewModel: TrackListViewModel = koinViewModel(
-        key = destination.playlistId.toString(),
+        key = destination.ref.toString(),
         parameters = { parametersOf(destination) },
     ),
 ) {
+    val context = LocalContext.current
+    val isDevicePlaylist = destination.ref.provider == MusicProviderId.Device
     val routeState by viewModel.state.collectAsStateWithLifecycle()
+    var permissionState by remember(destination.ref) {
+        mutableStateOf(
+            if (!isDevicePlaylist || MediaAudioPermission.hasPermission(context)) {
+                DevicePermissionUiState.Granted
+            } else {
+                DevicePermissionUiState.Requesting
+            },
+        )
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        permissionState = if (granted) {
+            viewModel.onRetry()
+            DevicePermissionUiState.Granted
+        } else {
+            DevicePermissionUiState.Denied
+        }
+    }
     val nowPlayingViewModel = remember(destination, playbackBridge) {
         NowPlayingStripViewModel(playbackBridge)
     }
@@ -55,7 +88,40 @@ fun TrackListRoute(
         onDispose(nowPlayingViewModel::dispose)
     }
 
+    LaunchedEffect(destination.ref, permissionState) {
+        if (isDevicePlaylist && permissionState == DevicePermissionUiState.Requesting) {
+            permissionLauncher.launch(MediaAudioPermission.requiredPermission())
+        }
+    }
+
     when {
+        isDevicePlaylist && permissionState == DevicePermissionUiState.Denied -> {
+            TrackListFeedbackScreen(
+                title = routeState.title,
+                headline = stringResource(R.string.device_permission_denied_title),
+                message = stringResource(R.string.device_permission_denied_description),
+                onBack = onBack,
+                modifier = modifier,
+            ) {
+                TextButton(
+                    onClick = {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:${context.packageName}"),
+                            ),
+                        )
+                    },
+                ) {
+                    MultiplayerText(
+                        text = stringResource(R.string.device_permission_denied_cta),
+                        style = MultiplayerTheme.typography.label,
+                        color = MultiplayerTheme.colors.accent,
+                    )
+                }
+            }
+        }
+
         routeState.tracks.isNotEmpty() -> {
             TrackListScreen(
                 state = TrackListScreenState(
@@ -81,6 +147,7 @@ fun TrackListRoute(
         routeState.isLoading -> {
             TrackListFeedbackScreen(
                 title = routeState.title,
+                headline = null,
                 message = stringResource(R.string.track_list_loading_message),
                 onBack = onBack,
                 modifier = modifier,
@@ -94,6 +161,7 @@ fun TrackListRoute(
         else -> {
             TrackListFeedbackScreen(
                 title = routeState.title,
+                headline = null,
                 message = routeState.status.toMessage(),
                 onBack = onBack,
                 modifier = modifier,
@@ -113,6 +181,7 @@ fun TrackListRoute(
 @Composable
 private fun TrackListFeedbackScreen(
     title: String,
+    headline: String?,
     message: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -146,7 +215,7 @@ private fun TrackListFeedbackScreen(
         ) {
             TrackListHeader(
                 title = title,
-                subtitle = stringResource(R.string.track_list_subtitle, 0),
+                subtitle = null,
                 onBack = onBack,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -169,6 +238,14 @@ private fun TrackListFeedbackScreen(
                         verticalArrangement = Arrangement.spacedBy(MultiplayerTheme.spacing.sm),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
+                        headline?.let { value ->
+                            MultiplayerText(
+                                text = value,
+                                style = MultiplayerTheme.typography.title,
+                                color = colors.textPrimary,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                         MultiplayerText(
                             text = message,
                             style = MultiplayerTheme.typography.body,
@@ -192,4 +269,10 @@ private fun TrackListStatus?.toMessage(): String {
         null,
         -> stringResource(R.string.track_list_load_error_message)
     }
+}
+
+private enum class DevicePermissionUiState {
+    Requesting,
+    Granted,
+    Denied,
 }

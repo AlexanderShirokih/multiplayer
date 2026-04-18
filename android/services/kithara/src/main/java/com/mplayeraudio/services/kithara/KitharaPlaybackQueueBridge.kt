@@ -2,8 +2,9 @@ package com.mplayeraudio.services.kithara
 
 import android.util.Log
 import com.mplayeraudio.core.domain.musiclibrary.MusicLibraryException
-import com.mplayeraudio.core.domain.musiclibrary.TrackStreamUrlProvider
 import com.mplayeraudio.core.player.NowPlayingStripExternalState
+import com.mplayeraudio.core.player.PlayableSource
+import com.mplayeraudio.core.player.PlayableUrlResolver
 import com.mplayeraudio.core.player.PlaybackQueueBridge
 import com.mplayeraudio.core.player.PlaybackQueueItem
 import com.mplayeraudio.core.player.PlaybackQueueState
@@ -17,7 +18,7 @@ import kotlinx.coroutines.launch
 @Suppress("TooManyFunctions")
 internal class KitharaPlaybackQueueBridge(
     private val engine: AudioPlaybackEngine,
-    private val urlProvider: TrackStreamUrlProvider,
+    private val urlResolver: PlayableUrlResolver,
     scope: CoroutineScope,
 ) : PlaybackQueueBridge {
 
@@ -212,8 +213,10 @@ internal class KitharaPlaybackQueueBridge(
             return cached.url
         }
 
-        val url = urlProvider.getStreamUrl(item.trackId)
-        urlCache[item.id] = CachedStreamUrl(url = url, resolvedAt = System.currentTimeMillis())
+        val url = urlResolver.getPlayableUrl(item)
+        if (item.source is PlayableSource.Remote) {
+            urlCache[item.id] = CachedStreamUrl(url = url, resolvedAt = System.currentTimeMillis())
+        }
         return url
     }
 
@@ -274,6 +277,10 @@ internal class KitharaPlaybackQueueBridge(
         val currentItem = currentState.currentItem ?: return
 
         if (event.itemId == currentItem.id) {
+            if (currentItem.source is PlayableSource.Local) {
+                handlePlayedToEnd()
+                return
+            }
             urlCache.remove(currentItem.id)
             try {
                 val url = resolveStreamUrl(currentItem)

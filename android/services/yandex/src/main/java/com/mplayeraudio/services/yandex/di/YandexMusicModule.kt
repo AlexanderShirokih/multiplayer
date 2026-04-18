@@ -1,15 +1,18 @@
 package com.mplayeraudio.services.yandex.di
 
 import com.mplayeraudio.services.yandex.BuildConfig
-import com.mplayeraudio.core.domain.musiclibrary.MusicLibraryRepository
+import com.mplayeraudio.core.domain.musiclibrary.MusicProvider
+import com.mplayeraudio.core.domain.musiclibrary.MusicProviderId
 import com.mplayeraudio.core.domain.musiclibrary.TrackStreamUrlProvider
-import com.mplayeraudio.services.yandex.YandexMusicRepositoryImpl
+import com.mplayeraudio.services.yandex.YandexMusicProvider
 import com.mplayeraudio.services.yandex.YandexTrackStreamUrlProvider
 import com.mplayeraudio.services.yandex.internal.YandexMusicRequestRunner
 import com.mplayeraudio.services.yandex.internal.network.KtorYandexMusicApi
 import com.mplayeraudio.services.yandex.internal.network.YandexMusicApi
 import com.mplayeraudio.services.yandex.internal.network.YandexMusicStreamingConfig
+import org.koin.core.qualifier.named
 import org.koin.core.module.Module
+import org.koin.dsl.bind
 import org.koin.dsl.module
 
 fun yandexMusicModule(): Module = module {
@@ -35,13 +38,12 @@ fun yandexMusicModule(): Module = module {
         )
     }
     single {
-        YandexMusicRepositoryImpl(
+        YandexMusicProvider(
             requestRunner = get(),
             api = get(),
         )
-    }
-    single<MusicLibraryRepository> { get<YandexMusicRepositoryImpl>() }
-    single<TrackStreamUrlProvider> {
+    } bind MusicProvider::class
+    single<TrackStreamUrlProvider>(named(MusicProviderId.YandexMusic.name)) {
         YandexTrackStreamUrlProvider(
             requestRunner = get(),
             api = get(),

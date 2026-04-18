@@ -1,50 +1,50 @@
 package com.mplayeraudio.feature.library
 
-import com.mplayeraudio.core.domain.musiclibrary.MusicLibraryRepository
+import com.mplayeraudio.core.domain.musiclibrary.MusicLibrary
 import com.mplayeraudio.core.domain.musiclibrary.Playlist
-import com.mplayeraudio.core.domain.musiclibrary.PlaylistId
+import com.mplayeraudio.core.domain.musiclibrary.PlaylistRef
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistSummary
 import com.mplayeraudio.core.domain.musiclibrary.SavedTracksResult
 import kotlinx.coroutines.flow.Flow
 
 class ObserveOwnPlaylistsUseCase(
-    private val repository: MusicLibraryRepository,
+    private val library: MusicLibrary,
 ) {
-    operator fun invoke(): Flow<List<PlaylistSummary>> = repository.observeOwnPlaylists()
+    operator fun invoke(): Flow<List<PlaylistSummary>> = library.observeAllPlaylists()
 }
 
 class RefreshLibraryUseCase(
-    private val repository: MusicLibraryRepository,
+    private val library: MusicLibrary,
 ) {
     suspend operator fun invoke() {
-        repository.refreshOwnPlaylists()
+        library.refreshAll()
     }
 }
 
 class ObservePlaylistUseCase(
-    private val repository: MusicLibraryRepository,
+    private val library: MusicLibrary,
 ) {
-    operator fun invoke(id: PlaylistId): Flow<Playlist?> = repository.observePlaylist(id)
+    operator fun invoke(ref: PlaylistRef): Flow<Playlist?> = library.observePlaylist(ref)
 }
 
 class RefreshPlaylistUseCase(
-    private val repository: MusicLibraryRepository,
+    private val library: MusicLibrary,
 ) {
-    suspend operator fun invoke(id: PlaylistId) {
-        repository.refreshPlaylist(id)
+    suspend operator fun invoke(ref: PlaylistRef) {
+        library.refreshPlaylist(ref)
     }
 }
 
 class ObserveSavedTracksUseCase(
-    private val repository: MusicLibraryRepository,
+    private val library: MusicLibrary,
 ) {
-    operator fun invoke(): Flow<SavedTracksResult> = repository.observeSavedTracks()
+    operator fun invoke(): Flow<SavedTracksResult> = library.observeSavedTracks()
 }
 
 class RefreshSavedTracksUseCase(
-    private val repository: MusicLibraryRepository,
+    private val library: MusicLibrary,
 ) {
     suspend operator fun invoke() {
-        repository.refreshSavedTracks()
+        library.refreshSavedTracks()
     }
 }

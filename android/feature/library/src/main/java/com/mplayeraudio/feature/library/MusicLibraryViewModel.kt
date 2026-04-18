@@ -3,6 +3,7 @@ package com.mplayeraudio.feature.library
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mplayeraudio.core.domain.musiclibrary.MusicLibraryException
+import com.mplayeraudio.core.domain.musiclibrary.PlaylistRef
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistRole
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistSummary
 import com.mplayeraudio.core.ui.components.MultiplayerCardSurfaceStyle
@@ -70,7 +71,10 @@ class MusicLibraryViewModel(
             _effects.emit(
                 MusicLibraryEffect.NavigateToTrackList(
                     destination = LibraryTrackListDestination(
-                        playlistId = playlist.id,
+                        ref = PlaylistRef(
+                            provider = playlist.provider,
+                            id = playlist.id,
+                        ),
                         title = playlist.title,
                         role = playlist.role,
                     ),
@@ -102,6 +106,7 @@ private fun PlaylistSummary.toLibraryCard(
 
     return MusicLibraryCard.Playlist(
         id = id,
+        provider = provider,
         title = title,
         trackCount = trackCount,
         role = role,
