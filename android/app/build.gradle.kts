@@ -14,6 +14,7 @@ dependencies {
     implementation(projects.feature.player)
     implementation(projects.feature.search)
     implementation(projects.services.kithara)
+    implementation(projects.services.mediaSession)
     implementation(projects.services.deviceMusic)
     implementation(projects.services.yandex)
     implementation(projects.services.yandexAuth)
@@ -25,6 +26,7 @@ dependencies {
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.media3.session)
 
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.test.manifest)

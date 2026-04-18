@@ -15,9 +15,19 @@ internal data class DeviceAudioTrack(
     val entry: PlaylistTrackEntry,
 )
 
+internal data class DeviceMediaStoreRow(
+    val mediaId: Long,
+    val albumId: Long?,
+    val title: String,
+    val artistName: String,
+    val durationMs: Long,
+    val position: Int,
+)
+
 internal object DeviceMediaStoreMapper {
     val projection = arrayOf(
         MediaStore.Audio.Media._ID,
+        MediaStore.Audio.Media.ALBUM_ID,
         MediaStore.Audio.Media.TITLE,
         MediaStore.Audio.Media.ARTIST,
         MediaStore.Audio.Media.DURATION,
@@ -25,6 +35,7 @@ internal object DeviceMediaStoreMapper {
 
     fun map(cursor: Cursor): List<DeviceAudioTrack> {
         val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+        val albumIdIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
         val titleIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
         val artistIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
         val durationIndex = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
@@ -33,15 +44,19 @@ internal object DeviceMediaStoreMapper {
             var position = 0
             while (cursor.moveToNext()) {
                 val mediaId = cursor.getLong(idIndex)
+                val albumId = cursor.getLong(albumIdIndex)
                 val title = cursor.getString(titleIndex).orEmpty()
                 val artistName = cursor.getString(artistIndex).orEmpty()
                 val durationMs = cursor.getLong(durationIndex)
                 mapRow(
-                    mediaId = mediaId,
-                    title = title,
-                    artistName = artistName,
-                    durationMs = durationMs,
-                    position = position,
+                    DeviceMediaStoreRow(
+                        mediaId = mediaId,
+                        albumId = albumId.takeIf { it > 0L },
+                        title = title,
+                        artistName = artistName,
+                        durationMs = durationMs,
+                        position = position,
+                    ),
                 )?.let { mappedTrack ->
                     add(mappedTrack)
                     position += 1
@@ -50,47 +65,41 @@ internal object DeviceMediaStoreMapper {
         }
     }
 
-    fun mapRow(
-        mediaId: Long,
-        title: String,
-        artistName: String,
-        durationMs: Long,
-        position: Int,
-    ): DeviceAudioTrack? {
+    fun mapRow(row: DeviceMediaStoreRow): DeviceAudioTrack? {
         if (!shouldInclude(
-                title = title,
-                artistName = artistName,
-                durationMs = durationMs,
+                title = row.title,
+                artistName = row.artistName,
+                durationMs = row.durationMs,
             )
         ) {
             return null
         }
 
-        val contentUri = "$DeviceMediaContentBaseUri/$mediaId"
+        val contentUri = "$DeviceMediaContentBaseUri/${row.mediaId}"
 
         return DeviceAudioTrack(
-            mediaId = mediaId,
+            mediaId = row.mediaId,
             contentUri = contentUri,
             entry = PlaylistTrackEntry(
-                position = position,
+                position = row.position,
                 addedAt = null,
                 originalIndex = null,
                 originalShuffleIndex = null,
                 isRecent = null,
                 trackRef = TrackRef(
-                    trackId = TrackId("device:$mediaId"),
+                    trackId = TrackId("device:${row.mediaId}"),
                     albumId = null,
                 ),
                 track = Track(
                     preview = TrackPreview(
                         ref = TrackRef(
-                            trackId = TrackId("device:$mediaId"),
+                            trackId = TrackId("device:${row.mediaId}"),
                             albumId = null,
                         ),
-                        title = title,
-                        artists = artistName.toArtistPreviews(),
-                        durationMs = durationMs.takeIf { it > 0L },
-                        coverUriTemplate = null,
+                        title = row.title,
+                        artists = row.artistName.toArtistPreviews(),
+                        durationMs = row.durationMs.takeIf { it > 0L },
+                        coverUriTemplate = row.albumId?.toAlbumArtworkUri(),
                         isAvailable = true,
                     ),
                     lyricsAvailable = false,
@@ -125,6 +134,10 @@ internal object DeviceMediaStoreMapper {
     }
 }
 
+private fun Long.toAlbumArtworkUri(): String {
+    return "$DeviceAlbumArtBaseUri/$this"
+}
+
 private fun String?.isMeaningfulMetadata(): Boolean {
     val value = this?.trim().orEmpty()
     return value.isNotEmpty() &&
@@ -133,3 +146,4 @@ private fun String?.isMeaningfulMetadata(): Boolean {
 
 private const val UnknownArtistName = "<unknown>"
 private const val DeviceMediaContentBaseUri = "content://media/external/audio/media"
+private const val DeviceAlbumArtBaseUri = "content://media/external/audio/albumart"

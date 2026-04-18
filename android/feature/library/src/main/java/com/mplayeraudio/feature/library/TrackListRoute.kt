@@ -31,7 +31,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.mplayeraudio.core.domain.musiclibrary.MusicProviderId
 import com.mplayeraudio.core.player.NowPlayingStripViewModel
 import com.mplayeraudio.core.player.PlaybackQueueBridge
@@ -45,7 +48,7 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import org.koin.core.parameter.parametersOf
 
-@Suppress("LongMethod")
+@Suppress("CyclomaticComplexMethod", "LongMethod")
 @Composable
 fun TrackListRoute(
     destination: LibraryTrackListDestination,
@@ -58,6 +61,7 @@ fun TrackListRoute(
     ),
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val isDevicePlaylist = destination.ref.provider == MusicProviderId.Device
     val routeState by viewModel.state.collectAsStateWithLifecycle()
     var permissionState by remember(destination.ref) {
@@ -86,6 +90,28 @@ fun TrackListRoute(
 
     DisposableEffect(nowPlayingViewModel) {
         onDispose(nowPlayingViewModel::dispose)
+    }
+
+    DisposableEffect(lifecycleOwner, destination.ref, isDevicePlaylist) {
+        if (!isDevicePlaylist) {
+            onDispose { }
+        } else {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME && permissionState == DevicePermissionUiState.Denied) {
+                    val isGranted = MediaAudioPermission.hasPermission(context)
+                    permissionState = if (isGranted) {
+                        viewModel.onRetry()
+                        DevicePermissionUiState.Granted
+                    } else {
+                        DevicePermissionUiState.Denied
+                    }
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
     }
 
     LaunchedEffect(destination.ref, permissionState) {

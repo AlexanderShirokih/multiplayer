@@ -21,6 +21,7 @@ data class PlaybackQueueItem(
     val title: String,
     val subtitle: String,
     val durationMs: Long,
+    val artworkUri: String? = null,
 )
 
 data class PlaybackQueueState(

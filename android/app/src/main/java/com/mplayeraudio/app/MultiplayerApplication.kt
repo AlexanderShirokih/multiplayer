@@ -1,6 +1,8 @@
 package com.mplayeraudio.app
 
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import com.kithara.Kithara
 import com.kithara.LogLevel
 import com.mplayeraudio.core.domain.yandexauth.YandexAuthorizationResponseType
@@ -9,6 +11,8 @@ import com.mplayeraudio.feature.auth.yamusic.yandexMusicAuthModule
 import com.mplayeraudio.feature.library.musicLibraryModule
 import com.mplayeraudio.services.devicemusic.di.deviceMusicModule
 import com.mplayeraudio.services.kithara.di.kitharaModule
+import com.mplayeraudio.services.mediasession.MediaPlaybackNotificationChannelId
+import com.mplayeraudio.services.mediasession.di.mediaSessionModule
 import com.mplayeraudio.services.yandex.di.yandexMusicModule
 import com.mplayeraudio.services.yandexauth.YandexOAuthConfig
 import com.mplayeraudio.services.yandexauth.di.yandexAuthModule
@@ -20,6 +24,7 @@ class MultiplayerApplication : Application() {
         super.onCreate()
 
         Kithara.initialize(this, LogLevel.Debug)
+        createMediaPlaybackNotificationChannel()
 
         startKoin {
             androidContext(this@MultiplayerApplication)
@@ -29,6 +34,7 @@ class MultiplayerApplication : Application() {
                 deviceMusicModule(),
                 yandexMusicModule(),
                 kitharaModule(),
+                mediaSessionModule(),
                 yandexMusicAuthModule(),
                 musicLibraryModule(),
             )
@@ -52,5 +58,15 @@ class MultiplayerApplication : Application() {
             "token" -> YandexAuthorizationResponseType.Token
             else -> YandexAuthorizationResponseType.Code
         }
+    }
+
+    private fun createMediaPlaybackNotificationChannel() {
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        val channel = NotificationChannel(
+            MediaPlaybackNotificationChannelId,
+            getString(R.string.media_playback_notification_channel_name),
+            NotificationManager.IMPORTANCE_LOW,
+        )
+        notificationManager.createNotificationChannel(channel)
     }
 }

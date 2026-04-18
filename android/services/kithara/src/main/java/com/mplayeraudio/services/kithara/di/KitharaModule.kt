@@ -3,11 +3,9 @@ package com.mplayeraudio.services.kithara.di
 import com.mplayeraudio.core.domain.musiclibrary.MusicProviderId
 import com.mplayeraudio.core.domain.musiclibrary.TrackStreamUrlProvider
 import com.mplayeraudio.core.player.PlayableUrlResolver
-import com.mplayeraudio.core.player.PlaybackQueueBridge
 import com.mplayeraudio.services.kithara.CompositePlayableUrlResolver
 import com.mplayeraudio.services.kithara.AudioPlaybackEngine
 import com.mplayeraudio.services.kithara.KitharaAudioPlaybackEngine
-import com.mplayeraudio.services.kithara.KitharaPlaybackQueueBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -34,13 +32,6 @@ fun kitharaModule(): Module = module {
                     named(MusicProviderId.Device.name),
                 ),
             ),
-        )
-    }
-    single<PlaybackQueueBridge> {
-        KitharaPlaybackQueueBridge(
-            engine = get(),
-            urlResolver = get(),
-            scope = get<CoroutineScope>(named(KitharaScopeQualifier)),
         )
     }
 }

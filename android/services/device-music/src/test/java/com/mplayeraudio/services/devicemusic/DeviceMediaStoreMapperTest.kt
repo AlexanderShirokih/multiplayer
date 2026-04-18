@@ -10,11 +10,14 @@ class DeviceMediaStoreMapperTest {
     fun `maps media store row into playlist track entry`() {
         val mapped = requireNotNull(
             DeviceMediaStoreMapper.mapRow(
-                mediaId = 42L,
-                title = "Local Track",
-                artistName = "Local Artist",
-                durationMs = 180_000L,
-                position = 0,
+                DeviceMediaStoreRow(
+                    mediaId = 42L,
+                    albumId = 77L,
+                    title = "Local Track",
+                    artistName = "Local Artist",
+                    durationMs = 180_000L,
+                    position = 0,
+                ),
             ),
         )
 
@@ -23,16 +26,23 @@ class DeviceMediaStoreMapperTest {
         assertEquals("device:42", mapped.entry.trackRef.trackId.value)
         assertEquals("Local Track", mapped.entry.track?.preview?.title)
         assertEquals("Local Artist", mapped.entry.track?.preview?.artists?.single()?.name)
+        assertEquals(
+            "content://media/external/audio/albumart/77",
+            mapped.entry.track?.preview?.coverUriTemplate,
+        )
     }
 
     @Test
     fun `filters out entries with empty artist`() {
         val mapped = DeviceMediaStoreMapper.mapRow(
-            mediaId = 99L,
-            title = "Some title",
-            artistName = "",
-            durationMs = 45_000L,
-            position = 0,
+            DeviceMediaStoreRow(
+                mediaId = 99L,
+                albumId = null,
+                title = "Some title",
+                artistName = "",
+                durationMs = 45_000L,
+                position = 0,
+            ),
         )
 
         assertNull(mapped)
@@ -41,11 +51,14 @@ class DeviceMediaStoreMapperTest {
     @Test
     fun `filters out entries with unknown artist`() {
         val mapped = DeviceMediaStoreMapper.mapRow(
-            mediaId = 100L,
-            title = "Some title",
-            artistName = "<unknown>",
-            durationMs = 10_000L,
-            position = 0,
+            DeviceMediaStoreRow(
+                mediaId = 100L,
+                albumId = null,
+                title = "Some title",
+                artistName = "<unknown>",
+                durationMs = 10_000L,
+                position = 0,
+            ),
         )
 
         assertNull(mapped)
@@ -54,11 +67,14 @@ class DeviceMediaStoreMapperTest {
     @Test
     fun `filters out entries without title`() {
         val mapped = DeviceMediaStoreMapper.mapRow(
-            mediaId = 101L,
-            title = "",
-            artistName = "Artist",
-            durationMs = 8_000L,
-            position = 0,
+            DeviceMediaStoreRow(
+                mediaId = 101L,
+                albumId = null,
+                title = "",
+                artistName = "Artist",
+                durationMs = 8_000L,
+                position = 0,
+            ),
         )
 
         assertNull(mapped)
@@ -67,11 +83,14 @@ class DeviceMediaStoreMapperTest {
     @Test
     fun `keeps track with artist`() {
         val mapped = DeviceMediaStoreMapper.mapRow(
-            mediaId = 102L,
-            title = "Track",
-            artistName = "Some Artist",
-            durationMs = 180_000L,
-            position = 0,
+            DeviceMediaStoreRow(
+                mediaId = 102L,
+                albumId = null,
+                title = "Track",
+                artistName = "Some Artist",
+                durationMs = 180_000L,
+                position = 0,
+            ),
         )
 
         requireNotNull(mapped)

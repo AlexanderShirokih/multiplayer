@@ -58,6 +58,8 @@ class TrackListViewModel(
     observeSavedTracks: ObserveSavedTracksUseCase,
 ) : ViewModel() {
 
+    private var activeQueueItemId: String? = null
+
     private val _state = MutableStateFlow(
         TrackListRouteState(
             title = destination.title,
@@ -69,8 +71,11 @@ class TrackListViewModel(
     init {
         playbackBridge.playbackState
             .onEach { playbackState ->
+                activeQueueItemId = playbackState.currentItem?.id
                 _state.update { currentState ->
-                    currentState.copy(activeTrackIndex = playbackState.currentIndex)
+                    currentState.copy(
+                        activeTrackIndex = currentState.resolveActiveTrackIndex(activeQueueItemId),
+                    )
                 }
             }
             .launchIn(viewModelScope)
@@ -164,18 +169,41 @@ class TrackListViewModel(
         title: String,
         tracks: List<TrackListItemState>,
     ) {
-        viewModelScope.launch {
-            playbackBridge.replaceQueue(queue = tracks.map(TrackListItemState::queueItem))
+        val nextQueue = tracks.map(TrackListItemState::queueItem)
+        if (_state.value.shouldReplaceQueue(nextQueue)) {
+            viewModelScope.launch {
+                playbackBridge.replaceQueue(queue = nextQueue)
+            }
         }
         _state.update { currentState ->
             currentState.copy(
                 title = title,
                 tracks = tracks,
+                activeTrackIndex = tracks.activeTrackIndex(activeQueueItemId),
                 isLoading = false,
                 status = if (tracks.isEmpty()) TrackListStatus.Empty else null,
             )
         }
     }
+}
+
+private fun TrackListRouteState.resolveActiveTrackIndex(
+    activeQueueItemId: String?,
+): Int? {
+    return tracks.activeTrackIndex(activeQueueItemId)
+}
+
+private fun TrackListRouteState.shouldReplaceQueue(
+    nextQueue: List<PlaybackQueueItem>,
+): Boolean {
+    return tracks.map(TrackListItemState::queueItem) != nextQueue
+}
+
+private fun List<TrackListItemState>.activeTrackIndex(
+    activeQueueItemId: String?,
+): Int? {
+    val index = indexOfFirst { track -> track.queueItem.id == activeQueueItemId }
+    return index.takeIf { it >= 0 }
 }
 
 private fun PlaylistTrackEntry.toItemState(
@@ -186,10 +214,11 @@ private fun PlaylistTrackEntry.toItemState(
         queueItem = PlaybackQueueItem(
             id = trackQueueItemId(position = position, trackId = trackRef.trackId.value),
             trackId = trackRef.trackId,
-            source = trackRef.trackId.toPlayableSource(provider = provider),
+            source = toPlayableSource(provider = provider),
             title = preview?.title.orEmpty(),
             subtitle = preview?.artists.artistNames(),
             durationMs = preview?.durationMs ?: 0L,
+            artworkUri = provider.resolveArtworkUri(preview?.coverUriTemplate),
         ),
         title = preview?.title.orEmpty(),
         artist = preview?.artists.artistNames(),
@@ -205,10 +234,11 @@ private fun SavedTrackEntry.toItemState(
         queueItem = PlaybackQueueItem(
             id = trackQueueItemId(position = position, trackId = trackRef.trackId.value),
             trackId = trackRef.trackId,
-            source = trackRef.trackId.toPlayableSource(provider = provider),
+            source = toPlayableSource(provider = provider),
             title = track?.title.orEmpty(),
             subtitle = track?.artists.artistNames(),
             durationMs = track?.durationMs ?: 0L,
+            artworkUri = provider.resolveArtworkUri(track?.coverUriTemplate),
         ),
         title = track?.title.orEmpty(),
         artist = track?.artists.artistNames(),
@@ -224,7 +254,7 @@ private fun trackQueueItemId(
     return "$position:$trackId"
 }
 
-private fun com.mplayeraudio.core.domain.musiclibrary.TrackId.toPlayableSource(
+private fun toPlayableSource(
     provider: MusicProviderId,
 ): PlayableSource {
     return PlayableSource.Remote(provider)
@@ -250,6 +280,20 @@ private fun List<com.mplayeraudio.core.domain.musiclibrary.ArtistPreview>?.artis
         .joinToString(separator = ", ", transform = com.mplayeraudio.core.domain.musiclibrary.ArtistPreview::name)
 }
 
+private fun MusicProviderId.resolveArtworkUri(template: String?): String? {
+    if (template == null) return null
+
+    return when (this) {
+        MusicProviderId.YandexMusic -> template.replace(
+            oldValue = YandexArtworkTemplateSizeToken,
+            newValue = YandexArtworkSize,
+        )
+        MusicProviderId.Device -> template
+    }
+}
+
 private const val SecondsPerMinute = 60L
 private const val SecondsPerHour = 3_600L
 private const val MillisecondsPerSecond = 1_000L
+private const val YandexArtworkTemplateSizeToken = "%%"
+private const val YandexArtworkSize = "400x400"
