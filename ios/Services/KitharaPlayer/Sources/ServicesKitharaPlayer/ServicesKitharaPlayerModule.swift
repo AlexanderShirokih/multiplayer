@@ -8,4 +8,10 @@ public enum ServicesKitharaPlayerModule {
     ) -> PlaybackQueueBridge {
         KitharaPlaybackQueueBridge(urlProvider: urlProvider)
     }
+
+    public static func makePlaybackQueueBridge(
+        urlResolver: PlayableUrlResolver
+    ) -> PlaybackQueueBridge {
+        KitharaPlaybackQueueBridge(urlResolver: urlResolver)
+    }
 }

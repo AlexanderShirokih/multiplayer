@@ -5,7 +5,6 @@ public protocol YandexOAuthAPI: Sendable {
         accessToken: YandexAccessToken
     ) async throws -> YandexUserIdentity
 }
-
 public final class URLSessionYandexOAuthAPI: YandexOAuthAPI, @unchecked Sendable {
     private let session: URLSession
     private let decoder: JSONDecoder
@@ -171,4 +170,3 @@ private struct LossyString: Decodable {
         )
     }
 }
-

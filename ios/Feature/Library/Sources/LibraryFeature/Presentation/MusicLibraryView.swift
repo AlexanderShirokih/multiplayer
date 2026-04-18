@@ -128,7 +128,7 @@ struct MusicLibraryContentView: View {
             LibraryPlaylistCardView(
                 playlist: playlist,
                 onTap: {
-                    onAction(.playlistTapped(playlist.id))
+                    onAction(.playlistTapped(playlist.ref))
                 }
             )
         }

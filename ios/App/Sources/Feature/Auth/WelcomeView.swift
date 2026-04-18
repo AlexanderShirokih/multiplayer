@@ -4,14 +4,20 @@ import SwiftUI
 
 struct WelcomeView: View {
     private let viewModel: YandexMusicAuthCardViewModel
+    private let onListenLocal: () -> Void
 
-    init(viewModel: YandexMusicAuthCardViewModel) {
+    init(
+        viewModel: YandexMusicAuthCardViewModel,
+        onListenLocal: @escaping () -> Void
+    ) {
         self.viewModel = viewModel
+        self.onListenLocal = onListenLocal
     }
 
     var body: some View {
         WelcomeContentView(
-            viewModel: viewModel
+            viewModel: viewModel,
+            onListenLocal: onListenLocal
         )
     }
 }
@@ -20,6 +26,7 @@ private struct WelcomeContentView: View {
     @Environment(\.multiplayerTheme) private var theme
 
     let viewModel: YandexMusicAuthCardViewModel
+    let onListenLocal: () -> Void
 
     var body: some View {
         GeometryReader { proxy in
@@ -41,10 +48,24 @@ private struct WelcomeContentView: View {
                 VStack {
                     Spacer(minLength: 0)
 
-                    YandexMusicAuthCardView(
-                        viewModel: viewModel
-                    )
-                    .fixedSize(horizontal: false, vertical: true)
+                    VStack(spacing: theme.spacing.md) {
+                        YandexMusicAuthCardView(
+                            viewModel: viewModel
+                        )
+                        .fixedSize(horizontal: false, vertical: true)
+
+                        Button(action: onListenLocal) {
+                            MultiplayerText(
+                                verbatim: "Слушать треки с устройства",
+                                style: theme.typography.label,
+                                color: theme.colors.textPrimary,
+                                alignment: .center
+                            )
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, theme.spacing.md)
+                        }
+                        .buttonStyle(.plain)
+                    }
                     .padding(.horizontal, metrics.horizontalPadding)
                     .padding(.bottom, metrics.bottomPadding)
                 }
@@ -119,6 +140,7 @@ private struct WelcomeDecorativeCurve: View {
         switch colorScheme {
         case .dark:
             palette.brandVisualPrimaryContainer.opacity(0.18)
+
         default:
             palette.brandVisualPrimary.opacity(0.20)
         }
@@ -154,15 +176,14 @@ private struct WelcomeDecorativeCurve: View {
     }
 }
 
-
 #Preview("Light") {
     MultiplayerDesignSystem(colorScheme: .light) {
-        WelcomeView(viewModel: AuthPreviewFactory.makeViewModel())
+        WelcomeView(viewModel: AuthPreviewFactory.makeViewModel(), onListenLocal: {})
     }
 }
 
 #Preview("Dark") {
     MultiplayerDesignSystem(colorScheme: .dark) {
-        WelcomeView(viewModel: AuthPreviewFactory.makeViewModel())
+        WelcomeView(viewModel: AuthPreviewFactory.makeViewModel(), onListenLocal: {})
     }
 }

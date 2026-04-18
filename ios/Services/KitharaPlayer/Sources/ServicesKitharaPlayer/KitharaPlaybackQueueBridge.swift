@@ -10,17 +10,24 @@ public final class KitharaPlaybackQueueBridge: PlaybackQueueBridge, @unchecked S
     public convenience init(urlProvider: TrackStreamUrlProvider) {
         self.init(
             engine: KitharaAudioPlaybackEngine(),
-            urlProvider: urlProvider
+            urlResolver: ProviderPlayableUrlResolver(urlProvider: urlProvider)
+        )
+    }
+
+    public convenience init(urlResolver: PlayableUrlResolver) {
+        self.init(
+            engine: KitharaAudioPlaybackEngine(),
+            urlResolver: urlResolver
         )
     }
 
     init(
         engine: AudioPlaybackEngine,
-        urlProvider: TrackStreamUrlProvider
+        urlResolver: PlayableUrlResolver
     ) {
         storage = PlaybackQueueStorage(
             engine: engine,
-            urlProvider: urlProvider
+            urlResolver: urlResolver
         )
         stateObservationTask = Task { [storage] in
             for await engineState in engine.engineStateStream() {
@@ -108,7 +115,7 @@ public final class KitharaPlaybackQueueBridge: PlaybackQueueBridge, @unchecked S
 
 actor PlaybackQueueStorage {
     let engine: AudioPlaybackEngine
-    let urlProvider: TrackStreamUrlProvider
+    let urlResolver: PlayableUrlResolver
 
     var playbackState = PlaybackQueueState()
     var playbackContinuations: [UUID: AsyncStream<PlaybackQueueState>.Continuation] = [:]
@@ -118,10 +125,10 @@ actor PlaybackQueueStorage {
 
     init(
         engine: AudioPlaybackEngine,
-        urlProvider: TrackStreamUrlProvider
+        urlResolver: PlayableUrlResolver
     ) {
         self.engine = engine
-        self.urlProvider = urlProvider
+        self.urlResolver = urlResolver
     }
 
     func registerPlaybackContinuation(

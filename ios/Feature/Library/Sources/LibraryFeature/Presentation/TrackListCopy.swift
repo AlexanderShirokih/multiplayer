@@ -9,7 +9,9 @@ enum TrackListCopy {
     static let loadErrorMessage = "Не удалось загрузить список треков. Попробуйте ещё раз."
     static let privateLibraryMessage = "Эта медиатека недоступна для просмотра."
     static let emptyMessage = "В этом списке пока нет треков."
+    static let permissionDeniedMessage = "Разрешите доступ к медиатеке, чтобы открыть локальные треки."
     static let retry = "Повторить"
+    static let openSettings = "Открыть настройки"
 }
 
 private func trackWord(for count: Int) -> String {

@@ -11,6 +11,9 @@ let project = Project(
             deploymentTargets: .iOS("17.0"),
             infoPlist: .default,
             sources: ["Sources/**"],
+            dependencies: [
+                .project(target: "CoreDomain", path: "../../Core/Domain")
+            ],
             settings: .settings(
                 base: [
                     "SWIFT_VERSION": "5.0"
@@ -26,7 +29,8 @@ let project = Project(
             infoPlist: .default,
             sources: ["Tests/**"],
             dependencies: [
-                .target(name: "AuthFeature")
+                .target(name: "AuthFeature"),
+                .project(target: "CoreDomain", path: "../../Core/Domain")
             ],
             settings: .settings(
                 base: [

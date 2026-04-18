@@ -32,7 +32,7 @@ public enum MusicLibraryCard: Identifiable, Hashable, Sendable {
     public var id: String {
         switch self {
         case let .playlist(playlist):
-            return playlist.id.renderedKey
+            return "\(playlist.ref.provider.renderedKey):\(playlist.ref.id.renderedKey)"
         }
     }
 
@@ -45,7 +45,7 @@ public enum MusicLibraryCard: Identifiable, Hashable, Sendable {
 }
 
 public struct PlaylistCard: Hashable, Sendable {
-    public let id: PlaylistId
+    public let ref: PlaylistRef
     public let title: String
     public let trackCount: Int
     public let role: PlaylistRole
@@ -55,7 +55,7 @@ public struct PlaylistCard: Hashable, Sendable {
     public let artworkSeed: Int
 
     public init(
-        id: PlaylistId,
+        ref: PlaylistRef,
         title: String,
         trackCount: Int,
         role: PlaylistRole,
@@ -64,7 +64,7 @@ public struct PlaylistCard: Hashable, Sendable {
         artwork: PlaylistCardArtwork,
         artworkSeed: Int
     ) {
-        self.id = id
+        self.ref = ref
         self.title = title
         self.trackCount = trackCount
         self.role = role
@@ -86,28 +86,40 @@ public enum PlaylistCardArtwork: Hashable, Sendable {
 }
 
 public struct MusicLibraryDestination: Hashable, Sendable, Identifiable {
-    public let playlistId: PlaylistId
+    public let ref: PlaylistRef
     public let title: String
     public let role: PlaylistRole
 
-    public init(playlistId: PlaylistId, title: String, role: PlaylistRole) {
-        self.playlistId = playlistId
+    public init(ref: PlaylistRef, title: String, role: PlaylistRole) {
+        self.ref = ref
         self.title = title
         self.role = role
     }
 
     public var id: String {
-        playlistId.renderedKey
+        "\(ref.provider.renderedKey):\(ref.id.renderedKey)"
     }
 }
 
 public enum MusicLibraryAction: Sendable {
-    case playlistTapped(PlaylistId)
+    case playlistTapped(PlaylistRef)
     case dismissPlaylistDetail
 }
 
 extension PlaylistId {
     var renderedKey: String {
         "\(ownerId.rawValue):\(kind.rawValue)"
+    }
+}
+
+private extension MusicProviderId {
+    var renderedKey: String {
+        switch self {
+        case .device:
+            return "device"
+
+        case .yandexMusic:
+            return "yandex"
+        }
     }
 }

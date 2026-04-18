@@ -4,11 +4,13 @@ import Foundation
 
 // MARK: - Repository
 
-public final class YandexMusicRepositoryImpl: MusicLibraryRepository, @unchecked Sendable {
+public final class YandexMusicProvider: MusicProvider, @unchecked Sendable {
+    public let id: MusicProviderId = .yandexMusic
+
     private let requestRunner: YandexMusicRequestRunner
 
     private let availabilityState = AsyncValueRelay<MusicServiceAvailability?>(nil)
-    private let ownPlaylistsState = AsyncValueRelay<[PlaylistSummary]>([])
+    private let playlistsState = AsyncValueRelay<[PlaylistSummary]>([])
     private let playlistState = AsyncValueRelay<[PlaylistId: Playlist]>([:])
     private let savedTracksState = AsyncValueRelay<SavedTracksResult?>(nil)
     private let trackState = AsyncValueRelay<[TrackRef: Track]>([:])
@@ -40,8 +42,8 @@ public final class YandexMusicRepositoryImpl: MusicLibraryRepository, @unchecked
         filterNonNil(availabilityState)
     }
 
-    public func observeOwnPlaylists() -> AsyncStream<[PlaylistSummary]> {
-        ownPlaylistsState.stream()
+    public func observePlaylists() -> AsyncStream<[PlaylistSummary]> {
+        playlistsState.stream()
     }
 
     public func observePlaylist(id: PlaylistId) -> AsyncStream<Playlist?> {
@@ -66,7 +68,7 @@ public final class YandexMusicRepositoryImpl: MusicLibraryRepository, @unchecked
         availabilityState.yield(availability)
     }
 
-    public func refreshOwnPlaylists() async throws {
+    public func refreshPlaylists() async throws {
         let summaries = try await requestRunner.withCurrentUserId { accessToken, userId in
             let items = try await self.requestRunner.api.fetchOwnPlaylists(
                 accessToken: accessToken,
@@ -74,7 +76,7 @@ public final class YandexMusicRepositoryImpl: MusicLibraryRepository, @unchecked
             )
             return try items.map { try $0.toPlaylistSummary() }
         }
-        ownPlaylistsState.yield(summaries)
+        playlistsState.yield(summaries)
     }
 
     public func refreshPlaylist(id: PlaylistId) async throws {

@@ -30,24 +30,40 @@ cd /path/to/kithara && just xcframework
 ```
 
 2. Создать `ios/App/Configs/Local.xcconfig` на основе `Local.example.xcconfig`.
-
 3. Задать путь к клону Kithara:
 
 ```xcconfig
 KITHARA_DIR = /path/to/kithara
 ```
 
-4. Сгенерировать Xcode workspace и открыть его:
+4. Включить режим локального бинаря Kithara — переменная окружения `KITHARA_LOCAL_DEV=1`. Без неё `Package.swift` пакета Kithara пытается скачать `KitharaFFIInternal.xcframework.zip` из релиза на GitHub и завершается ошибкой `404`; с ней SwiftPM подхватывает локальный `KITHARA_DIR/apple/KitharaFFIInternal.xcframework`. Экспортировать в той же сессии, из которой запускается генерация и `xcodebuild`:
 
 ```bash
-./ios/scripts/bootstrap-ios.sh
+export KITHARA_LOCAL_DEV=1
 ```
 
-Скрипт проверяет `KITHARA_DIR`, при необходимости запускает `just xcframework` в Kithara и выполняет `tuist generate` из каталога `ios/`. Альтернатива вручную: `cd ios && tuist generate` (при необходимости предварительно `export KITHARA_DIR=...`).
+5. Сгенерировать Xcode workspace и открыть его:
 
-5. Открыть **`ios/MultiPlayer.xcworkspace`** в Xcode.
+```bash
+KITHARA_LOCAL_DEV=1 ./ios/scripts/bootstrap-ios.sh
+```
 
-6. Проверка линтера (после правок Swift):
+Скрипт проверяет `KITHARA_DIR`, при необходимости запускает `just xcframework` в Kithara и выполняет `tuist generate` из каталога `ios/`. Альтернатива вручную: `cd ios && KITHARA_LOCAL_DEV=1 tuist generate` (при необходимости предварительно `export KITHARA_DIR=...`).
+
+6. Открыть `ios/MultiPlayer.xcworkspace` в Xcode. Если запускать `xcodebuild` из терминала, переменная `KITHARA_LOCAL_DEV=1` тоже должна быть в окружении при `-resolvePackageDependencies` и сборке, например:
+
+```bash
+cd ios
+KITHARA_LOCAL_DEV=1 xcodebuild \
+  -workspace MultiPlayer.xcworkspace \
+  -scheme MultiPlayer \
+  -configuration Debug \
+  -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath .derived-data \
+  build
+```
+
+7. Проверка линтера (после правок Swift):
 
 ```bash
 cd ios && swiftlint lint

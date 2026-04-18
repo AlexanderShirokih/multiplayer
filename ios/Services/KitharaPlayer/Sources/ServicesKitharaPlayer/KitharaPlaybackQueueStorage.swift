@@ -289,15 +289,17 @@ extension PlaybackQueueStorage {
     }
 
     private func resolveStreamURL(for item: PlaybackQueueItem) async throws -> URL {
-        evictExpiredURLs()
-        if let cached = urlCache[item.id], !cached.isExpired {
+        if shouldCache(item), let cached = urlCache[item.id], !cached.isExpired {
             return cached.url
         }
-        let url = try await urlProvider.streamURL(for: item.trackId)
-        urlCache[item.id] = CachedStreamURL(
-            url: url,
-            resolvedAt: Date()
-        )
+        evictExpiredURLs()
+        let url = try await urlResolver.playableURL(for: item.descriptor)
+        if shouldCache(item) {
+            urlCache[item.id] = CachedStreamURL(
+                url: url,
+                resolvedAt: Date()
+            )
+        }
         return url
     }
 
@@ -340,7 +342,7 @@ extension PlaybackQueueStorage {
             return
         }
 
-        if retriedItemIDs.contains(currentItem.id) {
+        if retriedItemIDs.contains(currentItem.id) || !shouldRetry(item: currentItem) {
             retriedItemIDs.remove(currentItem.id)
             urlCache.removeValue(forKey: currentItem.id)
             await handlePlayedToEnd()
@@ -362,6 +364,20 @@ extension PlaybackQueueStorage {
             retriedItemIDs.remove(currentItem.id)
             await handlePlayedToEnd()
         }
+    }
+
+    private func shouldCache(_ item: PlaybackQueueItem) -> Bool {
+        if case .remote = item.source {
+            return true
+        }
+        return false
+    }
+
+    private func shouldRetry(item: PlaybackQueueItem) -> Bool {
+        if case .remote = item.source {
+            return true
+        }
+        return false
     }
 
     private func broadcast() {

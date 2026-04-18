@@ -9,11 +9,12 @@ final class KitharaPlaybackQueueBridgeTests: XCTestCase {
         let engine = FakeAudioPlaybackEngine()
         let bridge = KitharaPlaybackQueueBridge(
             engine: engine,
-            urlProvider: FakeTrackStreamURLProvider(
+            urlResolver: ProviderPlayableUrlResolver(
+                urlProvider: FakeTrackStreamURLProvider(
                 urls: [
                     TrackId(rawValue: "first"): URL(string: "https://example.com/first.mp3")!,
                     TrackId(rawValue: "second"): URL(string: "https://example.com/second.mp3")!
-                ]
+                ])
             )
         )
 
@@ -41,11 +42,12 @@ final class KitharaPlaybackQueueBridgeTests: XCTestCase {
         let engine = FakeAudioPlaybackEngine()
         let bridge = KitharaPlaybackQueueBridge(
             engine: engine,
-            urlProvider: FakeTrackStreamURLProvider(
+            urlResolver: ProviderPlayableUrlResolver(
+                urlProvider: FakeTrackStreamURLProvider(
                 urls: [
                     TrackId(rawValue: "first"): URL(string: "https://example.com/first.mp3")!,
                     TrackId(rawValue: "second"): URL(string: "https://example.com/second.mp3")!
-                ]
+                ])
             )
         )
 
@@ -177,6 +179,7 @@ private func makeQueueItem(
     PlaybackQueueItem(
         id: id,
         trackId: TrackId(rawValue: trackId),
+        source: .remote(provider: .yandexMusic),
         title: "Title \(trackId)",
         subtitle: "Artist \(trackId)",
         durationMs: 180_000

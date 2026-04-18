@@ -16,9 +16,13 @@ let project = Project(
                 "Resources/Preview Content/**"
             ],
             dependencies: [
+                .project(target: "CoreDomain", path: "../Core/Domain"),
+                .project(target: "CorePlayer", path: "../Core/Player"),
+                .project(target: "CoreDataLayer", path: "../Core/Data"),
                 .project(target: "CoreUI", path: "../Core/UI"),
                 .project(target: "AuthFeature", path: "../Feature/Auth"),
                 .project(target: "LibraryFeature", path: "../Feature/Library"),
+                .project(target: "DeviceMusicService", path: "../Services/DeviceMusic"),
                 .project(target: "YandexMusicService", path: "../Services/YandexMusic"),
                 .project(target: "ServicesKitharaPlayer", path: "../Services/KitharaPlayer")
             ],

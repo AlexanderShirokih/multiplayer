@@ -1,19 +1,19 @@
 import Foundation
 
-final class AsyncValueRelay<Value: Sendable>: @unchecked Sendable {
+public final class AsyncValueRelay<Value: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var value: Value
     private var continuations: [UUID: AsyncStream<Value>.Continuation] = [:]
 
-    init(_ value: Value) {
+    public init(_ value: Value) {
         self.value = value
     }
 
-    var currentValue: Value {
+    public var currentValue: Value {
         lock.withLock { value }
     }
 
-    func stream() -> AsyncStream<Value> {
+    public func stream() -> AsyncStream<Value> {
         AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             let id = UUID()
             let currentValue = lock.withLock {
@@ -27,7 +27,7 @@ final class AsyncValueRelay<Value: Sendable>: @unchecked Sendable {
         }
     }
 
-    func yield(_ newValue: Value) {
+    public func yield(_ newValue: Value) {
         let activeContinuations = lock.withLock {
             value = newValue
             return Array(continuations.values)
@@ -42,11 +42,13 @@ final class AsyncValueRelay<Value: Sendable>: @unchecked Sendable {
     }
 }
 
-final class AsyncEventRelay<Value: Sendable>: @unchecked Sendable {
+public final class AsyncEventRelay<Value: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var continuations: [UUID: AsyncStream<Value>.Continuation] = [:]
 
-    func stream() -> AsyncStream<Value> {
+    public init() {}
+
+    public func stream() -> AsyncStream<Value> {
         AsyncStream(bufferingPolicy: .bufferingNewest(16)) { continuation in
             let id = UUID()
             lock.withLock {
@@ -58,7 +60,7 @@ final class AsyncEventRelay<Value: Sendable>: @unchecked Sendable {
         }
     }
 
-    func yield(_ value: Value) {
+    public func yield(_ value: Value) {
         let activeContinuations = lock.withLock {
             Array(continuations.values)
         }
@@ -72,8 +74,22 @@ final class AsyncEventRelay<Value: Sendable>: @unchecked Sendable {
     }
 }
 
+public final class AsyncEventEmitter<Event: Sendable>: @unchecked Sendable {
+    private let relay = AsyncEventRelay<Event>()
+
+    public init() {}
+
+    public func stream() -> AsyncStream<Event> {
+        relay.stream()
+    }
+
+    public func yield(_ event: Event) {
+        relay.yield(event)
+    }
+}
+
 extension NSLock {
-    func withLock<T>(_ operation: () -> T) -> T {
+    fileprivate func withLock<T>(_ operation: () -> T) -> T {
         lock()
         defer { unlock() }
         return operation()

@@ -1,4 +1,5 @@
 import Combine
+import CoreDomain
 import Foundation
 import Kithara
 
@@ -156,6 +157,11 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
         switch event {
         case .durationChanged:
             publishState()
+
+        case .variantsDiscovered,
+                .variantSelected,
+                .variantApplied:
+            break
 
         case let .statusChanged(status):
             guard ItemStatus(ffi: status) == .failed else {

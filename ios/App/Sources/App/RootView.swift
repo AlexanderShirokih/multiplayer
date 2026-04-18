@@ -8,7 +8,10 @@ struct RootView: View {
         Group {
             switch appRoot.destination {
             case .auth:
-                WelcomeView(viewModel: appRoot.authCardViewModel)
+                WelcomeView(
+                    viewModel: appRoot.authCardViewModel,
+                    onListenLocal: appRoot.openDeviceOnlyMode
+                )
                     .transition(.opacity)
 
             case .library:

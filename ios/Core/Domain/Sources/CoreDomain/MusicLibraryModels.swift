@@ -52,6 +52,16 @@ public struct PlaylistId: Hashable, Sendable {
     }
 }
 
+public struct PlaylistRef: Hashable, Sendable {
+    public let provider: MusicProviderId
+    public let id: PlaylistId
+
+    public init(provider: MusicProviderId, id: PlaylistId) {
+        self.provider = provider
+        self.id = id
+    }
+}
+
 public struct TrackRef: Hashable, Sendable {
     public let trackId: TrackId
     public let albumId: AlbumId?
@@ -64,7 +74,8 @@ public struct TrackRef: Hashable, Sendable {
 
 // MARK: - Enums
 
-public enum MusicProviderId: Sendable {
+public enum MusicProviderId: Sendable, CaseIterable {
+    case device
     case yandexMusic
 }
 
@@ -284,4 +295,5 @@ public enum MusicLibraryError: Error, Equatable, Sendable {
     case providerError(code: String, description: String?)
     case invalidResponse(description: String)
     case networkFailure(reason: String)
+    case permissionDenied
 }

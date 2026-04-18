@@ -7,6 +7,7 @@ import Observation
 public enum TrackListStatus: Sendable, Equatable {
     case empty
     case privateLibrary
+    case permissionDenied
     case genericError
 }
 
@@ -27,12 +28,15 @@ public final class TrackListViewModel {
     private let observePlaylist: ObservePlaylistUseCase
     private let observeSavedTracks: ObserveSavedTracksUseCase
     private let playbackBridge: PlaybackQueueBridge
+    private let requestDeviceMediaAccess: RequestDeviceMediaAccessUseCase
+    private let openSystemSettings: (@MainActor @Sendable () -> Void)?
 
     private var observationTasks: [Task<Void, Never>] = []
     private var externalStripState: NowPlayingStripExternalState = .init()
     private var isSeeking = false
     private var seekPreviewFraction: Double?
     private var trackItems: [TrackListItemState] = []
+    private var deviceMediaAccessDenied = false
 
     public init(
         destination: MusicLibraryDestination,
@@ -40,7 +44,9 @@ public final class TrackListViewModel {
         refreshPlaylist: RefreshPlaylistUseCase,
         observeSavedTracks: ObserveSavedTracksUseCase,
         refreshSavedTracks: RefreshSavedTracksUseCase,
-        playbackBridge: PlaybackQueueBridge
+        playbackBridge: PlaybackQueueBridge,
+        requestDeviceMediaAccess: RequestDeviceMediaAccessUseCase = RequestDeviceMediaAccessUseCase(controller: nil),
+        openSystemSettings: (@MainActor @Sendable () -> Void)? = nil
     ) {
         self.destination = destination
         self.observePlaylist = observePlaylist
@@ -48,9 +54,13 @@ public final class TrackListViewModel {
         self.observeSavedTracks = observeSavedTracks
         self.refreshSavedTracks = refreshSavedTracks
         self.playbackBridge = playbackBridge
+        self.requestDeviceMediaAccess = requestDeviceMediaAccess
+        self.openSystemSettings = openSystemSettings
         self.title = destination.title
     }
+}
 
+public extension TrackListViewModel {
     public var feedbackMessage: String {
         switch status {
         case .empty:
@@ -59,12 +69,15 @@ public final class TrackListViewModel {
         case .privateLibrary:
             return TrackListCopy.privateLibraryMessage
 
+        case .permissionDenied:
+            return TrackListCopy.permissionDeniedMessage
+
         case .genericError, nil:
             return TrackListCopy.loadErrorMessage
         }
     }
 
-    public func start() {
+    func start() {
         guard observationTasks.isEmpty else { return }
 
         observationTasks = [
@@ -75,18 +88,18 @@ public final class TrackListViewModel {
         refresh()
     }
 
-    public func stop() {
+    func stop() {
         observationTasks.forEach { $0.cancel() }
         observationTasks = []
     }
 
-    public func onTrackTap(index: Int) {
+    func onTrackTap(index: Int) {
         Task {
             await playbackBridge.playTrack(index: index)
         }
     }
 
-    public func onNowPlayingAction(_ action: NowPlayingStripAction) {
+    func onNowPlayingAction(_ action: NowPlayingStripAction) {
         switch action {
         case .previousTapped:
             Task { await playbackBridge.skipPrevious() }
@@ -114,10 +127,30 @@ public final class TrackListViewModel {
         }
     }
 
-    public func onRetry() {
+    func onRetry() {
         refresh()
     }
 
+    func onFeedbackAction() {
+        if status == .permissionDenied {
+            openSystemSettings?()
+        } else {
+            onRetry()
+        }
+    }
+
+    public var feedbackActionTitle: String? {
+        switch status {
+        case .permissionDenied:
+            return TrackListCopy.openSettings
+
+        case .empty, .privateLibrary, .genericError, nil:
+            return TrackListCopy.retry
+        }
+    }
+}
+
+private extension TrackListViewModel {
     private func makePlaybackObservationTask() -> Task<Void, Never> {
         Task { [weak self] in
             guard let self else { return }
@@ -166,7 +199,7 @@ public final class TrackListViewModel {
         case .regular:
             return Task { [weak self] in
                 guard let self else { return }
-                for await playlist in observePlaylist(id: destination.playlistId) {
+                for await playlist in observePlaylist(ref: destination.ref) {
                     if Task.isCancelled {
                         break
                     }
@@ -211,12 +244,18 @@ public final class TrackListViewModel {
             isLoading = true
             status = nil
             do {
+                if destination.ref.provider == .device {
+                    let authorizationStatus = await requestDeviceMediaAccess()
+                    deviceMediaAccessDenied = authorizationStatus != .authorized
+                } else {
+                    deviceMediaAccessDenied = false
+                }
                 switch destination.role {
                 case .favourites:
                     try await refreshSavedTracks()
 
                 case .regular:
-                    try await refreshPlaylist(id: destination.playlistId)
+                    try await refreshPlaylist(ref: destination.ref)
                 }
             } catch {
                 isLoading = false
@@ -228,14 +267,17 @@ public final class TrackListViewModel {
     }
 
     private func consumePlaylist(_ playlist: Playlist) {
-        let items = playlist.tracks.map { $0.toTrackListItemState() }
+        let items = playlist.tracks.map { $0.toTrackListItemState(provider: destination.ref.provider) }
         publishContent(title: playlist.summary.title, items: items)
     }
 
     private func consumeSavedTracks(_ result: SavedTracksResult) {
         switch result {
         case let .available(saved):
-            publishContent(title: destination.title, items: saved.tracks.map { $0.toTrackListItemState() })
+            publishContent(
+                title: destination.title,
+                items: saved.tracks.map { $0.toTrackListItemState(provider: destination.ref.provider) }
+            )
 
         case .privateLibrary:
             Task {
@@ -261,8 +303,18 @@ public final class TrackListViewModel {
         subtitle = TrackListCopy.trackCountSubtitle(trackCount: items.count)
         self.title = title
         isLoading = false
-        status = items.isEmpty ? .empty : nil
+        status = resolveStatus(forItemsCount: items.count)
         onPlaybackOrItemsChanged()
+    }
+
+    private func resolveStatus(forItemsCount count: Int) -> TrackListStatus? {
+        if count > 0 {
+            return nil
+        }
+        if destination.ref.provider == .device, deviceMediaAccessDenied {
+            return .permissionDenied
+        }
+        return .empty
     }
 
     private func onPlaybackOrItemsChanged() {

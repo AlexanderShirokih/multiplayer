@@ -1,4 +1,5 @@
 @testable import AuthFeature
+import CoreDomain
 import Foundation
 import XCTest
 

@@ -1,9 +1,13 @@
 import AuthFeature
+import CoreDataLayer
+import CoreDomain
 import CorePlayer
+import DeviceMusicService
 import Foundation
 import LibraryFeature
 import Observation
 import ServicesKitharaPlayer
+import UIKit
 import YandexMusicService
 
 @Observable
@@ -23,6 +27,7 @@ final class AppRoot {
 
     private let observeAuthorizedMusicProvider: ObserveAuthorizedMusicProviderUseCase
     private var observationTask: Task<Void, Never>?
+    private var userOptedIntoDeviceOnly = false
 
     init() {
         let dependencies = AppDependencies.live()
@@ -31,7 +36,15 @@ final class AppRoot {
         makeTrackListViewModel = dependencies.makeTrackListViewModel
         resetAuthorization = dependencies.resetAuthorization
         observeAuthorizedMusicProvider = dependencies.observeAuthorizedMusicProvider
-        destination = dependencies.observeAuthorizedMusicProvider.currentAuthorizedProvider().toDestination()
+        destination = Self.destination(
+            provider: dependencies.observeAuthorizedMusicProvider.currentAuthorizedProvider(),
+            userOptedIntoDeviceOnly: false
+        )
+    }
+
+    func openDeviceOnlyMode() {
+        userOptedIntoDeviceOnly = true
+        destination = .library
     }
 
     func start() {
@@ -42,9 +55,25 @@ final class AppRoot {
             guard let self else { return }
 
             for await provider in observeAuthorizedMusicProvider() {
-                destination = provider.toDestination()
+                if provider != nil {
+                    userOptedIntoDeviceOnly = false
+                }
+                destination = Self.destination(
+                    provider: provider,
+                    userOptedIntoDeviceOnly: userOptedIntoDeviceOnly
+                )
             }
         }
+    }
+
+    private static func destination(
+        provider: AuthorizedMusicProvider?,
+        userOptedIntoDeviceOnly: Bool
+    ) -> Destination {
+        if provider != nil || userOptedIntoDeviceOnly {
+            return .library
+        }
+        return .auth
     }
 }
 
@@ -77,17 +106,21 @@ private struct AppDependencies {
             observeAuthorizedMusicProvider: ObserveAuthorizedMusicProviderUseCase(repository: authRepository),
             authCardViewModel: makeAuthCardViewModel(authRepository: authRepository),
             musicLibraryViewModel: MusicLibraryViewModel(
-                observeOwnPlaylists: ObserveOwnPlaylistsUseCase(repository: musicServices.repository),
-                refreshLibrary: RefreshLibraryUseCase(repository: musicServices.repository)
+                observeOwnPlaylists: ObserveOwnPlaylistsUseCase(library: musicServices.library),
+                refreshLibrary: RefreshLibraryUseCase(library: musicServices.library)
             ),
             makeTrackListViewModel: { destination in
                 TrackListViewModel(
                     destination: destination,
-                    observePlaylist: ObservePlaylistUseCase(repository: musicServices.repository),
-                    refreshPlaylist: RefreshPlaylistUseCase(repository: musicServices.repository),
-                    observeSavedTracks: ObserveSavedTracksUseCase(repository: musicServices.repository),
-                    refreshSavedTracks: RefreshSavedTracksUseCase(repository: musicServices.repository),
-                    playbackBridge: musicServices.playbackQueueBridge
+                    observePlaylist: ObservePlaylistUseCase(library: musicServices.library),
+                    refreshPlaylist: RefreshPlaylistUseCase(library: musicServices.library),
+                    observeSavedTracks: ObserveSavedTracksUseCase(library: musicServices.library),
+                    refreshSavedTracks: RefreshSavedTracksUseCase(library: musicServices.library),
+                    playbackBridge: musicServices.playbackQueueBridge,
+                    requestDeviceMediaAccess: RequestDeviceMediaAccessUseCase(
+                        controller: musicServices.deviceAuthorizationController
+                    ),
+                    openSystemSettings: openAppSettings
                 )
             },
             resetAuthorization: {
@@ -114,10 +147,11 @@ private struct AppDependencies {
         bundle: Bundle,
         authRepository: YandexAuthRepositoryImpl
     ) -> MusicServices {
+        let deviceServices = DeviceMusicServiceModule.makeServices()
         let yandexMusicAPI = URLSessionYandexMusicAPI(
             streamingConfig: bundle.yandexMusicStreamingConfig
         )
-        let repository = YandexMusicRepositoryImpl(
+        let yandexProvider = YandexMusicProvider(
             accessTokenProvider: authRepository,
             api: yandexMusicAPI
         )
@@ -125,31 +159,38 @@ private struct AppDependencies {
             accessTokenProvider: authRepository,
             api: yandexMusicAPI
         )
+        let library = DefaultMusicLibrary(
+            providers: [deviceServices.provider, yandexProvider]
+        )
+        let urlResolver = CompositePlayableUrlResolver(
+            providers: [
+                .device: deviceServices.urlProvider,
+                .yandexMusic: trackStreamURLProvider
+            ]
+        )
         let playbackQueueBridge = ServicesKitharaPlayerModule.makePlaybackQueueBridge(
-            urlProvider: trackStreamURLProvider
+            urlResolver: urlResolver
         )
         return MusicServices(
-            repository: repository,
-            playbackQueueBridge: playbackQueueBridge
+            library: library,
+            playbackQueueBridge: playbackQueueBridge,
+            deviceAuthorizationController: deviceServices.authorizationController
         )
+    }
+
+    @MainActor
+    private static func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else {
+            return
+        }
+        UIApplication.shared.open(url)
     }
 }
 
 private struct MusicServices {
-    let repository: YandexMusicRepositoryImpl
+    let library: MusicLibrary
     let playbackQueueBridge: PlaybackQueueBridge
-}
-
-private extension AuthorizedMusicProvider? {
-    func toDestination() -> AppRoot.Destination {
-        switch self {
-        case nil:
-            return .auth
-
-        case .some:
-            return .library
-        }
-    }
+    let deviceAuthorizationController: DeviceMediaAuthorizationController
 }
 
 private extension Bundle {

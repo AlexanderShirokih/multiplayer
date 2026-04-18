@@ -11,13 +11,14 @@ struct TrackListItemState: Sendable {
 }
 
 extension PlaylistTrackEntry {
-    func toTrackListItemState() -> TrackListItemState {
+    func toTrackListItemState(provider: MusicProviderId) -> TrackListItemState {
         let preview = track?.preview
         let trackId = trackRef.trackId.rawValue
         return TrackListItemState(
             queueItem: PlaybackQueueItem(
                 id: trackQueueItemId(position: position, trackId: trackId),
                 trackId: trackRef.trackId,
+                source: .remote(provider: provider),
                 title: preview?.title ?? "",
                 subtitle: artistLine(from: preview?.artists),
                 durationMs: preview?.durationMs ?? 0
@@ -31,11 +32,12 @@ extension PlaylistTrackEntry {
 }
 
 extension SavedTrackEntry {
-    func toTrackListItemState() -> TrackListItemState {
+    func toTrackListItemState(provider: MusicProviderId) -> TrackListItemState {
         TrackListItemState(
             queueItem: PlaybackQueueItem(
                 id: trackQueueItemId(position: position, trackId: trackRef.trackId.rawValue),
                 trackId: trackRef.trackId,
+                source: .remote(provider: provider),
                 title: track?.title ?? "",
                 subtitle: artistLine(from: track?.artists),
                 durationMs: track?.durationMs ?? 0

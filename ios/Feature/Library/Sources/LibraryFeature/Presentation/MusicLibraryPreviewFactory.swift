@@ -4,29 +4,29 @@ import Foundation
 enum MusicLibraryPreviewFactory {
     @MainActor
     static func makeViewModel() -> MusicLibraryViewModel {
-        let repository = PreviewMusicLibraryRepository()
+        let library = PreviewMusicLibrary()
         return MusicLibraryViewModel(
-            observeOwnPlaylists: ObserveOwnPlaylistsUseCase(repository: repository),
-            refreshLibrary: RefreshLibraryUseCase(repository: repository)
+            observeOwnPlaylists: ObserveOwnPlaylistsUseCase(library: library),
+            refreshLibrary: RefreshLibraryUseCase(library: library)
         )
     }
 
     @MainActor
     static func makeTrackListViewModel(destination: MusicLibraryDestination) -> TrackListViewModel {
-        let repository = PreviewMusicLibraryRepository()
+        let library = PreviewMusicLibrary()
         let bridge = InMemoryPlaybackQueueBridge()
         return TrackListViewModel(
             destination: destination,
-            observePlaylist: ObservePlaylistUseCase(repository: repository),
-            refreshPlaylist: RefreshPlaylistUseCase(repository: repository),
-            observeSavedTracks: ObserveSavedTracksUseCase(repository: repository),
-            refreshSavedTracks: RefreshSavedTracksUseCase(repository: repository),
+            observePlaylist: ObservePlaylistUseCase(library: library),
+            refreshPlaylist: RefreshPlaylistUseCase(library: library),
+            observeSavedTracks: ObserveSavedTracksUseCase(library: library),
+            refreshSavedTracks: RefreshSavedTracksUseCase(library: library),
             playbackBridge: bridge
         )
     }
 }
 
-private final class PreviewMusicLibraryRepository: MusicLibraryRepository, @unchecked Sendable {
+private final class PreviewMusicLibrary: MusicLibrary, @unchecked Sendable {
     private let playlists: [PlaylistSummary] = [
         PlaylistSummary(
             id: PlaylistId(
@@ -120,16 +120,24 @@ private final class PreviewMusicLibraryRepository: MusicLibraryRepository, @unch
         }
     }
 
-    func observeOwnPlaylists() -> AsyncStream<[PlaylistSummary]> {
+    func observeAllPlaylists() -> AsyncStream<[PlaylistSummary]> {
         AsyncStream { continuation in
             continuation.yield(playlists)
             continuation.finish()
         }
     }
 
-    func observePlaylist(id: PlaylistId) -> AsyncStream<Playlist?> {
+    func observePlaylist(ref: PlaylistRef) -> AsyncStream<Playlist?> {
         AsyncStream { continuation in
-            continuation.yield(nil)
+            continuation.yield(playlists.first(where: { $0.id == ref.id }).map { summary in
+                Playlist(
+                    summary: summary,
+                    revision: nil,
+                    snapshot: nil,
+                    likesCount: nil,
+                    tracks: []
+                )
+            })
             continuation.finish()
         }
     }
@@ -141,16 +149,8 @@ private final class PreviewMusicLibraryRepository: MusicLibraryRepository, @unch
         }
     }
 
-    func observeTracks(refs: [TrackRef]) -> AsyncStream<[Track]> {
-        AsyncStream { continuation in
-            continuation.yield([])
-            continuation.finish()
-        }
-    }
-
     func refreshAvailability() async throws {}
-    func refreshOwnPlaylists() async throws {}
-    func refreshPlaylist(id: PlaylistId) async throws {}
+    func refreshAll() async throws {}
+    func refreshPlaylist(ref: PlaylistRef) async throws {}
     func refreshSavedTracks() async throws {}
-    func refreshTracks(refs: [TrackRef]) async throws {}
 }

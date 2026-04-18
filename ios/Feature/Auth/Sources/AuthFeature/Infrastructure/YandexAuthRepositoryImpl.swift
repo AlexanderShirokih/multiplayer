@@ -1,3 +1,4 @@
+import CoreDomain
 import Foundation
 
 public final class YandexAuthRepositoryImpl:

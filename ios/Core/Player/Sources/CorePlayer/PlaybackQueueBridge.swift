@@ -1,9 +1,25 @@
 import CoreDomain
 import Foundation
 
+public enum PlayableSource: Equatable, Sendable {
+    case remote(provider: MusicProviderId)
+    case local(url: URL)
+
+    public var descriptor: PlayableSourceDescriptor {
+        switch self {
+        case .remote(let provider):
+            return .remote(provider: provider)
+
+        case .local(let url):
+            return .local(url: url)
+        }
+    }
+}
+
 public struct PlaybackQueueItem: Equatable, Sendable {
     public let id: String
     public let trackId: TrackId
+    public let source: PlayableSource
     public let title: String
     public let subtitle: String
     /// Длительность трека в миллисекундах.
@@ -12,15 +28,25 @@ public struct PlaybackQueueItem: Equatable, Sendable {
     public init(
         id: String,
         trackId: TrackId,
+        source: PlayableSource,
         title: String,
         subtitle: String,
         durationMs: Int64
     ) {
         self.id = id
         self.trackId = trackId
+        self.source = source
         self.title = title
         self.subtitle = subtitle
         self.durationMs = durationMs
+    }
+
+    public var descriptor: PlaybackQueueItemDescriptor {
+        PlaybackQueueItemDescriptor(
+            id: id,
+            trackId: trackId,
+            source: source.descriptor
+        )
     }
 }
 

@@ -62,20 +62,20 @@ public final class MusicLibraryViewModel {
 
     public func send(_ action: MusicLibraryAction) {
         switch action {
-        case let .playlistTapped(playlistId):
+        case let .playlistTapped(ref):
             guard
                 let playlist = state.content?.cards.compactMap({ card -> PlaylistCard? in
                     if case let .playlist(value) = card {
                         return value
                     }
                     return nil
-                }).first(where: { $0.id == playlistId })
+                }).first(where: { $0.ref == ref })
             else {
                 return
             }
 
             state.selectedPlaylist = MusicLibraryDestination(
-                playlistId: playlist.id,
+                ref: playlist.ref,
                 title: playlist.title,
                 role: playlist.role
             )
@@ -93,7 +93,7 @@ private extension PlaylistSummary {
 
         return .playlist(
             PlaylistCard(
-                id: id,
+                ref: PlaylistRef(provider: provider, id: id),
                 title: title,
                 trackCount: trackCount,
                 role: role,

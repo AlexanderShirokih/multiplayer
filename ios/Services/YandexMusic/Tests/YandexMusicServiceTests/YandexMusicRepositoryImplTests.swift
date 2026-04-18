@@ -4,7 +4,7 @@ import Foundation
 import XCTest
 @testable import YandexMusicService
 
-final class YandexMusicRepositoryImplTests: XCTestCase {
+final class YandexMusicProviderTests: XCTestCase {
 
     // MARK: - Own playlists
 
@@ -37,7 +37,7 @@ final class YandexMusicRepositoryImplTests: XCTestCase {
         let repository = makeRepository(api: api)
 
         try await repository.refreshOwnPlaylists()
-        let playlists = await firstValue(repository.observeOwnPlaylists())
+        let playlists = await firstValue(repository.observePlaylists())
 
         XCTAssertEqual(playlists.count, 1)
         let summary = playlists[0]
@@ -195,8 +195,8 @@ final class YandexMusicRepositoryImplTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeRepository(api: YandexMusicAPI) -> YandexMusicRepositoryImpl {
-        YandexMusicRepositoryImpl(
+    private func makeRepository(api: YandexMusicAPI) -> YandexMusicProvider {
+        YandexMusicProvider(
             accessTokenProvider: FakeYandexAccessTokenProvider(),
             api: api
         )

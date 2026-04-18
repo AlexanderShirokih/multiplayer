@@ -27,7 +27,8 @@ public struct TrackListView: View {
                     subtitle: TrackListCopy.trackCountSubtitle(trackCount: 0),
                     message: TrackListCopy.loadingMessage,
                     isLoading: true,
-                    onRetry: nil
+                    actionTitle: nil,
+                    onAction: nil
                 )
             } else {
                 TrackListFeedbackView(
@@ -35,7 +36,8 @@ public struct TrackListView: View {
                     subtitle: TrackListCopy.trackCountSubtitle(trackCount: 0),
                     message: viewModel.feedbackMessage,
                     isLoading: false,
-                    onRetry: viewModel.onRetry
+                    actionTitle: viewModel.feedbackActionTitle,
+                    onAction: viewModel.onFeedbackAction
                 )
             }
         }
@@ -111,7 +113,8 @@ private struct TrackListFeedbackView: View {
     let subtitle: String
     let message: String
     let isLoading: Bool
-    let onRetry: (() -> Void)?
+    let actionTitle: String?
+    let onAction: (() -> Void)?
 
     var body: some View {
         GeometryReader { proxy in
@@ -143,10 +146,10 @@ private struct TrackListFeedbackView: View {
                         if isLoading {
                             ProgressView()
                                 .tint(theme.colors.accent)
-                        } else if let onRetry {
-                            Button(action: onRetry) {
+                        } else if let actionTitle, let onAction {
+                            Button(action: onAction) {
                                 MultiplayerText(
-                                    verbatim: TrackListCopy.retry,
+                                    verbatim: actionTitle,
                                     style: theme.typography.label,
                                     color: theme.colors.accent
                                 )
