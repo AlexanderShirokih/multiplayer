@@ -69,7 +69,6 @@ KITHARA_LOCAL_DEV=1 xcodebuild \
   -scheme MultiPlayer \
   -configuration Debug \
   -destination 'generic/platform=iOS Simulator' \
-  -derivedDataPath .derived-data \
   build
 ```
 

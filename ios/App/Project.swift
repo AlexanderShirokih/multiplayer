@@ -1,4 +1,27 @@
 import ProjectDescription
+import ProjectDescriptionHelpers
+
+var appBaseSettings: SettingsDictionary = [
+    "SWIFT_VERSION": "5.0",
+    "GENERATE_INFOPLIST_FILE": "NO",
+    "INFOPLIST_FILE": "Resources/Info.plist",
+    "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
+    "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME": "",
+    "CODE_SIGN_STYLE": "Automatic",
+    "CURRENT_PROJECT_VERSION": "1",
+    "DEVELOPMENT_ASSET_PATHS": "\"Resources/Preview Content\"",
+    "ENABLE_PREVIEWS": "YES",
+    "MARKETING_VERSION": "1.0",
+    "PRODUCT_BUNDLE_IDENTIFIER": "com.mplayeraudio",
+    "PRODUCT_NAME": "MultiPlayer",
+    "SUPPORTED_PLATFORMS": "iphoneos iphonesimulator",
+    "SWIFT_EMIT_LOC_STRINGS": "YES",
+    "TARGETED_DEVICE_FAMILY": "1,2"
+]
+
+if let developmentTeam = LocalXcodeConfig.optionalValue(for: "DEVELOPMENT_TEAM") {
+    appBaseSettings["DEVELOPMENT_TEAM"] = .string(developmentTeam)
+}
 
 let project = Project(
     name: "MultiPlayer",
@@ -28,23 +51,7 @@ let project = Project(
                 .project(target: "ServicesKitharaPlayer", path: "../Services/KitharaPlayer")
             ],
             settings: .settings(
-                base: [
-                    "SWIFT_VERSION": "5.0",
-                    "GENERATE_INFOPLIST_FILE": "NO",
-                    "INFOPLIST_FILE": "Resources/Info.plist",
-                    "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
-                    "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME": "",
-                    "CODE_SIGN_STYLE": "Automatic",
-                    "CURRENT_PROJECT_VERSION": "1",
-                    "DEVELOPMENT_ASSET_PATHS": "\"Resources/Preview Content\"",
-                    "ENABLE_PREVIEWS": "YES",
-                    "MARKETING_VERSION": "1.0",
-                    "PRODUCT_BUNDLE_IDENTIFIER": "com.mplayeraudio",
-                    "PRODUCT_NAME": "MultiPlayer",
-                    "SUPPORTED_PLATFORMS": "iphoneos iphonesimulator",
-                    "SWIFT_EMIT_LOC_STRINGS": "YES",
-                    "TARGETED_DEVICE_FAMILY": "1,2"
-                ],
+                base: appBaseSettings,
                 configurations: [
                     .debug(
                         name: "Debug",

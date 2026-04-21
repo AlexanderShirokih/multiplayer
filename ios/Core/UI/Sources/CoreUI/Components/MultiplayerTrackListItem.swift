@@ -8,19 +8,22 @@ public struct MultiplayerTrackListItemState: Equatable, Sendable {
     public var duration: String
     public var trackPosition: Int
     public var isActive: Bool
+    public var isPlaying: Bool
 
     public init(
         title: String,
         artist: String,
         duration: String,
         trackPosition: Int,
-        isActive: Bool = false
+        isActive: Bool = false,
+        isPlaying: Bool = false
     ) {
         self.title = title
         self.artist = artist
         self.duration = duration
         self.trackPosition = trackPosition
         self.isActive = isActive
+        self.isPlaying = isPlaying
     }
 }
 
@@ -99,7 +102,10 @@ private struct TrackListItemTrailing: View {
     var body: some View {
         HStack(spacing: trackListActiveTrailingSpacing) {
             if state.isActive {
-                MultiplayerEqualizerIndicator(color: activeColor)
+                MultiplayerEqualizerIndicator(
+                    color: activeColor,
+                    isAnimated: state.isPlaying
+                )
             }
             MultiplayerText(
                 verbatim: state.duration,

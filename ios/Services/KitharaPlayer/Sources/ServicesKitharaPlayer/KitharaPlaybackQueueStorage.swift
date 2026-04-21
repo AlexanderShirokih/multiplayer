@@ -1,5 +1,6 @@
 import CorePlayer
 import Foundation
+import OSLog
 
 extension PlaybackQueueStorage {
     func replaceQueue(
@@ -21,7 +22,7 @@ extension PlaybackQueueStorage {
         }
 
         if replacement.shouldLoadTrack {
-            await loadAndPlay(queue[nextIndex])
+            await loadQueueItem(queue[nextIndex], autoPlay: true)
             return
         }
 
@@ -35,6 +36,9 @@ extension PlaybackQueueStorage {
             return
         }
         let item = playbackState.queue[index]
+        playbackQueueLog.info(
+            "playTrack index=\(index, privacy: .public) itemId=\(item.id, privacy: .public)"
+        )
         playbackState = PlaybackQueueState(
             queue: playbackState.queue,
             currentIndex: index,
@@ -43,16 +47,28 @@ extension PlaybackQueueStorage {
             controlsEnabled: true
         )
         broadcast()
-        await loadAndPlay(item)
+        await loadQueueItem(item, autoPlay: true)
     }
 
     func play() async {
         guard !playbackState.queue.isEmpty else {
+            playbackQueueLog.error("play ignored because queue is empty")
             return
         }
         let index = playbackState.currentIndex ?? 0
         let item = playbackState.queue[index]
-        if playbackState.currentIndex != nil, engine.currentState.currentItemId == item.id {
+        let engineState = engine.currentState
+        let queueCount = self.playbackState.queue.count
+        let currentPositionMs = self.playbackState.currentPositionMs
+        writePlaybackQueueTrace(
+            "play requested itemId=\(item.id) currentIndex=\(index) queueCount=\(queueCount) positionMs=\(currentPositionMs) engineItemId=\(engineState.currentItemId ?? "nil") engineStatus=\(String(describing: engineState.status)) engineIsPlaying=\(engineState.isPlaying)"
+        )
+        playbackQueueLog.info(
+            "play requested itemId=\(item.id, privacy: .public) currentIndex=\(index, privacy: .public) queueCount=\(queueCount, privacy: .public) positionMs=\(currentPositionMs, privacy: .public) engineItemId=\(engineState.currentItemId ?? "nil", privacy: .public) engineStatus=\(String(describing: engineState.status), privacy: .public) engineIsPlaying=\(engineState.isPlaying, privacy: .public)"
+        )
+        if canResumeCurrentItem(item) {
+            writePlaybackQueueTrace("resuming current item via engine.play itemId=\(item.id)")
+            playbackQueueLog.info("resuming current item via engine.play itemId=\(item.id, privacy: .public)")
             engine.play()
             playbackState = PlaybackQueueState(
                 queue: playbackState.queue,
@@ -65,6 +81,8 @@ extension PlaybackQueueStorage {
             return
         }
 
+        writePlaybackQueueTrace("resume not possible, loading queue item itemId=\(item.id)")
+        playbackQueueLog.info("resume not possible, loading queue item itemId=\(item.id, privacy: .public)")
         playbackState = PlaybackQueueState(
             queue: playbackState.queue,
             currentIndex: index,
@@ -73,13 +91,23 @@ extension PlaybackQueueStorage {
             controlsEnabled: true
         )
         broadcast()
-        await loadAndPlay(item)
+        await loadQueueItem(item, autoPlay: true)
     }
 
     func pause() {
         guard !playbackState.queue.isEmpty else {
+            playbackQueueLog.error("pause ignored because queue is empty")
             return
         }
+        let currentItemId = self.playbackState.currentItem?.id ?? "nil"
+        let currentIndex = self.playbackState.currentIndex ?? -1
+        let currentPositionMs = self.playbackState.currentPositionMs
+        writePlaybackQueueTrace(
+            "pause requested itemId=\(currentItemId) currentIndex=\(currentIndex) positionMs=\(currentPositionMs)"
+        )
+        playbackQueueLog.info(
+            "pause requested itemId=\(currentItemId, privacy: .public) currentIndex=\(currentIndex, privacy: .public) positionMs=\(currentPositionMs, privacy: .public)"
+        )
         engine.pause()
         playbackState = PlaybackQueueState(
             queue: playbackState.queue,
@@ -108,7 +136,7 @@ extension PlaybackQueueStorage {
             controlsEnabled: true
         )
         broadcast()
-        await loadAndPlay(item)
+        await loadQueueItem(item, autoPlay: true)
     }
 
     func skipPrevious() async {
@@ -139,7 +167,7 @@ extension PlaybackQueueStorage {
             controlsEnabled: true
         )
         broadcast()
-        await loadAndPlay(item)
+        await loadQueueItem(item, autoPlay: true)
     }
 
     func seekTo(positionMs: Int64) async {
@@ -159,11 +187,30 @@ extension PlaybackQueueStorage {
         broadcast()
     }
 
+    /// Storage владеет транспортным intent (`play` / `pause`), а engine поставляет наблюдаемое
+    /// состояние воспроизведения. Для публичного `PlaybackQueueState` берем из engine только
+    /// подтверждённую позицию: после `pause()` snapshot Kithara ещё может коротко репортить `rate > 0`,
+    /// и если слепо принять такой `isPlaying`, системный виджет мерцает обратно на «воспроизведение».
     func handleEngineState(_ engineState: AudioEngineState) {
+        let storageIsPlaying = self.playbackState.isPlaying
+        if storageIsPlaying != engineState.isPlaying {
+            writePlaybackQueueTrace(
+                "engine transport mismatch storageIsPlaying=\(storageIsPlaying) engineIsPlaying=\(engineState.isPlaying) engineStatus=\(String(describing: engineState.status)) engineItemId=\(engineState.currentItemId ?? "nil") positionMs=\(engineState.currentPositionMs)"
+            )
+            playbackQueueLog.info(
+                "engine transport mismatch storageIsPlaying=\(storageIsPlaying, privacy: .public) engineIsPlaying=\(engineState.isPlaying, privacy: .public) engineStatus=\(String(describing: engineState.status), privacy: .public) engineItemId=\(engineState.currentItemId ?? "nil", privacy: .public) positionMs=\(engineState.currentPositionMs, privacy: .public)"
+            )
+        }
+        guard playbackState.currentPositionMs != engineState.currentPositionMs else {
+            return
+        }
+        playbackQueueLog.info(
+            "engine position update itemId=\(engineState.currentItemId ?? "nil", privacy: .public) positionMs=\(engineState.currentPositionMs, privacy: .public) status=\(String(describing: engineState.status), privacy: .public)"
+        )
         playbackState = PlaybackQueueState(
             queue: playbackState.queue,
             currentIndex: playbackState.currentIndex,
-            isPlaying: engineState.isPlaying,
+            isPlaying: playbackState.isPlaying,
             currentPositionMs: engineState.currentPositionMs,
             controlsEnabled: playbackState.controlsEnabled
         )
@@ -171,6 +218,7 @@ extension PlaybackQueueStorage {
     }
 
     func handleEngineEvent(_ event: AudioEngineEvent) async {
+        playbackQueueLog.info("engine event received event=\(String(describing: event), privacy: .public)")
         switch event {
         case .playedToEnd:
             await handlePlayedToEnd()
@@ -266,17 +314,53 @@ extension PlaybackQueueStorage {
         return false
     }
 
-    private func loadAndPlay(_ item: PlaybackQueueItem) async {
+    private func canResumeCurrentItem(_ item: PlaybackQueueItem) -> Bool {
+        guard playbackState.currentIndex != nil else {
+            playbackQueueLog.info(
+                "canResumeCurrentItem=false because currentIndex is nil itemId=\(item.id, privacy: .public)"
+            )
+            return false
+        }
+        let engineState = engine.currentState
+        let canResume = engineState.currentItemId == item.id && engineState.status == .readyToPlay
+        writePlaybackQueueTrace(
+            "canResumeCurrentItem=\(canResume) itemId=\(item.id) engineItemId=\(engineState.currentItemId ?? "nil") engineStatus=\(String(describing: engineState.status)) engineIsPlaying=\(engineState.isPlaying)"
+        )
+        playbackQueueLog.info(
+            "canResumeCurrentItem=\(canResume, privacy: .public) itemId=\(item.id, privacy: .public) engineItemId=\(engineState.currentItemId ?? "nil", privacy: .public) engineStatus=\(String(describing: engineState.status), privacy: .public) engineIsPlaying=\(engineState.isPlaying, privacy: .public)"
+        )
+        return canResume
+    }
+
+    private func loadQueueItem(
+        _ item: PlaybackQueueItem,
+        autoPlay: Bool
+    ) async {
         retriedItemIDs.remove(item.id)
+        writePlaybackQueueTrace("loadQueueItem start itemId=\(item.id) autoPlay=\(autoPlay)")
+        playbackQueueLog.info(
+            "loadQueueItem start itemId=\(item.id, privacy: .public) autoPlay=\(autoPlay, privacy: .public)"
+        )
         do {
             let url = try await resolveStreamURL(for: item)
             engine.loadTrack(
                 AudioTrackRequest(
                     id: item.id,
                     url: url.absoluteString
-                )
+                ),
+                autoPlay: autoPlay
+            )
+            writePlaybackQueueTrace("loadQueueItem submitted to engine itemId=\(item.id) autoPlay=\(autoPlay)")
+            playbackQueueLog.info(
+                "loadQueueItem submitted to engine itemId=\(item.id, privacy: .public) autoPlay=\(autoPlay, privacy: .public)"
             )
         } catch {
+            writePlaybackQueueTrace(
+                "loadQueueItem failed itemId=\(item.id) error=\(String(describing: error))"
+            )
+            playbackQueueLog.error(
+                "loadQueueItem failed itemId=\(item.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
+            )
             playbackState = PlaybackQueueState(
                 queue: playbackState.queue,
                 currentIndex: playbackState.currentIndex,
@@ -309,10 +393,12 @@ extension PlaybackQueueStorage {
 
     private func handlePlayedToEnd() async {
         guard let currentIndex = playbackState.currentIndex else {
+            playbackQueueLog.error("handlePlayedToEnd ignored because currentIndex is nil")
             return
         }
         let nextIndex = currentIndex + 1
         guard nextIndex < playbackState.queue.count else {
+            playbackQueueLog.info("queue finished at index=\(currentIndex, privacy: .public)")
             playbackState = PlaybackQueueState(
                 queue: playbackState.queue,
                 currentIndex: playbackState.currentIndex,
@@ -325,6 +411,9 @@ extension PlaybackQueueStorage {
         }
 
         let nextItem = playbackState.queue[nextIndex]
+        playbackQueueLog.info(
+            "advance to next item after end nextIndex=\(nextIndex, privacy: .public) itemId=\(nextItem.id, privacy: .public)"
+        )
         playbackState = PlaybackQueueState(
             queue: playbackState.queue,
             currentIndex: nextIndex,
@@ -333,35 +422,53 @@ extension PlaybackQueueStorage {
             controlsEnabled: true
         )
         broadcast()
-        await loadAndPlay(nextItem)
+        await loadQueueItem(nextItem, autoPlay: true)
     }
 
     private func handleItemFailed(itemId: String?) async {
         guard let currentItem = playbackState.currentItem,
               itemId == nil || itemId == currentItem.id else {
+            let currentItemId = self.playbackState.currentItem?.id ?? "nil"
+            playbackQueueLog.info(
+                "ignore itemFailed event eventItemId=\(itemId ?? "nil", privacy: .public) currentItemId=\(currentItemId, privacy: .public)"
+            )
             return
         }
+        let alreadyRetried = self.retriedItemIDs.contains(currentItem.id)
+        playbackQueueLog.error(
+            "handleItemFailed currentItemId=\(currentItem.id, privacy: .public) retried=\(alreadyRetried, privacy: .public)"
+        )
 
         if retriedItemIDs.contains(currentItem.id) || !shouldRetry(item: currentItem) {
             retriedItemIDs.remove(currentItem.id)
             urlCache.removeValue(forKey: currentItem.id)
+            playbackQueueLog.error("item failure fallback to handlePlayedToEnd itemId=\(currentItem.id, privacy: .public)")
             await handlePlayedToEnd()
             return
         }
 
         retriedItemIDs.insert(currentItem.id)
         urlCache.removeValue(forKey: currentItem.id)
+        playbackQueueLog.info("retrying failed item with fresh url itemId=\(currentItem.id, privacy: .public)")
 
         do {
             let url = try await resolveStreamURL(for: currentItem)
+            let shouldAutoPlay = self.playbackState.isPlaying
             engine.loadTrack(
                 AudioTrackRequest(
                     id: currentItem.id,
                     url: url.absoluteString
-                )
+                ),
+                autoPlay: shouldAutoPlay
+            )
+            playbackQueueLog.info(
+                "retry load submitted itemId=\(currentItem.id, privacy: .public) autoPlay=\(shouldAutoPlay, privacy: .public)"
             )
         } catch {
             retriedItemIDs.remove(currentItem.id)
+            playbackQueueLog.error(
+                "retry load failed itemId=\(currentItem.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
+            )
             await handlePlayedToEnd()
         }
     }
@@ -418,3 +525,8 @@ struct QueueReplacement {
 
 let restartThresholdMs: Int64 = 3_000
 let urlTTLSeconds: TimeInterval = 25 * 60
+private let playbackQueueLog = Logger(subsystem: "com.mplayeraudio", category: "KitharaPlaybackQueue")
+
+private func writePlaybackQueueTrace(_ message: String) {
+    PlaybackDebugLog.record(category: "KitharaPlaybackQueue", message: message)
+}

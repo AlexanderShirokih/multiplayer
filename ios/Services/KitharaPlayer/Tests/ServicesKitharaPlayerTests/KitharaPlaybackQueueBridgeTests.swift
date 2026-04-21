@@ -70,6 +70,75 @@ final class KitharaPlaybackQueueBridgeTests: XCTestCase {
         XCTAssertEqual(engine.loadedRequests.last?.id, "1:second")
     }
 
+    func testStaleEngineStateAfterPauseDoesNotResumePlayback() async {
+        let engine = FakeAudioPlaybackEngine()
+        let bridge = KitharaPlaybackQueueBridge(
+            engine: engine,
+            urlResolver: ProviderPlayableUrlResolver(
+                urlProvider: FakeTrackStreamURLProvider(
+                    urls: [
+                        TrackId(rawValue: "first"): URL(string: "https://example.com/first.mp3")!
+                    ])
+            )
+        )
+
+        await bridge.replaceQueue(
+            queue: [makeQueueItem(id: "0:first", trackId: "first")],
+            startIndex: 0,
+            autoPlay: true
+        )
+        await waitUntil {
+            engine.loadedRequests.count == 1
+        }
+
+        await bridge.pause()
+        engine.emit(
+            state: AudioEngineState(
+                status: .readyToPlay,
+                currentPositionMs: 1_000,
+                currentItemId: "0:first",
+                isPlaying: true
+            )
+        )
+
+        let state = await waitForPlaybackState(from: bridge) { $0.currentPositionMs == 1_000 }
+        XCTAssertFalse(state.isPlaying)
+    }
+
+    func testPlayAfterPauseResumesLoadedTrackWithoutReloadingQueueItem() async {
+        let engine = FakeAudioPlaybackEngine()
+        let bridge = KitharaPlaybackQueueBridge(
+            engine: engine,
+            urlResolver: ProviderPlayableUrlResolver(
+                urlProvider: FakeTrackStreamURLProvider(
+                    urls: [
+                        TrackId(rawValue: "first"): URL(string: "https://example.com/first.mp3")!
+                    ])
+            )
+        )
+
+        await bridge.replaceQueue(
+            queue: [
+                makeQueueItem(id: "0:first", trackId: "first")
+            ],
+            startIndex: 0,
+            autoPlay: true
+        )
+        await waitUntil {
+            engine.loadedRequests.count == 1
+        }
+
+        let playCallCountBeforeResume = engine.playCallCount
+        await bridge.pause()
+        await bridge.play()
+
+        let state = await firstValue(from: bridge.playbackStateStream())
+        XCTAssertTrue(state.isPlaying)
+        XCTAssertEqual(state.currentIndex, 0)
+        XCTAssertEqual(engine.loadedRequests.count, 1)
+        XCTAssertEqual(engine.playCallCount, playCallCountBeforeResume + 1)
+    }
+
     private func firstValue(
         from stream: AsyncStream<PlaybackQueueState>
     ) async -> PlaybackQueueState {
@@ -79,6 +148,23 @@ final class KitharaPlaybackQueueBridgeTests: XCTestCase {
             return PlaybackQueueState()
         }
         return value
+    }
+
+    private func waitForPlaybackState(
+        from bridge: KitharaPlaybackQueueBridge,
+        timeoutNanoseconds: UInt64 = 1_000_000_000,
+        until predicate: @escaping (PlaybackQueueState) -> Bool
+    ) async -> PlaybackQueueState {
+        let deadline = DispatchTime.now().uptimeNanoseconds + timeoutNanoseconds
+        while DispatchTime.now().uptimeNanoseconds < deadline {
+            let snapshot = await firstValue(from: bridge.playbackStateStream())
+            if predicate(snapshot) {
+                return snapshot
+            }
+            await Task.yield()
+        }
+        XCTFail("Playback state predicate not satisfied before timeout")
+        return PlaybackQueueState()
     }
 
     private func waitUntil(
@@ -101,6 +187,7 @@ private final class FakeAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sen
     private let eventRelay = AsyncEventRelay<AudioEngineEvent>()
     private let lock = NSLock()
     private(set) var loadedRequests: [AudioTrackRequest] = []
+    private(set) var playCallCount = 0
 
     var currentState: AudioEngineState {
         stateRelay.currentValue
@@ -115,6 +202,7 @@ private final class FakeAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sen
     }
 
     func play() {
+        playCallCount += 1
         updateState { state in
             state.isPlaying = true
         }
@@ -133,13 +221,13 @@ private final class FakeAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sen
         return true
     }
 
-    func loadTrack(_ request: AudioTrackRequest) {
+    func loadTrack(_ request: AudioTrackRequest, autoPlay: Bool) {
         lock.withLock {
             loadedRequests.append(request)
         }
         updateState { state in
             state.currentItemId = request.id
-            state.isPlaying = true
+            state.isPlaying = autoPlay
             state.status = .readyToPlay
         }
     }
@@ -150,6 +238,10 @@ private final class FakeAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sen
 
     func emit(event: AudioEngineEvent) {
         eventRelay.yield(event)
+    }
+
+    func emit(state: AudioEngineState) {
+        stateRelay.yield(state)
     }
 
     private func updateState(_ mutate: (inout AudioEngineState) -> Void) {

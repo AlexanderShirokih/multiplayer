@@ -119,3 +119,59 @@ public protocol PlaybackQueueBridge: NowPlayingStripController {
     func replaceQueue(queue: [PlaybackQueueItem], startIndex: Int?, autoPlay: Bool) async
     func playTrack(index: Int) async
 }
+
+public enum PlaybackDebugLog {
+    public static let relativePath = "Library/Caches/player-debug.log"
+
+    private static let queue = DispatchQueue(label: "com.mplayeraudio.playback-debug-log")
+    private static let dateFormatter = ISO8601DateFormatter()
+    private static let fileName = "player-debug.log"
+
+    public static func reset() {
+        queue.sync {
+            try? FileManager.default.removeItem(at: fileURL())
+        }
+    }
+
+    public static func record(
+        category: String,
+        message: String
+    ) {
+        let timestamp = dateFormatter.string(from: Date())
+        let line = "\(timestamp) [\(category)] \(message)\n"
+
+        queue.sync {
+            let url = fileURL()
+            let directoryURL = url.deletingLastPathComponent()
+            try? FileManager.default.createDirectory(
+                at: directoryURL,
+                withIntermediateDirectories: true,
+                attributes: nil
+            )
+
+            let data = Data(line.utf8)
+            if FileManager.default.fileExists(atPath: url.path) {
+                guard let handle = try? FileHandle(forWritingTo: url) else {
+                    return
+                }
+                try? handle.seekToEnd()
+                try? handle.write(contentsOf: data)
+                try? handle.close()
+                return
+            }
+
+            try? data.write(to: url, options: .atomic)
+        }
+    }
+
+    private static func fileURL() -> URL {
+        if let cachesURL = FileManager.default.urls(
+            for: .cachesDirectory,
+            in: .userDomainMask
+        ).first {
+            return cachesURL.appendingPathComponent(fileName)
+        }
+
+        return URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(fileName)
+    }
+}

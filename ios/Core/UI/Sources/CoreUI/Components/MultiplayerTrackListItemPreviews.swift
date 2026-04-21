@@ -25,7 +25,8 @@ private struct MultiplayerTrackListItemPreviewContent: View {
                     artist: "The Northern Lights",
                     duration: "4:11",
                     trackPosition: 1,
-                    isActive: true
+                    isActive: true,
+                    isPlaying: true
                 )
             )
             MultiplayerTrackListItem(

@@ -1,8 +1,11 @@
 import CoreDomain
+import CorePlayer
 import LibraryFeature
 import XCTest
 
+// swiftlint:disable file_length
 @MainActor
+// swiftlint:disable type_body_length
 final class TrackListViewModelTests: XCTestCase {
     func testRegularPlaylistRefreshPopulatesTrackListAndActivatesClickedTrack() async {
         let library = FakeMusicLibrary(playlist: playlistFixture())
@@ -32,6 +35,110 @@ final class TrackListViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.activeTrackIndex, 1)
         XCTAssertNil(viewModel.status)
         XCTAssertEqual(library.refreshPlaylistCallCount, 1)
+    }
+
+    func testPauseKeepsActiveTrackButStopsTrackRowPlaybackAnimation() async {
+        let library = FakeMusicLibrary(playlist: playlistFixture())
+        let playbackBridge = InMemoryPlaybackQueueBridge()
+        let viewModel = TrackListViewModel(
+            destination: MusicLibraryDestination(
+                ref: PlaylistRef(provider: .yandexMusic, id: playlistFixtureId),
+                title: "Road Trip",
+                role: .regular
+            ),
+            observePlaylist: ObservePlaylistUseCase(library: library),
+            refreshPlaylist: RefreshPlaylistUseCase(library: library),
+            observeSavedTracks: ObserveSavedTracksUseCase(library: library),
+            refreshSavedTracks: RefreshSavedTracksUseCase(library: library),
+            playbackBridge: playbackBridge
+        )
+
+        viewModel.start()
+        await waitUntil { viewModel.trackRows.count == 2 }
+
+        viewModel.onTrackTap(index: 1)
+        await waitUntil { viewModel.trackRows[1].isPlaying }
+
+        await playbackBridge.pause()
+
+        await waitUntil {
+            viewModel.activeTrackIndex == 1 &&
+                viewModel.trackRows[1].isActive &&
+                !viewModel.trackRows[1].isPlaying
+        }
+
+        XCTAssertEqual(viewModel.activeTrackIndex, 1)
+        XCTAssertTrue(viewModel.trackRows[1].isActive)
+        XCTAssertFalse(viewModel.trackRows[1].isPlaying)
+        XCTAssertEqual(viewModel.nowPlayingStrip?.isPlaying, false)
+    }
+
+    // swiftlint:disable:next function_body_length
+    func testStaleStripUpdateDoesNotRestartPausedTrackState() async {
+        let library = FakeMusicLibrary(playlist: playlistFixture())
+        let playbackBridge = ManualPlaybackQueueBridge()
+        let viewModel = TrackListViewModel(
+            destination: MusicLibraryDestination(
+                ref: PlaylistRef(provider: .yandexMusic, id: playlistFixtureId),
+                title: "Road Trip",
+                role: .regular
+            ),
+            observePlaylist: ObservePlaylistUseCase(library: library),
+            refreshPlaylist: RefreshPlaylistUseCase(library: library),
+            observeSavedTracks: ObserveSavedTracksUseCase(library: library),
+            refreshSavedTracks: RefreshSavedTracksUseCase(library: library),
+            playbackBridge: playbackBridge
+        )
+
+        viewModel.start()
+        await waitUntil { viewModel.trackRows.count == 2 }
+
+        playbackBridge.yieldPlaybackState(
+            PlaybackQueueState(
+                queue: playbackQueueFixture(),
+                currentIndex: 1,
+                isPlaying: true,
+                currentPositionMs: 42_000,
+                controlsEnabled: true
+            )
+        )
+        await waitUntil {
+            viewModel.activeTrackIndex == 1 &&
+                viewModel.trackRows[1].isPlaying &&
+                viewModel.nowPlayingStrip?.isPlaying == true
+        }
+
+        playbackBridge.yieldPlaybackState(
+            PlaybackQueueState(
+                queue: playbackQueueFixture(),
+                currentIndex: 1,
+                isPlaying: false,
+                currentPositionMs: 43_000,
+                controlsEnabled: true
+            )
+        )
+        playbackBridge.yieldStripState(
+            NowPlayingStripExternalState(
+                title: "Second Track",
+                subtitle: "Artist Two",
+                isPlaying: true,
+                currentPositionMs: 43_500,
+                durationMs: 180_000,
+                controlsEnabled: true
+            )
+        )
+
+        await waitUntil {
+            viewModel.activeTrackIndex == 1 &&
+                viewModel.trackRows[1].isActive &&
+                !viewModel.trackRows[1].isPlaying &&
+                viewModel.nowPlayingStrip?.isPlaying == false
+        }
+
+        XCTAssertTrue(viewModel.trackRows[1].isActive)
+        XCTAssertFalse(viewModel.trackRows[1].isPlaying)
+        XCTAssertEqual(viewModel.nowPlayingStrip?.title, "Second Track")
+        XCTAssertEqual(viewModel.nowPlayingStrip?.isPlaying, false)
     }
 
     func testFavouritesRefreshPopulatesSavedTracksList() async {
@@ -186,6 +293,7 @@ final class TrackListViewModelTests: XCTestCase {
         }
     }
 }
+// swiftlint:enable type_body_length
 
 // MARK: - Test doubles
 
@@ -265,6 +373,52 @@ private final class FakeDeviceMediaAuthorizationController: DeviceMediaAuthoriza
 
     func requestAuthorization() async -> DeviceMediaAuthorizationStatus {
         status
+    }
+}
+
+private final class ManualPlaybackQueueBridge: PlaybackQueueBridge, @unchecked Sendable {
+    private let playbackRelay = AsyncValueRelay<PlaybackQueueState>(PlaybackQueueState())
+    private let stripRelay = AsyncValueRelay<NowPlayingStripExternalState>(NowPlayingStripExternalState())
+
+    func playbackStateStream() -> AsyncStream<PlaybackQueueState> {
+        playbackRelay.stream()
+    }
+
+    func stripStateStream() -> AsyncStream<NowPlayingStripExternalState> {
+        stripRelay.stream()
+    }
+
+    func replaceQueue(queue: [PlaybackQueueItem], startIndex: Int?, autoPlay: Bool) async {
+        let isPlaying = autoPlay && startIndex != nil
+        yieldPlaybackState(
+            PlaybackQueueState(
+                queue: queue,
+                currentIndex: startIndex,
+                isPlaying: isPlaying,
+                currentPositionMs: 0,
+                controlsEnabled: !queue.isEmpty
+            )
+        )
+    }
+
+    func playTrack(index: Int) async {}
+
+    func play() async {}
+
+    func pause() async {}
+
+    func skipNext() async {}
+
+    func skipPrevious() async {}
+
+    func seekTo(positionMs: Int64) async {}
+
+    func yieldPlaybackState(_ state: PlaybackQueueState) {
+        playbackRelay.yield(state)
+    }
+
+    func yieldStripState(_ state: NowPlayingStripExternalState) {
+        stripRelay.yield(state)
     }
 }
 
@@ -405,6 +559,27 @@ private func playlistFixtureTrackSecond() -> PlaylistTrackEntry {
     )
 }
 
+private func playbackQueueFixture() -> [PlaybackQueueItem] {
+    [
+        PlaybackQueueItem(
+            id: "0:first-track",
+            trackId: TrackId(rawValue: "first-track"),
+            source: .remote(provider: .yandexMusic),
+            title: "First Track",
+            subtitle: "Artist One",
+            durationMs: 180_000
+        ),
+        PlaybackQueueItem(
+            id: "1:second-track",
+            trackId: TrackId(rawValue: "second-track"),
+            source: .remote(provider: .yandexMusic),
+            title: "Second Track",
+            subtitle: "Artist Two",
+            durationMs: 180_000
+        )
+    ]
+}
+
 private func trackPreview(title: String, artist: String) -> TrackPreview {
     let ref = trackRef(title.lowercased().replacingOccurrences(of: " ", with: "-"))
     return TrackPreview(
@@ -423,3 +598,4 @@ private func trackRef(_ trackIdValue: String) -> TrackRef {
         albumId: AlbumId(rawValue: "album-\(trackIdValue)")
     )
 }
+// swiftlint:enable file_length

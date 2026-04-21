@@ -28,7 +28,8 @@ enum TrackListPreviewFactory {
             artist: "The Northern Lights",
             duration: "4:11",
             trackPosition: 1,
-            isActive: true
+            isActive: true,
+            isPlaying: true
         ),
         MultiplayerTrackListItemState(
             title: "Neon Skyline",

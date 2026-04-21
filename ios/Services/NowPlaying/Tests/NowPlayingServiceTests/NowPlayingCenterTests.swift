@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import CoreDomain
 import CorePlayer
 import Foundation
@@ -7,6 +8,7 @@ import UIKit
 import XCTest
 
 @MainActor
+// swiftlint:disable:next type_body_length
 final class NowPlayingCenterTests: XCTestCase {
     func testPlaybackStatePublishesNowPlayingMetadata() async {
         let playbackBridge = FakePlaybackQueueBridge()
@@ -14,13 +16,12 @@ final class NowPlayingCenterTests: XCTestCase {
         let nowPlayingInfoCenter = FakeNowPlayingInfoCenter()
         let remoteCommandCenter = FakeRemoteCommandCenter()
         let audioSession = FakeAudioSession()
-        let center = NowPlayingCenter(
+        let center = makeCenter(
             playbackBridge: playbackBridge,
             artworkLoader: artworkLoader,
             nowPlayingInfoCenter: nowPlayingInfoCenter,
             remoteCommandCenter: remoteCommandCenter,
-            audioSession: audioSession,
-            notificationCenter: NotificationCenter()
+            audioSession: audioSession
         )
 
         center.start()
@@ -41,36 +42,47 @@ final class NowPlayingCenterTests: XCTestCase {
         )
     }
 
+    // swiftlint:disable:next function_body_length
     func testRemoteCommandsCallPlaybackBridge() async {
         let playbackBridge = FakePlaybackQueueBridge()
         let remoteCommandCenter = FakeRemoteCommandCenter()
-        let center = NowPlayingCenter(
+        let center = makeCenter(
             playbackBridge: playbackBridge,
-            artworkLoader: FakeArtworkLoader(),
-            nowPlayingInfoCenter: FakeNowPlayingInfoCenter(),
-            remoteCommandCenter: remoteCommandCenter,
-            audioSession: FakeAudioSession(),
-            notificationCenter: NotificationCenter()
+            remoteCommandCenter: remoteCommandCenter
         )
 
         center.start()
         playbackBridge.yieldPlaybackState(
-            PlaybackQueueState(
+            queueState(
                 queue: [
                     queueItem(id: "0:track"),
                     queueItem(id: "1:track")
                 ],
-                currentIndex: 0,
-                isPlaying: false,
-                currentPositionMs: 0,
-                controlsEnabled: true
+                isPlaying: false
             )
         )
         await waitUntil {
             remoteCommandCenter.isEnabled[.play] == true
         }
 
-        XCTAssertEqual(remoteCommandCenter.trigger(.play), .success)
+        XCTAssertEqual(remoteCommandCenter.trigger(.togglePlayPause), .success)
+        await waitUntil {
+            playbackBridge.commands == [.play]
+        }
+
+        playbackBridge.yieldPlaybackState(
+            queueState(
+                queue: [
+                    queueItem(id: "0:track"),
+                    queueItem(id: "1:track")
+                ],
+                isPlaying: true
+            )
+        )
+        await waitUntil {
+            remoteCommandCenter.isEnabled[.pause] == true
+        }
+
         XCTAssertEqual(remoteCommandCenter.trigger(.togglePlayPause), .success)
         XCTAssertEqual(remoteCommandCenter.trigger(.nextTrack), .success)
         XCTAssertEqual(remoteCommandCenter.trigger(.previousTrack), .success)
@@ -79,12 +91,203 @@ final class NowPlayingCenterTests: XCTestCase {
         await waitUntil {
             playbackBridge.commands == [
                 .play,
-                .play,
+                .pause,
                 .skipNext,
                 .skipPrevious,
                 .seekTo(positionMs: 64_000)
             ]
         }
+    }
+
+    func testPauseRemoteCommandImmediatelyPublishesPausedStateBeforeBridgeConfirmation() async {
+        let playbackBridge = FakePlaybackQueueBridge()
+        let nowPlayingInfoCenter = FakeNowPlayingInfoCenter()
+        let remoteCommandCenter = FakeRemoteCommandCenter()
+        let center = makeCenter(
+            playbackBridge: playbackBridge,
+            nowPlayingInfoCenter: nowPlayingInfoCenter,
+            remoteCommandCenter: remoteCommandCenter
+        )
+
+        center.start()
+        publishNowPlayingState(to: playbackBridge, artworkUri: nil)
+
+        await waitUntil {
+            remoteCommandCenter.isEnabled[.pause] == true
+        }
+
+        XCTAssertEqual(remoteCommandCenter.trigger(.pause), .success)
+
+        assertPausedMetadata(nowPlayingInfoCenter: nowPlayingInfoCenter)
+        XCTAssertEqual(remoteCommandCenter.isEnabled[.play], true)
+        XCTAssertEqual(remoteCommandCenter.isEnabled[.pause], false)
+        await waitUntil {
+            playbackBridge.commands == [.pause]
+        }
+    }
+
+    func testPlayRemoteCommandReactivatesAudioSessionAfterPausedPlaybackState() async {
+        let playbackBridge = FakePlaybackQueueBridge()
+        let remoteCommandCenter = FakeRemoteCommandCenter()
+        let audioSession = FakeAudioSession()
+        let center = makeCenter(
+            playbackBridge: playbackBridge,
+            remoteCommandCenter: remoteCommandCenter,
+            audioSession: audioSession
+        )
+
+        center.start()
+        publishNowPlayingState(to: playbackBridge, artworkUri: nil)
+
+        await waitUntil {
+            remoteCommandCenter.isEnabled[.pause] == true
+        }
+        XCTAssertEqual(audioSession.configureCallCount, 1)
+        XCTAssertEqual(audioSession.setActiveCallCount, 1)
+
+        playbackBridge.yieldPlaybackState(
+            queueState(
+                queue: [queueItem()],
+                isPlaying: false,
+                currentPositionMs: 42_000
+            )
+        )
+        await waitUntil {
+            remoteCommandCenter.isEnabled[.play] == true
+        }
+
+        XCTAssertEqual(remoteCommandCenter.trigger(.play), .success)
+
+        await waitUntil {
+            playbackBridge.commands == [.play]
+        }
+        XCTAssertEqual(audioSession.configureCallCount, 2)
+        XCTAssertEqual(audioSession.setActiveCallCount, 2)
+    }
+
+    func testPausedPlaybackIgnoresDuplicatePlayAndToggleCommands() async {
+        let playbackBridge = FakePlaybackQueueBridge()
+        let remoteCommandCenter = FakeRemoteCommandCenter()
+        let center = makeCenter(
+            playbackBridge: playbackBridge,
+            remoteCommandCenter: remoteCommandCenter
+        )
+
+        center.start()
+        playbackBridge.yieldPlaybackState(
+            queueState(
+                queue: [queueItem()],
+                isPlaying: false
+            )
+        )
+        await waitUntil {
+            remoteCommandCenter.isEnabled[.play] == true
+        }
+
+        XCTAssertEqual(remoteCommandCenter.trigger(.play), .success)
+        XCTAssertEqual(remoteCommandCenter.trigger(.togglePlayPause), .success)
+
+        await waitUntil {
+            playbackBridge.commands == [.play, .play]
+        }
+    }
+
+    func testPlayingPlaybackIgnoresDuplicatePauseAndToggleCommands() async {
+        let playbackBridge = FakePlaybackQueueBridge()
+        let remoteCommandCenter = FakeRemoteCommandCenter()
+        let center = makeCenter(
+            playbackBridge: playbackBridge,
+            remoteCommandCenter: remoteCommandCenter
+        )
+
+        center.start()
+        playbackBridge.yieldPlaybackState(
+            queueState(
+                queue: [queueItem()],
+                isPlaying: true
+            )
+        )
+        await waitUntil {
+            remoteCommandCenter.isEnabled[.pause] == true
+        }
+
+        XCTAssertEqual(remoteCommandCenter.trigger(.pause), .success)
+        XCTAssertEqual(remoteCommandCenter.trigger(.togglePlayPause), .success)
+
+        await waitUntil {
+            playbackBridge.commands == [.pause, .pause]
+        }
+    }
+
+    func testPlaybackStateWithoutCurrentItemDoesNotClearPublishedMetadataForNonEmptyQueue() async {
+        let playbackBridge = FakePlaybackQueueBridge()
+        let nowPlayingInfoCenter = FakeNowPlayingInfoCenter()
+        let center = makeCenter(
+            playbackBridge: playbackBridge,
+            nowPlayingInfoCenter: nowPlayingInfoCenter
+        )
+
+        center.start()
+        publishNowPlayingState(
+            to: playbackBridge,
+            artworkUri: nil
+        )
+
+        await waitUntil {
+            (nowPlayingInfoCenter.nowPlayingInfo?[MPMediaItemPropertyTitle] as? String) == "Track"
+        }
+
+        publishPausedStateWithoutCurrentItem(to: playbackBridge)
+        await waitForPausedPlaybackMetadata(nowPlayingInfoCenter: nowPlayingInfoCenter)
+        assertPausedMetadata(
+            nowPlayingInfoCenter: nowPlayingInfoCenter
+        )
+    }
+
+    func testStaleStripUpdateDoesNotOverridePausedSystemPlaybackState() async {
+        let playbackBridge = FakePlaybackQueueBridge()
+        let nowPlayingInfoCenter = FakeNowPlayingInfoCenter()
+        let center = makeCenter(
+            playbackBridge: playbackBridge,
+            nowPlayingInfoCenter: nowPlayingInfoCenter
+        )
+
+        center.start()
+        publishNowPlayingState(to: playbackBridge, artworkUri: nil)
+
+        await waitUntil {
+            (nowPlayingInfoCenter.nowPlayingInfo?[MPMediaItemPropertyTitle] as? String) == "Track"
+        }
+
+        playbackBridge.yieldPlaybackState(
+            PlaybackQueueState(
+                queue: [queueItem()],
+                currentIndex: 0,
+                isPlaying: false,
+                currentPositionMs: 43_000,
+                controlsEnabled: true
+            )
+        )
+        playbackBridge.yieldStripState(
+            NowPlayingStripExternalState(
+                title: "Track",
+                subtitle: "Artist",
+                isPlaying: true,
+                currentPositionMs: 43_500,
+                durationMs: 180_000,
+                controlsEnabled: true
+            )
+        )
+
+        await waitForPausedPlaybackMetadata(
+            nowPlayingInfoCenter: nowPlayingInfoCenter,
+            elapsedPlaybackTime: 43
+        )
+        assertPausedMetadata(nowPlayingInfoCenter: nowPlayingInfoCenter)
+        XCTAssertEqual(
+            nowPlayingInfoCenter.nowPlayingInfo?[MPNowPlayingInfoPropertyElapsedPlaybackTime] as? TimeInterval,
+            43
+        )
     }
 
     private func queueItem(
@@ -99,6 +302,39 @@ final class NowPlayingCenterTests: XCTestCase {
             subtitle: "Artist",
             durationMs: 180_000,
             artworkUri: artworkUri
+        )
+    }
+
+    private func queueState(
+        queue: [PlaybackQueueItem]? = nil,
+        currentIndex: Int? = 0,
+        isPlaying: Bool,
+        currentPositionMs: Int64 = 0,
+        controlsEnabled: Bool = true
+    ) -> PlaybackQueueState {
+        PlaybackQueueState(
+            queue: queue ?? [queueItem()],
+            currentIndex: currentIndex,
+            isPlaying: isPlaying,
+            currentPositionMs: currentPositionMs,
+            controlsEnabled: controlsEnabled
+        )
+    }
+
+    private func makeCenter(
+        playbackBridge: FakePlaybackQueueBridge,
+        artworkLoader: FakeArtworkLoader = FakeArtworkLoader(),
+        nowPlayingInfoCenter: FakeNowPlayingInfoCenter = FakeNowPlayingInfoCenter(),
+        remoteCommandCenter: FakeRemoteCommandCenter = FakeRemoteCommandCenter(),
+        audioSession: FakeAudioSession = FakeAudioSession()
+    ) -> NowPlayingCenter {
+        NowPlayingCenter(
+            playbackBridge: playbackBridge,
+            artworkLoader: artworkLoader,
+            nowPlayingInfoCenter: nowPlayingInfoCenter,
+            remoteCommandCenter: remoteCommandCenter,
+            audioSession: audioSession,
+            notificationCenter: NotificationCenter()
         )
     }
 
@@ -127,6 +363,30 @@ final class NowPlayingCenterTests: XCTestCase {
         )
     }
 
+    private func publishPausedStateWithoutCurrentItem(
+        to playbackBridge: FakePlaybackQueueBridge
+    ) {
+        playbackBridge.yieldPlaybackState(
+            PlaybackQueueState(
+                queue: [queueItem()],
+                currentIndex: nil,
+                isPlaying: false,
+                currentPositionMs: 43_000,
+                controlsEnabled: true
+            )
+        )
+        playbackBridge.yieldStripState(
+            NowPlayingStripExternalState(
+                title: "",
+                subtitle: "",
+                isPlaying: false,
+                currentPositionMs: 43_000,
+                durationMs: 0,
+                controlsEnabled: true
+            )
+        )
+    }
+
     private func assertMetadata(
         nowPlayingInfoCenter: FakeNowPlayingInfoCenter,
         artworkLoader: FakeArtworkLoader,
@@ -145,11 +405,51 @@ final class NowPlayingCenterTests: XCTestCase {
             nowPlayingInfoCenter.nowPlayingInfo?[MPNowPlayingInfoPropertyElapsedPlaybackTime] as? TimeInterval,
             42
         )
+        XCTAssertEqual(nowPlayingInfoCenter.playbackState, .playing)
         XCTAssertEqual(artworkLoader.requestedArtworkURIs, ["https://example.com/image/%%"])
         XCTAssertEqual(audioSession.configureCallCount, 1)
         XCTAssertEqual(audioSession.setActiveCallCount, 1)
-        XCTAssertTrue(remoteCommandCenter.isEnabled[.play] == true)
+        XCTAssertTrue(remoteCommandCenter.isEnabled[.play] == false)
+        XCTAssertTrue(remoteCommandCenter.isEnabled[.pause] == true)
         XCTAssertTrue(remoteCommandCenter.isEnabled[.changePlaybackPosition] == true)
+    }
+
+    private func assertPausedMetadata(
+        nowPlayingInfoCenter: FakeNowPlayingInfoCenter
+    ) {
+        XCTAssertEqual(
+            nowPlayingInfoCenter.nowPlayingInfo?[MPMediaItemPropertyTitle] as? String,
+            "Track"
+        )
+        XCTAssertEqual(
+            nowPlayingInfoCenter.nowPlayingInfo?[MPMediaItemPropertyArtist] as? String,
+            "Artist"
+        )
+        XCTAssertEqual(
+            nowPlayingInfoCenter.nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] as? Double,
+            0.0
+        )
+        XCTAssertEqual(nowPlayingInfoCenter.playbackState, .paused)
+    }
+
+    private func waitForPausedPlaybackMetadata(
+        nowPlayingInfoCenter: FakeNowPlayingInfoCenter,
+        elapsedPlaybackTime: TimeInterval? = nil
+    ) async {
+        await waitUntil {
+            let isPaused =
+                (nowPlayingInfoCenter.nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] as? Double) == 0.0 &&
+                nowPlayingInfoCenter.playbackState == .paused
+            guard isPaused else {
+                return false
+            }
+            guard let elapsedPlaybackTime else {
+                return true
+            }
+            return (
+                nowPlayingInfoCenter.nowPlayingInfo?[MPNowPlayingInfoPropertyElapsedPlaybackTime] as? TimeInterval
+            ) == elapsedPlaybackTime
+        }
     }
 
     private func waitUntil(
@@ -166,7 +466,6 @@ final class NowPlayingCenterTests: XCTestCase {
         }
     }
 }
-
 private final class FakePlaybackQueueBridge: PlaybackQueueBridge, @unchecked Sendable {
     enum Command: Equatable {
         case play
@@ -262,6 +561,7 @@ private final class FakeArtworkLoader: ArtworkLoading, @unchecked Sendable {
 
 private final class FakeNowPlayingInfoCenter: NowPlayingInfoCenterClient {
     var nowPlayingInfo: [String: Any]?
+    var playbackState: MPNowPlayingPlaybackState = .stopped
 }
 
 private final class FakeRemoteCommandCenter: RemoteCommandCenterClient {
@@ -293,11 +593,17 @@ private final class FakeRemoteCommandCenter: RemoteCommandCenterClient {
     }
 
     func trigger(_ command: RemoteCommand) -> MPRemoteCommandHandlerStatus {
-        handlers[command]?() ?? .commandFailed
+        guard isEnabled[command] ?? true else {
+            return .commandFailed
+        }
+        return handlers[command]?() ?? .commandFailed
     }
 
     func triggerChangePlaybackPosition(_ timeInterval: TimeInterval) -> MPRemoteCommandHandlerStatus {
-        changePlaybackPositionHandler?(timeInterval) ?? .commandFailed
+        guard isEnabled[.changePlaybackPosition] ?? true else {
+            return .commandFailed
+        }
+        return changePlaybackPositionHandler?(timeInterval) ?? .commandFailed
     }
 }
 

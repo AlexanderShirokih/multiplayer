@@ -1,7 +1,9 @@
 import Combine
 import CoreDomain
+import CorePlayer
 import Foundation
 import Kithara
+import OSLog
 
 final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable {
     private let player = KitharaPlayer()
@@ -33,13 +35,25 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
     }
 
     func play() {
+        let state = currentState
+        writeKitharaEngineTrace(
+            "engine.play itemId=\(state.currentItemId ?? "nil") status=\(String(describing: state.status)) isPlaying=\(state.isPlaying)"
+        )
+        kitharaEngineLog.info(
+            "engine.play itemId=\(state.currentItemId ?? "nil", privacy: .public) status=\(String(describing: state.status), privacy: .public) isPlaying=\(state.isPlaying, privacy: .public)"
+        )
         player.play()
-        publishState()
     }
 
     func pause() {
+        let state = currentState
+        writeKitharaEngineTrace(
+            "engine.pause itemId=\(state.currentItemId ?? "nil") status=\(String(describing: state.status)) isPlaying=\(state.isPlaying)"
+        )
+        kitharaEngineLog.info(
+            "engine.pause itemId=\(state.currentItemId ?? "nil", privacy: .public) status=\(String(describing: state.status), privacy: .public) isPlaying=\(state.isPlaying, privacy: .public)"
+        )
         player.pause()
-        publishState()
     }
 
     func seekTo(positionMs: Int64) async -> Bool {
@@ -51,7 +65,11 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
         }
     }
 
-    func loadTrack(_ request: AudioTrackRequest) {
+    func loadTrack(_ request: AudioTrackRequest, autoPlay: Bool) {
+        writeKitharaEngineTrace("loadTrack requestId=\(request.id) autoPlay=\(autoPlay)")
+        kitharaEngineLog.info(
+            "loadTrack requestId=\(request.id, privacy: .public) autoPlay=\(autoPlay, privacy: .public)"
+        )
         player.removeAllItems()
         currentItemCancellable = nil
 
@@ -69,10 +87,20 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
         do {
             try player.insert(item)
             eventRelay.yield(.currentItemChanged(itemId: request.id))
-            player.play()
+            if autoPlay {
+                writeKitharaEngineTrace("autoPlay after loadTrack requestId=\(request.id)")
+                kitharaEngineLog.info("autoPlay after loadTrack requestId=\(request.id, privacy: .public)")
+                player.play()
+            }
             publishState()
         } catch {
             let message = String(describing: error)
+            writeKitharaEngineTrace(
+                "loadTrack insert failed requestId=\(request.id) error=\(message)"
+            )
+            kitharaEngineLog.error(
+                "loadTrack insert failed requestId=\(request.id, privacy: .public) error=\(message, privacy: .public)"
+            )
             storeErrorMessage(message)
             emitItemFailedOnce(itemId: request.id, reason: message)
             publishState(forcedStatus: .failed)
@@ -80,6 +108,13 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
     }
 
     func stop() {
+        let state = currentState
+        writeKitharaEngineTrace(
+            "engine.stop itemId=\(state.currentItemId ?? "nil") status=\(String(describing: state.status))"
+        )
+        kitharaEngineLog.info(
+            "engine.stop itemId=\(state.currentItemId ?? "nil", privacy: .public) status=\(String(describing: state.status), privacy: .public)"
+        )
         player.pause()
         player.removeAllItems()
         currentItemCancellable = nil
@@ -117,9 +152,18 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
                 .statusChanged,
                 .timeControlStatusChanged,
                 .durationChanged:
+            if case .timeChanged = event {
+                // Too noisy for live device debugging.
+            } else {
+                kitharaEngineLog.info("player event=\(String(describing: event), privacy: .public)")
+            }
             publishState()
 
         case let .currentItemChanged(itemId):
+            writeKitharaEngineTrace("player current item changed kitharaItemId=\(itemId ?? "nil")")
+            kitharaEngineLog.info(
+                "player current item changed kitharaItemId=\(itemId ?? "nil", privacy: .public)"
+            )
             lock.withLock {
                 currentKitharaItemId = itemId
             }
@@ -134,12 +178,16 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
             eventRelay.yield(.currentItemChanged(itemId: appItemId))
 
         case let .error(error):
+            writeKitharaEngineTrace("player error=\(error)")
+            kitharaEngineLog.error("player error=\(error, privacy: .public)")
             storeErrorMessage(error)
             let currentItemId = currentState.currentItemId
             emitItemFailedOnce(itemId: currentItemId, reason: error)
             publishState(forcedStatus: .failed)
 
         case .itemDidPlayToEnd:
+            writeKitharaEngineTrace("player itemDidPlayToEnd")
+            kitharaEngineLog.info("player itemDidPlayToEnd")
             publishState()
             eventRelay.yield(.playedToEnd)
 
@@ -168,11 +216,17 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
                 return
             }
             let message = "Failed to load track."
+            kitharaEngineLog.error(
+                "item event failed statusChanged appItemId=\(appItemId, privacy: .public)"
+            )
             storeErrorMessage(message)
             emitItemFailedOnce(itemId: appItemId, reason: message)
             publishState(forcedStatus: .failed)
 
         case let .error(error):
+            kitharaEngineLog.error(
+                "item event error appItemId=\(appItemId, privacy: .public) error=\(error, privacy: .public)"
+            )
             storeErrorMessage(error)
             emitItemFailedOnce(itemId: appItemId, reason: error)
             publishState(forcedStatus: .failed)
@@ -194,6 +248,9 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
             return true
         }
         guard shouldEmit else { return }
+        kitharaEngineLog.error(
+            "emit itemFailed itemId=\(itemId ?? "nil", privacy: .public) reason=\(reason, privacy: .public)"
+        )
         eventRelay.yield(.itemFailed(itemId: itemId, reason: reason))
     }
 
@@ -207,15 +264,27 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
             )
         }
         let status = forcedStatus ?? PlayerStatus(ffi: snapshot.status).toAudioEngineStatus()
-        stateRelay.yield(
-            AudioEngineState(
-                status: status,
-                currentPositionMs: milliseconds(from: snapshot.currentTime),
-                durationMs: snapshot.duration.map(milliseconds(from:)),
-                currentItemId: metadata.currentKitharaItemId.flatMap { metadata.itemIdMap[$0] },
-                isPlaying: snapshot.rate > 0,
-                errorMessage: metadata.lastErrorMessage
+        let nextState = AudioEngineState(
+            status: status,
+            currentPositionMs: milliseconds(from: snapshot.currentTime),
+            durationMs: snapshot.duration.map(milliseconds(from:)),
+            currentItemId: metadata.currentKitharaItemId.flatMap { metadata.itemIdMap[$0] },
+            isPlaying: snapshot.rate > 0,
+            errorMessage: metadata.lastErrorMessage
+        )
+        let previousState = stateRelay.currentValue
+        if previousState.status != nextState.status ||
+            previousState.currentItemId != nextState.currentItemId ||
+            previousState.isPlaying != nextState.isPlaying {
+            writeKitharaEngineTrace(
+                "publishState itemId=\(nextState.currentItemId ?? "nil") status=\(String(describing: nextState.status)) isPlaying=\(nextState.isPlaying) positionMs=\(nextState.currentPositionMs)"
             )
+            kitharaEngineLog.info(
+                "publishState itemId=\(nextState.currentItemId ?? "nil", privacy: .public) status=\(String(describing: nextState.status), privacy: .public) isPlaying=\(nextState.isPlaying, privacy: .public) positionMs=\(nextState.currentPositionMs, privacy: .public)"
+            )
+        }
+        stateRelay.yield(
+            nextState
         )
     }
 
@@ -237,6 +306,12 @@ private struct EngineMetadata {
     let currentKitharaItemId: String?
     let itemIdMap: [String: String]
     let lastErrorMessage: String?
+}
+
+private let kitharaEngineLog = Logger(subsystem: "com.mplayeraudio", category: "KitharaEngine")
+
+private func writeKitharaEngineTrace(_ message: String) {
+    PlaybackDebugLog.record(category: "KitharaEngine", message: message)
 }
 
 private final class SeekCompletionHandler: SeekCallback, @unchecked Sendable {

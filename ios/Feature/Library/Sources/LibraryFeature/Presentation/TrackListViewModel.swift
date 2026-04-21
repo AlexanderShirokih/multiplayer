@@ -34,6 +34,7 @@ public final class TrackListViewModel {
 
     private var observationTasks: [Task<Void, Never>] = []
     private var externalStripState: NowPlayingStripExternalState = .init()
+    private var isCurrentTrackPlaying = false
     private var isSeeking = false
     private var seekPreviewFraction: Double?
     private var trackItems: [TrackListItemState] = []
@@ -89,7 +90,6 @@ public extension TrackListViewModel {
 
         observationTasks = [
             makePlaybackObservationTask(),
-            makeStripObservationTask(),
             makeLibraryObservationTask()
         ]
         refresh()
@@ -113,7 +113,7 @@ public extension TrackListViewModel {
 
         case .playPauseTapped:
             Task {
-                if externalStripState.isPlaying {
+                if isCurrentTrackPlaying {
                     await playbackBridge.pause()
                 } else {
                     await playbackBridge.play()
@@ -176,22 +176,11 @@ private extension TrackListViewModel {
                 }
                 await MainActor.run {
                     self.activeTrackIndex = playback.currentIndex
+                    self.isCurrentTrackPlaying = playback.isPlaying
+                    self.externalStripState = TrackListPlaybackUI.buildExternalStripState(
+                        from: playback
+                    )
                     self.onPlaybackOrItemsChanged()
-                }
-            }
-        }
-    }
-
-    private func makeStripObservationTask() -> Task<Void, Never> {
-        Task { [weak self] in
-            guard let self else { return }
-            for await strip in playbackBridge.stripStateStream() {
-                if Task.isCancelled {
-                    break
-                }
-                await MainActor.run {
-                    self.externalStripState = strip
-                    self.rebuildNowPlayingStripState()
                 }
             }
         }
@@ -340,7 +329,8 @@ private extension TrackListViewModel {
                 artist: item.artist,
                 duration: item.duration,
                 trackPosition: item.trackPosition,
-                isActive: index == activeTrackIndex
+                isActive: index == activeTrackIndex,
+                isPlaying: index == activeTrackIndex && isCurrentTrackPlaying
             )
         }
         rebuildNowPlayingStripState()

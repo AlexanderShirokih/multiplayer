@@ -1,9 +1,11 @@
 import AVFoundation
+import CorePlayer
 import Foundation
 import MediaPlayer
 
 protocol NowPlayingInfoCenterClient: AnyObject {
     var nowPlayingInfo: [String: Any]? { get set }
+    var playbackState: MPNowPlayingPlaybackState { get set }
 }
 
 protocol RemoteCommandCenterClient: AnyObject {
@@ -39,17 +41,34 @@ final class SystemNowPlayingInfoCenterClient: NowPlayingInfoCenterClient {
         get { MPNowPlayingInfoCenter.default().nowPlayingInfo }
         set { MPNowPlayingInfoCenter.default().nowPlayingInfo = newValue }
     }
+
+    var playbackState: MPNowPlayingPlaybackState {
+        get { MPNowPlayingInfoCenter.default().playbackState }
+        set { MPNowPlayingInfoCenter.default().playbackState = newValue }
+    }
 }
 
 final class SystemRemoteCommandCenterClient: RemoteCommandCenterClient {
     private let commandCenter: MPRemoteCommandCenter
     private var tokens: [RemoteCommand: Any] = [:]
+    /// Кэшируем последнее применённое значение, чтобы не логировать одинаковые `setEnabled`
+    /// на каждом тике position update — иначе `player-debug.log` распухает дублями и сложно
+    /// рассмотреть реальные переходы состояний.
+    private var lastEnabledValues: [RemoteCommand: Bool] = [:]
 
     init(commandCenter: MPRemoteCommandCenter = .shared()) {
         self.commandCenter = commandCenter
     }
 
     func setEnabled(_ isEnabled: Bool, for command: RemoteCommand) {
+        if let cached = lastEnabledValues[command], cached == isEnabled {
+            return
+        }
+        lastEnabledValues[command] = isEnabled
+        PlaybackDebugLog.record(
+            category: "RemoteCommandCenter",
+            message: "setEnabled command=\(command.debugName) isEnabled=\(isEnabled)"
+        )
         commandObject(for: command)?.isEnabled = isEnabled
     }
 
@@ -121,6 +140,29 @@ final class SystemRemoteCommandCenterClient: RemoteCommandCenterClient {
 }
 
 extension RemoteCommand: CaseIterable {}
+
+private extension RemoteCommand {
+    var debugName: String {
+        switch self {
+        case .play:
+            return "play"
+        case .pause:
+            return "pause"
+        case .togglePlayPause:
+            return "togglePlayPause"
+        case .nextTrack:
+            return "nextTrack"
+        case .previousTrack:
+            return "previousTrack"
+        case .skipForward:
+            return "skipForward"
+        case .skipBackward:
+            return "skipBackward"
+        case .changePlaybackPosition:
+            return "changePlaybackPosition"
+        }
+    }
+}
 
 final class SystemAudioSessionClient: AudioSessionClient {
     private let audioSession: AVAudioSession

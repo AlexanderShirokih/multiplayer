@@ -9,6 +9,6 @@ protocol AudioPlaybackEngine: Sendable {
     func play()
     func pause()
     func seekTo(positionMs: Int64) async -> Bool
-    func loadTrack(_ request: AudioTrackRequest)
+    func loadTrack(_ request: AudioTrackRequest, autoPlay: Bool)
     func stop()
 }

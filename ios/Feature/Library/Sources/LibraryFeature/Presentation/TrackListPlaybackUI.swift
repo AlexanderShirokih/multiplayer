@@ -3,6 +3,20 @@ import CoreUI
 import Foundation
 
 enum TrackListPlaybackUI {
+    static func buildExternalStripState(
+        from playbackState: PlaybackQueueState
+    ) -> NowPlayingStripExternalState {
+        let currentItem = playbackState.currentItem
+        return NowPlayingStripExternalState(
+            title: currentItem?.title ?? "",
+            subtitle: currentItem?.subtitle ?? "",
+            isPlaying: playbackState.isPlaying,
+            currentPositionMs: playbackState.currentPositionMs,
+            durationMs: max(currentItem?.durationMs ?? 0, 0),
+            controlsEnabled: playbackState.controlsEnabled
+        )
+    }
+
     static func buildStripState(
         activeTrackIndex: Int?,
         externalStripState: NowPlayingStripExternalState,
