@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,6 +101,7 @@ fun TrackListRoute(
     val nowPlayingState by nowPlayingViewModel.state.collectAsStateWithLifecycle()
     var showAddTrackSheet by remember { mutableStateOf(false) }
     var showAddTrackDialog by remember { mutableStateOf(false) }
+    var showDeletePlaylistDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(routeState.addTrackError) {
@@ -117,6 +119,20 @@ fun TrackListRoute(
     LaunchedEffect(routeState.playbackErrorMessage) {
         if (routeState.playbackErrorMessage != null) {
             snackbarHostState.showSnackbar(context.getString(R.string.track_playback_error_message))
+        }
+    }
+
+    LaunchedEffect(routeState.playlistDeleteErrorMessage) {
+        if (routeState.playlistDeleteErrorMessage != null) {
+            snackbarHostState.showSnackbar(context.getString(R.string.playlist_delete_error_message))
+            viewModel.onClearDeletePlaylistError()
+        }
+    }
+
+    val currentOnBack by rememberUpdatedState(onBack)
+    LaunchedEffect(routeState.playlistDeleted) {
+        if (routeState.playlistDeleted) {
+            currentOnBack()
         }
     }
 
@@ -187,6 +203,7 @@ fun TrackListRoute(
                     onNowPlayingAction = nowPlayingViewModel::onAction,
                     onTrackClick = viewModel::onTrackClick,
                     onAddTrackClick = { showAddTrackSheet = true },
+                    onDeletePlaylistClick = { showDeletePlaylistDialog = true },
                     onEditClick = viewModel::onToggleEditing,
                     onBack = onBack,
                     modifier = Modifier,
@@ -300,6 +317,40 @@ fun TrackListRoute(
                     Text(stringResource(R.string.cancel))
                 }
             }
+        )
+    }
+
+    if (showDeletePlaylistDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!routeState.isDeletingPlaylist) {
+                    showDeletePlaylistDialog = false
+                }
+            },
+            title = { Text(stringResource(R.string.playlist_delete_dialog_title)) },
+            text = { Text(stringResource(R.string.playlist_delete_dialog_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.onDeletePlaylist()
+                        showDeletePlaylistDialog = false
+                    },
+                    enabled = !routeState.isDeletingPlaylist,
+                ) {
+                    Text(
+                        text = stringResource(R.string.playlist_delete_confirm),
+                        color = MultiplayerTheme.materialColorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeletePlaylistDialog = false },
+                    enabled = !routeState.isDeletingPlaylist,
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
         )
     }
 }
@@ -418,6 +469,7 @@ internal fun TrackListRouteState.toScreenState(
         },
         isEditable = canEdit,
         isEditing = isEditing,
+        isDeletingPlaylist = isDeletingPlaylist,
     )
 }
 

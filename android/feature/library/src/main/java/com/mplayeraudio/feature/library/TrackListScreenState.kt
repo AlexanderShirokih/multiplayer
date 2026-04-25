@@ -11,6 +11,7 @@ data class TrackListScreenState(
     val tracks: List<MultiplayerTrackListItemState>,
     val isEditable: Boolean = false,
     val isEditing: Boolean = false,
+    val isDeletingPlaylist: Boolean = false,
 ) {
     val trackCount: Int
         get() = tracks.count()

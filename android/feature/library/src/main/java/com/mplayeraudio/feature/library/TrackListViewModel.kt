@@ -43,6 +43,9 @@ data class TrackListRouteState(
     val addTrackError: String? = null,
     val isEditing: Boolean = false,
     val canEdit: Boolean = false,
+    val isDeletingPlaylist: Boolean = false,
+    val playlistDeleted: Boolean = false,
+    val playlistDeleteErrorMessage: String? = null,
 )
 
 data class TrackListItemState(
@@ -68,6 +71,9 @@ private data class TrackListContentState(
     val addTrackError: String? = null,
     val isEditing: Boolean = false,
     val canEdit: Boolean = false,
+    val isDeletingPlaylist: Boolean = false,
+    val playlistDeleted: Boolean = false,
+    val playlistDeleteErrorMessage: String? = null,
 )
 
 class TrackListViewModel(
@@ -76,6 +82,7 @@ class TrackListViewModel(
     private val refreshSavedTracks: RefreshSavedTracksUseCase,
     private val playbackBridge: PlaybackQueueBridge,
     private val addTrackToPlaylist: AddUserPlaylistTrackUseCase,
+    private val deletePlaylist: DeleteUserPlaylistUseCase,
     observePlaylist: ObservePlaylistUseCase,
     observeSavedTracks: ObserveSavedTracksUseCase,
 ) : ViewModel() {
@@ -130,8 +137,42 @@ class TrackListViewModel(
         contentState.update { it.copy(addTrackError = null) }
     }
 
+    fun onClearDeletePlaylistError() {
+        contentState.update { it.copy(playlistDeleteErrorMessage = null) }
+    }
+
     fun onToggleEditing() {
         contentState.update { it.copy(isEditing = !it.isEditing) }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    fun onDeletePlaylist() {
+        val current = contentState.value
+        if (!current.canEdit || current.isDeletingPlaylist || current.playlistDeleted) return
+
+        viewModelScope.launch {
+            contentState.update {
+                it.copy(isDeletingPlaylist = true, playlistDeleteErrorMessage = null)
+            }
+            try {
+                deletePlaylist(destination.ref.id)
+                playbackBridge.replaceQueue(queue = emptyList())
+                contentState.update {
+                    it.copy(
+                        isDeletingPlaylist = false,
+                        playlistDeleted = true,
+                        isEditing = false,
+                    )
+                }
+            } catch (e: Exception) {
+                contentState.update {
+                    it.copy(
+                        isDeletingPlaylist = false,
+                        playlistDeleteErrorMessage = e.message,
+                    )
+                }
+            }
+        }
     }
 
     @Suppress("TooGenericExceptionCaught")
@@ -253,6 +294,9 @@ private fun TrackListContentState.toRouteState(
         addTrackError = addTrackError,
         isEditing = isEditing,
         canEdit = canEdit,
+        isDeletingPlaylist = isDeletingPlaylist,
+        playlistDeleted = playlistDeleted,
+        playlistDeleteErrorMessage = playlistDeleteErrorMessage,
     )
 }
 

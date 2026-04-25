@@ -13,6 +13,7 @@ fun musicLibraryModule(): Module = module {
     factory { RefreshSavedTracksUseCase(get()) }
     factory { CreateUserPlaylistUseCase(get()) }
     factory { AddUserPlaylistTrackUseCase(get()) }
+    factory { DeleteUserPlaylistUseCase(get()) }
     viewModel {
         MusicLibraryViewModel(
             observeOwnPlaylists = get(),
@@ -29,6 +30,7 @@ fun musicLibraryModule(): Module = module {
             refreshSavedTracks = get(),
             playbackBridge = get(),
             addTrackToPlaylist = get(),
+            deletePlaylist = get(),
         )
     }
 }

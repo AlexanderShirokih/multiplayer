@@ -36,4 +36,9 @@
     <string name="playlist_add_url_dialog_hint">Вставьте ссылку на аудиофайл</string>
     <string name="playlist_add_url_invalid">Ссылка некорректна</string>
     <string name="playlist_add_url_error">Не удалось добавить трек.</string>
+    <string name="playlist_edit_delete_playlist">Удалить плейлист</string>
+    <string name="playlist_delete_dialog_title">Удалить плейлист?</string>
+    <string name="playlist_delete_dialog_message">Плейлист будет удалён. Это действие нельзя отменить.</string>
+    <string name="playlist_delete_confirm">Удалить</string>
+    <string name="playlist_delete_error_message">Не удалось удалить плейлист. Попробуйте ещё раз.</string>
 </resources>

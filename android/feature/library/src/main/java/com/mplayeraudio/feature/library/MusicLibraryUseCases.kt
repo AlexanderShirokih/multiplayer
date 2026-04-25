@@ -63,3 +63,13 @@ class AddUserPlaylistTrackUseCase(
         url: String,
     ): com.mplayeraudio.core.domain.musiclibrary.AddTrackResult = repository.addTrackByUrl(playlistId, url)
 }
+
+class DeleteUserPlaylistUseCase(
+    private val repository: com.mplayeraudio.core.domain.musiclibrary.UserPlaylistsRepository,
+) {
+    suspend operator fun invoke(
+        playlistId: com.mplayeraudio.core.domain.musiclibrary.PlaylistId,
+    ) {
+        repository.deletePlaylist(playlistId)
+    }
+}

@@ -41,6 +41,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -80,6 +81,7 @@ class TrackListViewModelTest {
             refreshSavedTracks = RefreshSavedTracksUseCase(library),
             playbackBridge = playbackBridge,
             addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
+            deletePlaylist = DeleteUserPlaylistUseCase(FakeUserPlaylistsRepository()),
         )
         advanceUntilIdle()
 
@@ -118,6 +120,7 @@ class TrackListViewModelTest {
             refreshSavedTracks = RefreshSavedTracksUseCase(library),
             playbackBridge = InMemoryPlaybackQueueBridge(),
             addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
+            deletePlaylist = DeleteUserPlaylistUseCase(FakeUserPlaylistsRepository()),
         )
         advanceUntilIdle()
 
@@ -163,6 +166,7 @@ class TrackListViewModelTest {
             refreshSavedTracks = RefreshSavedTracksUseCase(library),
             playbackBridge = InMemoryPlaybackQueueBridge(),
             addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
+            deletePlaylist = DeleteUserPlaylistUseCase(FakeUserPlaylistsRepository()),
         )
         advanceUntilIdle()
 
@@ -193,6 +197,7 @@ class TrackListViewModelTest {
             refreshSavedTracks = RefreshSavedTracksUseCase(library),
             playbackBridge = playbackBridge,
             addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
+            deletePlaylist = DeleteUserPlaylistUseCase(FakeUserPlaylistsRepository()),
         )
         advanceUntilIdle()
 
@@ -236,6 +241,7 @@ class TrackListViewModelTest {
             refreshSavedTracks = RefreshSavedTracksUseCase(library),
             playbackBridge = playbackBridge,
             addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
+            deletePlaylist = DeleteUserPlaylistUseCase(FakeUserPlaylistsRepository()),
         )
         advanceUntilIdle()
 
@@ -277,6 +283,7 @@ class TrackListViewModelTest {
             refreshSavedTracks = RefreshSavedTracksUseCase(library),
             playbackBridge = playbackBridge,
             addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
+            deletePlaylist = DeleteUserPlaylistUseCase(FakeUserPlaylistsRepository()),
         )
         advanceUntilIdle()
 
@@ -304,6 +311,7 @@ class TrackListViewModelTest {
             refreshSavedTracks = RefreshSavedTracksUseCase(library),
             playbackBridge = InMemoryPlaybackQueueBridge(),
             addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
+            deletePlaylist = DeleteUserPlaylistUseCase(FakeUserPlaylistsRepository()),
         )
         advanceUntilIdle()
 
@@ -340,6 +348,7 @@ class TrackListViewModelTest {
             refreshSavedTracks = RefreshSavedTracksUseCase(library),
             playbackBridge = InMemoryPlaybackQueueBridge(),
             addTrackToPlaylist = AddUserPlaylistTrackUseCase(repo),
+            deletePlaylist = DeleteUserPlaylistUseCase(repo),
         )
         advanceUntilIdle()
         
@@ -373,6 +382,7 @@ class TrackListViewModelTest {
             refreshSavedTracks = RefreshSavedTracksUseCase(library),
             playbackBridge = InMemoryPlaybackQueueBridge(),
             addTrackToPlaylist = AddUserPlaylistTrackUseCase(repo),
+            deletePlaylist = DeleteUserPlaylistUseCase(repo),
         )
         advanceUntilIdle()
         
@@ -380,6 +390,105 @@ class TrackListViewModelTest {
         advanceUntilIdle()
         
         assertEquals("InvalidUrl", viewModel.state.value.addTrackError)
+    }
+
+    @Test
+    fun `onDeletePlaylist marks playlist as deleted and clears playback queue`() = runTest(dispatcher) {
+        val library = FakeMusicLibrary(playlist = playlistFixture())
+        val repo = FakeUserPlaylistsRepository()
+        val playbackBridge = CountingPlaybackQueueBridge()
+        val viewModel = TrackListViewModel(
+            destination = LibraryTrackListDestination(
+                ref = PlaylistRef(
+                    provider = MusicProviderId.UserPlaylists,
+                    id = playlistFixtureId,
+                ),
+                title = "My Playlist",
+                role = PlaylistRole.Regular,
+            ),
+            observePlaylist = ObservePlaylistUseCase(library),
+            refreshPlaylist = RefreshPlaylistUseCase(library),
+            observeSavedTracks = ObserveSavedTracksUseCase(library),
+            refreshSavedTracks = RefreshSavedTracksUseCase(library),
+            playbackBridge = playbackBridge,
+            addTrackToPlaylist = AddUserPlaylistTrackUseCase(repo),
+            deletePlaylist = DeleteUserPlaylistUseCase(repo),
+        )
+        advanceUntilIdle()
+
+        val initialReplaceCount = playbackBridge.replaceQueueCallCount
+
+        viewModel.onDeletePlaylist()
+        advanceUntilIdle()
+
+        assertEquals(true, viewModel.state.value.playlistDeleted)
+        assertEquals(false, viewModel.state.value.isDeletingPlaylist)
+        assertEquals(false, viewModel.state.value.isEditing)
+        assertEquals(listOf(playlistFixtureId), repo.deletedPlaylistIds)
+        assertEquals(initialReplaceCount + 1, playbackBridge.replaceQueueCallCount)
+    }
+
+    @Test
+    fun `onDeletePlaylist surfaces error message when repository fails`() = runTest(dispatcher) {
+        val library = FakeMusicLibrary(playlist = playlistFixture())
+        val repo = FakeUserPlaylistsRepository().apply {
+            deletePlaylistError = IllegalStateException("network down")
+        }
+        val viewModel = TrackListViewModel(
+            destination = LibraryTrackListDestination(
+                ref = PlaylistRef(
+                    provider = MusicProviderId.UserPlaylists,
+                    id = playlistFixtureId,
+                ),
+                title = "My Playlist",
+                role = PlaylistRole.Regular,
+            ),
+            observePlaylist = ObservePlaylistUseCase(library),
+            refreshPlaylist = RefreshPlaylistUseCase(library),
+            observeSavedTracks = ObserveSavedTracksUseCase(library),
+            refreshSavedTracks = RefreshSavedTracksUseCase(library),
+            playbackBridge = InMemoryPlaybackQueueBridge(),
+            addTrackToPlaylist = AddUserPlaylistTrackUseCase(repo),
+            deletePlaylist = DeleteUserPlaylistUseCase(repo),
+        )
+        advanceUntilIdle()
+
+        viewModel.onDeletePlaylist()
+        advanceUntilIdle()
+
+        assertEquals(false, viewModel.state.value.playlistDeleted)
+        assertEquals(false, viewModel.state.value.isDeletingPlaylist)
+        assertEquals("network down", viewModel.state.value.playlistDeleteErrorMessage)
+    }
+
+    @Test
+    fun `onDeletePlaylist is no-op when playlist is not editable`() = runTest(dispatcher) {
+        val library = FakeMusicLibrary(playlist = playlistFixture())
+        val repo = FakeUserPlaylistsRepository()
+        val viewModel = TrackListViewModel(
+            destination = LibraryTrackListDestination(
+                ref = PlaylistRef(
+                    provider = MusicProviderId.YandexMusic,
+                    id = playlistFixtureId,
+                ),
+                title = "Read-only",
+                role = PlaylistRole.Regular,
+            ),
+            observePlaylist = ObservePlaylistUseCase(library),
+            refreshPlaylist = RefreshPlaylistUseCase(library),
+            observeSavedTracks = ObserveSavedTracksUseCase(library),
+            refreshSavedTracks = RefreshSavedTracksUseCase(library),
+            playbackBridge = InMemoryPlaybackQueueBridge(),
+            addTrackToPlaylist = AddUserPlaylistTrackUseCase(repo),
+            deletePlaylist = DeleteUserPlaylistUseCase(repo),
+        )
+        advanceUntilIdle()
+
+        viewModel.onDeletePlaylist()
+        advanceUntilIdle()
+
+        assertEquals(false, viewModel.state.value.playlistDeleted)
+        assertTrue(repo.deletedPlaylistIds.isEmpty())
     }
 }
 
@@ -619,6 +728,8 @@ private val playlistFixtureId = PlaylistId(
 private class FakeUserPlaylistsRepository :
     com.mplayeraudio.core.domain.musiclibrary.UserPlaylistsRepository {
     var addTrackResult: AddTrackResult = AddTrackResult.Success
+    var deletePlaylistError: Exception? = null
+    var deletedPlaylistIds: MutableList<PlaylistId> = mutableListOf()
 
     override suspend fun createPlaylist(): PlaylistRef = PlaylistRef(
         MusicProviderId.UserPlaylists,
@@ -631,5 +742,8 @@ private class FakeUserPlaylistsRepository :
     ): AddTrackResult = addTrackResult
 
     override suspend fun deleteTrack(playlistId: PlaylistId, trackId: TrackId) = Unit
-    override suspend fun deletePlaylist(playlistId: PlaylistId) = Unit
+    override suspend fun deletePlaylist(playlistId: PlaylistId) {
+        deletePlaylistError?.let { throw it }
+        deletedPlaylistIds.add(playlistId)
+    }
 }

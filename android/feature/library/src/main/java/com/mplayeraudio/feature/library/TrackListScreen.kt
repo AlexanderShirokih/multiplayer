@@ -38,6 +38,7 @@ fun TrackListScreen(
     onNowPlayingAction: (NowPlayingStripAction) -> Unit,
     onTrackClick: (Int) -> Unit,
     onAddTrackClick: () -> Unit,
+    onDeletePlaylistClick: () -> Unit,
     onEditClick: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -104,6 +105,8 @@ fun TrackListScreen(
         if (state.isEditing) {
             EditPlaylistAddBar(
                 onAddClick = onAddTrackClick,
+                onDeleteClick = onDeletePlaylistClick,
+                isDeleting = state.isDeletingPlaylist,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding(),
@@ -175,6 +178,7 @@ private fun TrackListScreenLightPreview() {
             onNowPlayingAction = {},
             onTrackClick = {},
             onAddTrackClick = {},
+            onDeletePlaylistClick = {},
             onEditClick = {},
             onBack = {},
         )
@@ -190,6 +194,7 @@ private fun TrackListScreenDarkPreview() {
             onNowPlayingAction = {},
             onTrackClick = {},
             onAddTrackClick = {},
+            onDeletePlaylistClick = {},
             onEditClick = {},
             onBack = {},
         )
