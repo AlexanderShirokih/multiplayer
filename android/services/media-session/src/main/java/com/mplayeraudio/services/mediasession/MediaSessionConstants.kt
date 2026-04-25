@@ -6,9 +6,16 @@ import kotlin.time.Duration.Companion.minutes
 const val MediaPlaybackNotificationChannelId = "media_playback_channel"
 
 internal const val MediaItemDurationMsKey = "duration_ms"
+internal const val MediaItemTrackIdTypeKey = "track_id_type"
+internal const val MediaItemTrackIdStringKey = "track_id_string"
+internal const val MediaItemTrackIdLongKey = "track_id_long"
 internal const val MediaItemSourceTypeKey = "source_type"
 internal const val MediaItemSourceLocalUriKey = "source_local_uri"
 internal const val MediaItemSourceRemoteProviderKey = "source_remote_provider"
+
+internal const val MediaItemTrackIdTypeYandex = "yandex"
+internal const val MediaItemTrackIdTypeDevice = "device"
+internal const val MediaItemTrackIdTypeUserPlaylist = "user_playlist"
 
 internal const val MediaItemSourceTypeLocal = "local"
 internal const val MediaItemSourceTypeRemote = "remote"

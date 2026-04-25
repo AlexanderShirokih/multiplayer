@@ -13,12 +13,10 @@ import androidx.media3.common.util.UnstableApi
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.mplayeraudio.core.domain.musiclibrary.MusicLibraryException
-import com.mplayeraudio.core.player.PlayableSource
 import com.mplayeraudio.core.player.PlayableUrlResolver
 import com.mplayeraudio.core.player.PlaybackQueueItem
 import com.mplayeraudio.services.kithara.AudioEngineEvent
 import com.mplayeraudio.services.kithara.AudioEngineState
-import com.mplayeraudio.services.kithara.AudioEngineStatus
 import com.mplayeraudio.services.kithara.AudioPlaybackEngine
 import com.mplayeraudio.services.kithara.AudioTrackRequest
 import kotlinx.coroutines.CoroutineScope
@@ -40,7 +38,6 @@ internal class KitharaSimplePlayer(
     private val urlResolver: PlayableUrlResolver,
     private val scope: CoroutineScope,
     private val stateBuilder: PlaybackStateBuilder = PlaybackStateBuilder(),
-    private val invalidateUrlCache: (String) -> Unit = {},
     looper: Looper = Looper.myLooper() ?: Looper.getMainLooper(),
 ) : SimpleBasePlayer(looper) {
 
@@ -205,30 +202,7 @@ internal class KitharaSimplePlayer(
     }
 
     private fun applyEngineState(engineState: AudioEngineState) {
-        if (snapshot.queue.isEmpty()) {
-            snapshot = snapshot.copy(playbackState = STATE_IDLE, isPlaying = false)
-            return
-        }
-
-        val currentItemId = snapshot.currentItem?.id
-        val isForCurrentItem = engineState.currentItemId != null &&
-            engineState.currentItemId == currentItemId
-        if (!isForCurrentItem) return
-
-        snapshot = snapshot
-            .withPosition(engineState.currentPositionMs)
-            .copy(
-                isPlaying = engineState.isPlaying,
-                playbackState = reducePlaybackState(engineState),
-            )
-    }
-
-    private fun reducePlaybackState(engineState: AudioEngineState): Int {
-        return when {
-            snapshot.queue.isEmpty() -> STATE_IDLE
-            engineState.status == AudioEngineStatus.ReadyToPlay -> STATE_READY
-            else -> snapshot.playbackState
-        }
+        snapshot = snapshot.applyEngineState(engineState)
     }
 
     private suspend fun handleEngineEvents() {
@@ -288,6 +262,8 @@ internal class KitharaSimplePlayer(
             }
         } catch (error: MusicLibraryException) {
             handleLoadFailure(item, error)
+        } catch (error: IllegalArgumentException) {
+            handleLoadFailure(item, error)
         } catch (error: IllegalStateException) {
             handleLoadFailure(item, error)
         }
@@ -331,35 +307,21 @@ internal class KitharaSimplePlayer(
         playQueueItem(currentIndex - 1, startPositionMs = 0L, playWhenReady = true)
     }
 
-    private suspend fun handleItemFailed(event: AudioEngineEvent.ItemFailed) {
+    private fun handleItemFailed(event: AudioEngineEvent.ItemFailed) {
         Log.e(TAG, "Item failed: ${event.itemId}, reason: ${event.reason}")
         val currentItem = snapshot.currentItem ?: return
         if (event.itemId != currentItem.id) return
 
-        when (currentItem.source) {
-            is PlayableSource.Local -> playNextOrEnd()
-            is PlayableSource.Remote -> retryRemoteCurrentItem(currentItem)
-        }
-    }
-
-    private suspend fun retryRemoteCurrentItem(item: PlaybackQueueItem) {
-        invalidateUrlCache(item.id)
-        try {
-            val url = urlResolver.getPlayableUrl(item)
-            engine.loadTrack(AudioTrackRequest(id = item.id, url = url))
-        } catch (error: MusicLibraryException) {
-            handleLoadFailure(item, error)
-            playNextOrEnd()
-        } catch (error: IllegalStateException) {
-            handleLoadFailure(item, error)
-            playNextOrEnd()
-        }
+        handleLoadFailure(currentItem, IllegalStateException(event.reason))
     }
 
     private fun handleLoadFailure(item: PlaybackQueueItem, error: Exception) {
+        if (item.id != snapshot.currentItem?.id) return
+
         Log.e(TAG, "Failed to load track ${item.trackId}", error)
         val message = error.message?.takeUnless(String::isBlank)
             ?: context.getString(R.string.media_session_load_failure)
+        loadJob = null
         snapshot = snapshot.copy(
             isPlaying = false,
             playWhenReady = false,
@@ -371,6 +333,7 @@ internal class KitharaSimplePlayer(
                 PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
             ),
         ).withPosition(0L)
+        engine.stop()
         updateTicker(isPlaying = false)
         invalidateState()
     }

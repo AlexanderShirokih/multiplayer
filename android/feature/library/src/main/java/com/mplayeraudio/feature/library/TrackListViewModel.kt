@@ -12,11 +12,14 @@ import com.mplayeraudio.core.domain.musiclibrary.SavedTracksResult
 import com.mplayeraudio.core.player.PlayableSource
 import com.mplayeraudio.core.player.PlaybackQueueBridge
 import com.mplayeraudio.core.player.PlaybackQueueItem
+import com.mplayeraudio.core.player.PlaybackQueueState
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -25,14 +28,21 @@ data class LibraryTrackListDestination(
     val ref: PlaylistRef,
     val title: String,
     val role: PlaylistRole,
+    val initiallyEditing: Boolean = false,
 )
 
 data class TrackListRouteState(
     val title: String = "",
     val tracks: List<TrackListItemState> = emptyList(),
     val activeTrackIndex: Int? = null,
+    val playingTrackIndex: Int? = null,
     val isLoading: Boolean = true,
     val status: TrackListStatus? = null,
+    val playbackErrorMessage: String? = null,
+    val isAddingTrack: Boolean = false,
+    val addTrackError: String? = null,
+    val isEditing: Boolean = false,
+    val canEdit: Boolean = false,
 )
 
 data class TrackListItemState(
@@ -49,37 +59,47 @@ enum class TrackListStatus {
     GenericError,
 }
 
+private data class TrackListContentState(
+    val title: String,
+    val tracks: List<TrackListItemState> = emptyList(),
+    val isLoading: Boolean = true,
+    val status: TrackListStatus? = null,
+    val isAddingTrack: Boolean = false,
+    val addTrackError: String? = null,
+    val isEditing: Boolean = false,
+    val canEdit: Boolean = false,
+)
+
 class TrackListViewModel(
     private val destination: LibraryTrackListDestination,
     private val refreshPlaylist: RefreshPlaylistUseCase,
     private val refreshSavedTracks: RefreshSavedTracksUseCase,
     private val playbackBridge: PlaybackQueueBridge,
+    private val addTrackToPlaylist: AddUserPlaylistTrackUseCase,
     observePlaylist: ObservePlaylistUseCase,
     observeSavedTracks: ObserveSavedTracksUseCase,
 ) : ViewModel() {
 
-    private var activeQueueItemId: String? = null
-
-    private val _state = MutableStateFlow(
-        TrackListRouteState(
+    private val contentState = MutableStateFlow(
+        TrackListContentState(
             title = destination.title,
             isLoading = true,
+            isEditing = destination.initiallyEditing,
+            canEdit = destination.ref.provider == MusicProviderId.UserPlaylists,
         ),
     )
-    val state: StateFlow<TrackListRouteState> = _state.asStateFlow()
+    val state: StateFlow<TrackListRouteState> = combine(
+        contentState,
+        playbackBridge.playbackState,
+    ) { content, playbackState ->
+        content.toRouteState(playbackState)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = contentState.value.toRouteState(PlaybackQueueState()),
+    )
 
     init {
-        playbackBridge.playbackState
-            .onEach { playbackState ->
-                activeQueueItemId = playbackState.currentItem?.id
-                _state.update { currentState ->
-                    currentState.copy(
-                        activeTrackIndex = currentState.resolveActiveTrackIndex(activeQueueItemId),
-                    )
-                }
-            }
-            .launchIn(viewModelScope)
-
         when (destination.role) {
             PlaylistRole.Favourites -> observeSavedTracks()
                 .onEach(::consumeSavedTracks)
@@ -106,9 +126,41 @@ class TrackListViewModel(
         refresh()
     }
 
+    fun onClearAddTrackError() {
+        contentState.update { it.copy(addTrackError = null) }
+    }
+
+    fun onToggleEditing() {
+        contentState.update { it.copy(isEditing = !it.isEditing) }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    fun onAddTrackByUrl(url: String) {
+        if (url.isBlank() || contentState.value.isAddingTrack) return
+
+        viewModelScope.launch {
+            contentState.update { it.copy(isAddingTrack = true, addTrackError = null) }
+            try {
+                val result = addTrackToPlaylist(destination.ref.id, url)
+                when (result) {
+                    is com.mplayeraudio.core.domain.musiclibrary.AddTrackResult.Success -> {
+                        refresh()
+                    }
+                    is com.mplayeraudio.core.domain.musiclibrary.AddTrackResult.InvalidUrl -> {
+                        contentState.update { it.copy(addTrackError = "InvalidUrl") }
+                    }
+                }
+            } catch (e: Exception) {
+                contentState.update { it.copy(addTrackError = e.message) }
+            } finally {
+                contentState.update { it.copy(isAddingTrack = false) }
+            }
+        }
+    }
+
     private fun refresh() {
         viewModelScope.launch {
-            _state.update { currentState ->
+            contentState.update { currentState ->
                 currentState.copy(
                     isLoading = true,
                     status = null,
@@ -120,7 +172,7 @@ class TrackListViewModel(
                     PlaylistRole.Regular -> refreshPlaylist(destination.ref)
                 }
             } catch (_: Exception) {
-                _state.update { currentState ->
+                contentState.update { currentState ->
                     currentState.copy(
                         isLoading = false,
                         status = currentState.status ?: TrackListStatus.GenericError,
@@ -154,7 +206,7 @@ class TrackListViewModel(
                 viewModelScope.launch {
                     playbackBridge.replaceQueue(queue = emptyList())
                 }
-                _state.update { currentState ->
+                contentState.update { currentState ->
                     currentState.copy(
                         isLoading = false,
                         tracks = emptyList(),
@@ -170,16 +222,15 @@ class TrackListViewModel(
         tracks: List<TrackListItemState>,
     ) {
         val nextQueue = tracks.map(TrackListItemState::queueItem)
-        if (_state.value.shouldReplaceQueue(nextQueue)) {
+        if (contentState.value.shouldReplaceQueue(nextQueue)) {
             viewModelScope.launch {
                 playbackBridge.replaceQueue(queue = nextQueue)
             }
         }
-        _state.update { currentState ->
+        contentState.update { currentState ->
             currentState.copy(
                 title = title,
                 tracks = tracks,
-                activeTrackIndex = tracks.activeTrackIndex(activeQueueItemId),
                 isLoading = false,
                 status = if (tracks.isEmpty()) TrackListStatus.Empty else null,
             )
@@ -187,13 +238,25 @@ class TrackListViewModel(
     }
 }
 
-private fun TrackListRouteState.resolveActiveTrackIndex(
-    activeQueueItemId: String?,
-): Int? {
-    return tracks.activeTrackIndex(activeQueueItemId)
+private fun TrackListContentState.toRouteState(
+    playbackState: PlaybackQueueState,
+): TrackListRouteState {
+    return TrackListRouteState(
+        title = title,
+        tracks = tracks,
+        activeTrackIndex = tracks.activeTrackIndex(playbackState.activeItemId),
+        playingTrackIndex = tracks.activeTrackIndex(playbackState.playingItemId),
+        isLoading = isLoading,
+        status = status,
+        playbackErrorMessage = playbackState.playbackErrorMessage,
+        isAddingTrack = isAddingTrack,
+        addTrackError = addTrackError,
+        isEditing = isEditing,
+        canEdit = canEdit,
+    )
 }
 
-private fun TrackListRouteState.shouldReplaceQueue(
+private fun TrackListContentState.shouldReplaceQueue(
     nextQueue: List<PlaybackQueueItem>,
 ): Boolean {
     return tracks.map(TrackListItemState::queueItem) != nextQueue
@@ -212,7 +275,7 @@ private fun PlaylistTrackEntry.toItemState(
     val preview = track?.preview
     return TrackListItemState(
         queueItem = PlaybackQueueItem(
-            id = trackQueueItemId(position = position, trackId = trackRef.trackId.value),
+            id = trackQueueItemId(position = position, trackId = trackRef.trackId.stableKey),
             trackId = trackRef.trackId,
             source = toPlayableSource(provider = provider),
             title = preview?.title.orEmpty(),
@@ -232,7 +295,7 @@ private fun SavedTrackEntry.toItemState(
 ): TrackListItemState {
     return TrackListItemState(
         queueItem = PlaybackQueueItem(
-            id = trackQueueItemId(position = position, trackId = trackRef.trackId.value),
+            id = trackQueueItemId(position = position, trackId = trackRef.trackId.stableKey),
             trackId = trackRef.trackId,
             source = toPlayableSource(provider = provider),
             title = track?.title.orEmpty(),
@@ -289,6 +352,7 @@ private fun MusicProviderId.resolveArtworkUri(template: String?): String? {
             newValue = YandexArtworkSize,
         )
         MusicProviderId.Device -> template
+        else -> template
     }
 }
 

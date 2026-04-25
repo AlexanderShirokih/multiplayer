@@ -6,6 +6,7 @@ import com.mplayeraudio.core.domain.musiclibrary.PlaylistKind
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistVisibility
 import com.mplayeraudio.core.domain.musiclibrary.ProviderUserId
 import com.mplayeraudio.core.domain.musiclibrary.SavedTracksResult
+import com.mplayeraudio.core.domain.musiclibrary.YandexTrackId
 import com.mplayeraudio.core.domain.yandexauth.YandexAccessTokenProvider
 import com.mplayeraudio.services.yandex.internal.YandexMusicRequestRunner
 import com.mplayeraudio.services.yandex.internal.network.YandexMusicApi
@@ -178,7 +179,7 @@ class YandexMusicProviderTest {
         assertEquals(0, entry.position)
         assertEquals(0, entry.originalIndex)
         assertEquals(11, entry.originalShuffleIndex)
-        assertEquals("33207297", entry.trackRef.trackId.value)
+        assertEquals(YandexTrackId("33207297"), entry.trackRef.trackId)
         assertEquals("4056452", entry.trackRef.albumId?.value)
         assertEquals("Track title", entry.track?.preview?.title)
         assertTrue(entry.track?.lyricsAvailable == true)

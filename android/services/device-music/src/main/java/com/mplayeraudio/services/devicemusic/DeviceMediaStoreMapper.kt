@@ -3,9 +3,9 @@ package com.mplayeraudio.services.devicemusic
 import android.database.Cursor
 import android.provider.MediaStore
 import com.mplayeraudio.core.domain.musiclibrary.ArtistPreview
+import com.mplayeraudio.core.domain.musiclibrary.DeviceTrackId
 import com.mplayeraudio.core.domain.musiclibrary.PlaylistTrackEntry
 import com.mplayeraudio.core.domain.musiclibrary.Track
-import com.mplayeraudio.core.domain.musiclibrary.TrackId
 import com.mplayeraudio.core.domain.musiclibrary.TrackPreview
 import com.mplayeraudio.core.domain.musiclibrary.TrackRef
 
@@ -87,13 +87,13 @@ internal object DeviceMediaStoreMapper {
                 originalShuffleIndex = null,
                 isRecent = null,
                 trackRef = TrackRef(
-                    trackId = TrackId("device:${row.mediaId}"),
+                    trackId = DeviceTrackId(row.mediaId),
                     albumId = null,
                 ),
                 track = Track(
                     preview = TrackPreview(
                         ref = TrackRef(
-                            trackId = TrackId("device:${row.mediaId}"),
+                            trackId = DeviceTrackId(row.mediaId),
                             albumId = null,
                         ),
                         title = row.title,

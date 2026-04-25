@@ -31,6 +31,9 @@ fun kitharaModule(): Module = module {
                 MusicProviderId.Device to get<TrackStreamUrlProvider>(
                     named(MusicProviderId.Device.name),
                 ),
+                MusicProviderId.UserPlaylists to get<TrackStreamUrlProvider>(
+                    named(MusicProviderId.UserPlaylists.name),
+                ),
             ),
         )
     }

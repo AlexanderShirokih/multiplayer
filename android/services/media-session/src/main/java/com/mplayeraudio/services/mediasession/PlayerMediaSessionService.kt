@@ -33,7 +33,6 @@ class PlayerMediaSessionService : MediaSessionService() {
             urlResolver = resolver,
             scope = koin.get<CoroutineScope>(named(MediaSessionScopeQualifier)),
             looper = Looper.getMainLooper(),
-            invalidateUrlCache = resolver::invalidate,
         )
 
         cachingResolver = resolver

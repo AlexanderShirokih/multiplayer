@@ -28,12 +28,13 @@ private val PlaylistCardStyles = listOf(
 class MusicLibraryViewModel(
     observeOwnPlaylists: ObserveOwnPlaylistsUseCase,
     private val refreshLibrary: RefreshLibraryUseCase,
+    private val createPlaylist: CreateUserPlaylistUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MusicLibraryState())
     val state: StateFlow<MusicLibraryState> = _state.asStateFlow()
 
-    private val _effects = MutableSharedFlow<MusicLibraryEffect>()
+    private val _effects = MutableSharedFlow<MusicLibraryEffect>(extraBufferCapacity = 1)
     val effects: SharedFlow<MusicLibraryEffect> = _effects.asSharedFlow()
 
     init {
@@ -64,6 +65,31 @@ class MusicLibraryViewModel(
             return
         }
         refreshLibraryContent()
+    }
+
+    fun onCreatePlaylistClick() {
+        if (_state.value.isCreatingPlaylist) return
+
+        viewModelScope.launch {
+            _state.update { it.copy(isCreatingPlaylist = true) }
+            try {
+                val ref = createPlaylist()
+                _effects.emit(
+                    MusicLibraryEffect.NavigateToPlaylistEditor(
+                        destination = LibraryTrackListDestination(
+                            ref = ref,
+                            title = "Новый плейлист", // Will be updated by observePlaylist
+                            role = PlaylistRole.Regular,
+                            initiallyEditing = true,
+                        ),
+                    ),
+                )
+            } catch (_: Exception) {
+                _effects.emit(MusicLibraryEffect.ShowError())
+            } finally {
+                _state.update { it.copy(isCreatingPlaylist = false) }
+            }
+        }
     }
 
     fun onPlaylistClick(playlist: MusicLibraryCard.Playlist) {

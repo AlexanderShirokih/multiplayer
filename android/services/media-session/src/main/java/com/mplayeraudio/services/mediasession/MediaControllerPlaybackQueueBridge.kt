@@ -28,7 +28,7 @@ class MediaControllerPlaybackQueueBridge(
 
     private val stateFlow = MutableStateFlow(PlaybackQueueState())
     private var controllerDeferred: MediaController? = null
-    private var selectedQueueItemId: String? = null
+    private var activeQueueItemId: String? = null
 
     override val playbackState: Flow<PlaybackQueueState> = stateFlow.asStateFlow()
 
@@ -62,7 +62,7 @@ class MediaControllerPlaybackQueueBridge(
             requestedStartIndex = startIndex,
             autoPlay = autoPlay,
         )
-        selectedQueueItemId = replacement.selectedItemId
+        activeQueueItemId = replacement.activeItemId
         controller.setMediaItems(
             queue.map(PlaybackQueueItem::toMediaItem),
             replacement.startIndex ?: 0,
@@ -79,14 +79,14 @@ class MediaControllerPlaybackQueueBridge(
 
     override suspend fun playTrack(index: Int) {
         val controller = controller()
-        selectedQueueItemId = stateFlow.value.queue.getOrNull(index)?.id
+        activeQueueItemId = stateFlow.value.queue.getOrNull(index)?.id
         controller.seekToDefaultPosition(index)
         controller.play()
     }
 
     override suspend fun play() {
-        if (selectedQueueItemId == null) {
-            selectedQueueItemId = stateFlow.value.queue.firstOrNull()?.id
+        if (activeQueueItemId == null) {
+            activeQueueItemId = stateFlow.value.queue.firstOrNull()?.id
         }
         controller().play()
     }
@@ -101,7 +101,7 @@ class MediaControllerPlaybackQueueBridge(
             ?.plus(1)
             ?.coerceAtMost(currentState.queue.lastIndex)
             ?: 0
-        selectedQueueItemId = currentState.queue.getOrNull(nextIndex)?.id
+        activeQueueItemId = currentState.queue.getOrNull(nextIndex)?.id
         controller().seekToNextMediaItem()
     }
 
@@ -112,7 +112,7 @@ class MediaControllerPlaybackQueueBridge(
         if (controller.currentPosition > RestartThresholdMs || currentIndex == 0) {
             controller.seekTo(0L)
         } else {
-            selectedQueueItemId = currentState.queue[currentIndex - 1].id
+            activeQueueItemId = currentState.queue[currentIndex - 1].id
             controller.seekToPreviousMediaItem()
         }
     }
@@ -148,8 +148,8 @@ class MediaControllerPlaybackQueueBridge(
         val queue = queueOverride ?: List(player.mediaItemCount) { index ->
             player.getMediaItemAt(index).toQueueItem()
         }
-        selectedQueueItemId = resolveSelectedQueueItemId(
-            existingSelectedItemId = selectedQueueItemId,
+        activeQueueItemId = resolveActiveQueueItemId(
+            existingActiveItemId = activeQueueItemId,
             playerCurrentMediaItemId = player.currentMediaItem?.mediaId,
             playerPlayWhenReady = player.playWhenReady,
             playerIsPlaying = player.isPlaying,
@@ -157,12 +157,14 @@ class MediaControllerPlaybackQueueBridge(
             playerPlaybackState = player.playbackState,
             queue = queue,
         )
+        val playbackErrorMessage = player.playerError?.message
         stateFlow.value = PlaybackQueueState(
             queue = queue,
-            currentIndex = queue.currentIndexFor(selectedQueueItemId),
-            isPlaying = player.isPlaying,
+            currentIndex = queue.currentIndexFor(activeQueueItemId),
+            isPlaying = player.isPlaying && playbackErrorMessage == null,
             currentPositionMs = player.currentPosition.coerceAtLeast(0L),
             controlsEnabled = queue.isNotEmpty(),
+            playbackErrorMessage = playbackErrorMessage,
         )
     }
 
@@ -185,7 +187,7 @@ internal data class QueueReplacementPlan(
     val startIndex: Int?,
     val startPositionMs: Long,
     val shouldPlay: Boolean,
-    val selectedItemId: String?,
+    val activeItemId: String?,
 )
 
 internal fun planQueueReplacement(
@@ -216,7 +218,7 @@ internal fun planQueueReplacement(
         preservingCurrentTrack = preservingCurrentTrack,
         wasPlaying = wasPlaying,
     )
-    val selectedItemId = replacementSelectedItemId(
+    val activeItemId = replacementActiveItemId(
         nextQueue = nextQueue,
         nextIndex = nextIndex,
         requestedStartIndex = requestedStartIndex,
@@ -227,7 +229,7 @@ internal fun planQueueReplacement(
         startIndex = nextIndex,
         startPositionMs = startPositionMs,
         shouldPlay = shouldPlay,
-        selectedItemId = selectedItemId,
+        activeItemId = activeItemId,
     )
 }
 
@@ -262,22 +264,22 @@ private fun replacementShouldPlay(
     }
 }
 
-private fun replacementSelectedItemId(
+private fun replacementActiveItemId(
     nextQueue: List<PlaybackQueueItem>,
     nextIndex: Int?,
     requestedStartIndex: Int?,
     preservingCurrentTrack: Boolean,
 ): String? {
-    val shouldSelectItem = requestedStartIndex != null || preservingCurrentTrack
-    return if (shouldSelectItem && nextIndex != null) {
+    val shouldActivateItem = requestedStartIndex != null || preservingCurrentTrack
+    return if (shouldActivateItem && nextIndex != null) {
         nextQueue[nextIndex].id
     } else {
         null
     }
 }
 
-internal fun resolveSelectedQueueItemId(
-    existingSelectedItemId: String?,
+internal fun resolveActiveQueueItemId(
+    existingActiveItemId: String?,
     playerCurrentMediaItemId: String?,
     playerPlayWhenReady: Boolean,
     playerIsPlaying: Boolean,
@@ -287,7 +289,7 @@ internal fun resolveSelectedQueueItemId(
 ): String? {
     val currentPlayerItemId = playerCurrentMediaItemId
         ?.takeIf { mediaItemId -> queue.containsMediaItemId(mediaItemId) }
-    val selectedItemId = existingSelectedItemId
+    val activeItemId = existingActiveItemId
         ?.takeIf { mediaItemId -> queue.containsMediaItemId(mediaItemId) }
 
     return if (
@@ -301,7 +303,7 @@ internal fun resolveSelectedQueueItemId(
     ) {
         currentPlayerItemId
     } else {
-        selectedItemId
+        activeItemId
     }
 }
 
@@ -318,9 +320,9 @@ internal fun hasMeaningfulCurrentSelection(
 }
 
 private fun List<PlaybackQueueItem>.currentIndexFor(
-    selectedItemId: String?,
+    activeItemId: String?,
 ): Int? {
-    val index = indexOfFirst { item -> item.id == selectedItemId }
+    val index = indexOfFirst { item -> item.id == activeItemId }
     return index.takeIf { it >= 0 }
 }
 

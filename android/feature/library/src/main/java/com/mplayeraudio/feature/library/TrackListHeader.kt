@@ -24,12 +24,19 @@ import androidx.compose.ui.res.stringResource
 import com.mplayeraudio.core.ui.components.MultiplayerText
 import com.mplayeraudio.core.ui.theme.MultiplayerTheme
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Check
+
 @Composable
 internal fun TrackListHeader(
     title: String,
     subtitle: String?,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onEditClick: (() -> Unit)? = null,
+    isEditing: Boolean = false,
 ) {
     val colors = MultiplayerTheme.colors
     val spacing = MultiplayerTheme.spacing
@@ -47,7 +54,37 @@ internal fun TrackListHeader(
     }
 
     Column(modifier = modifier) {
-        TrackListBackButton(onClick = onBack)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TrackListBackButton(onClick = onBack)
+            
+            if (onEditClick != null) {
+                Box(
+                    modifier = Modifier
+                        .size(TrackListScreenMetrics.backButtonHeight)
+                        .background(
+                            color = colors.surfacePrimary,
+                            shape = RoundedCornerShape(MultiplayerTheme.radius.pill),
+                        )
+                        .clickable(onClick = onEditClick),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = if (isEditing) Icons.Default.Check else Icons.Default.Edit,
+                        contentDescription = if (isEditing) {
+                            stringResource(R.string.playlist_action_done)
+                        } else {
+                            stringResource(R.string.playlist_action_edit)
+                        },
+                        tint = primaryTextColor,
+                        modifier = Modifier.size(TrackListScreenMetrics.backButtonIconSize),
+                    )
+                }
+            }
+        }
         Spacer(modifier = Modifier.height(spacing.xl))
         MultiplayerText(
             text = title,

@@ -20,14 +20,17 @@ import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -51,7 +54,6 @@ private val CompactCardMinHeight = 164.dp
 private val FeaturedCardMinHeight = 132.dp
 private val CompactArtworkSize = 64.dp
 private val FeaturedArtworkSize = 92.dp
-private val HeroArtworkSize = 108.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +61,7 @@ fun MusicLibraryScreen(
     state: MusicLibraryState,
     onRefresh: () -> Unit,
     onPlaylistClick: (MusicLibraryCard.Playlist) -> Unit,
+    onCreatePlaylistClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = MultiplayerTheme.colors
@@ -87,6 +90,17 @@ fun MusicLibraryScreen(
                     )
                 }
             }
+        }
+
+        FloatingActionButton(
+            onClick = onCreatePlaylistClick,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .navigationBarsPadding(),
+            containerColor = colors.accent,
+        ) {
+            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.library_create_playlist_action))
         }
     }
 }
@@ -323,6 +337,7 @@ private fun MusicLibraryScreenPreview() {
             ),
             onRefresh = {},
             onPlaylistClick = {},
+            onCreatePlaylistClick = {},
         )
     }
 }
@@ -338,6 +353,7 @@ private fun MusicLibraryScreenDarkPreview() {
             ),
             onRefresh = {},
             onPlaylistClick = {},
+            onCreatePlaylistClick = {},
         )
     }
 }

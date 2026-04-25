@@ -5,6 +5,8 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import com.mplayeraudio.core.player.PlaybackQueueItem
+import com.mplayeraudio.services.kithara.AudioEngineState
+import com.mplayeraudio.services.kithara.AudioEngineStatus
 
 internal data class PlayerSnapshot(
     val queue: List<PlaybackQueueItem> = emptyList(),
@@ -35,5 +37,28 @@ internal data class PlayerSnapshot(
         val durationCap = currentItem?.durationMs?.takeIf { it > 0L }
         val advanced = contentPositionMs + (nowElapsedMs - contentPositionUpdatedAtMs).coerceAtLeast(0L)
         return if (durationCap != null) advanced.coerceAtMost(durationCap) else advanced
+    }
+}
+
+internal fun PlayerSnapshot.applyEngineState(engineState: AudioEngineState): PlayerSnapshot {
+    val isForCurrentItem = engineState.currentItemId != null &&
+        engineState.currentItemId == currentItem?.id
+    return when {
+        queue.isEmpty() -> copy(playbackState = Player.STATE_IDLE, isPlaying = false)
+        !isForCurrentItem -> this
+        playerError != null -> copy(playbackState = Player.STATE_IDLE, isPlaying = false)
+        else -> withPosition(engineState.currentPositionMs)
+            .copy(
+                isPlaying = engineState.isPlaying,
+                playbackState = reducePlaybackState(engineState),
+            )
+    }
+}
+
+private fun PlayerSnapshot.reducePlaybackState(engineState: AudioEngineState): Int {
+    return when {
+        queue.isEmpty() -> Player.STATE_IDLE
+        engineState.status == AudioEngineStatus.ReadyToPlay -> Player.STATE_READY
+        else -> playbackState
     }
 }

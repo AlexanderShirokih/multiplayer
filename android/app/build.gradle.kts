@@ -17,6 +17,7 @@ dependencies {
     implementation(projects.services.mediaSession)
     implementation(projects.services.deviceMusic)
     implementation(projects.services.yandex)
+    implementation(projects.services.userPlaylists)
     implementation(projects.services.yandexAuth)
     implementation(files("${rootProject.projectDir}/libs/kithara.aar"))
     implementation(files("${rootProject.projectDir}/libs/rust-tls.aar"))

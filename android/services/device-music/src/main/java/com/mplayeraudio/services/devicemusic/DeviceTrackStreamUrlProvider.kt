@@ -3,6 +3,7 @@ package com.mplayeraudio.services.devicemusic
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.provider.MediaStore
+import com.mplayeraudio.core.domain.musiclibrary.DeviceTrackId
 import com.mplayeraudio.core.domain.musiclibrary.MusicLibraryException
 import com.mplayeraudio.core.domain.musiclibrary.TrackId
 import com.mplayeraudio.core.domain.musiclibrary.TrackStreamUrlProvider
@@ -13,18 +14,16 @@ internal class DeviceTrackStreamUrlProvider(
 ) : TrackStreamUrlProvider {
 
     override suspend fun getStreamUrl(trackId: TrackId): String {
-        val mediaId = trackId.value
-            .substringAfter(DeviceTrackIdPrefix, missingDelimiterValue = "")
-            .toLongOrNull()
+        val deviceTrackId = trackId as? DeviceTrackId
             ?: throw MusicLibraryException.ProviderError(
                 code = "device-invalid-track-id",
-                description = "Track id ${trackId.value} is not a device media id.",
+                description = "Track ID is not a device media ID.",
             )
 
-        val absolutePath = queryAbsolutePath(mediaId)
+        val absolutePath = queryAbsolutePath(deviceTrackId.value)
             ?: throw MusicLibraryException.ProviderError(
                 code = "device-track-not-found",
-                description = "No file path for media id $mediaId.",
+                description = "No file path for media id ${deviceTrackId.value}.",
             )
 
         return File(absolutePath).toURI().toString()
@@ -47,5 +46,3 @@ internal class DeviceTrackStreamUrlProvider(
         }
     }
 }
-
-private const val DeviceTrackIdPrefix = "device:"

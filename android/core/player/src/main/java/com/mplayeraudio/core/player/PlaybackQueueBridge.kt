@@ -30,9 +30,16 @@ data class PlaybackQueueState(
     val isPlaying: Boolean = false,
     val currentPositionMs: Long = 0L,
     val controlsEnabled: Boolean = queue.isNotEmpty(),
+    val playbackErrorMessage: String? = null,
 ) {
     val currentItem: PlaybackQueueItem?
         get() = currentIndex?.let(queue::getOrNull)
+
+    val activeItemId: String?
+        get() = currentItem?.id
+
+    val playingItemId: String?
+        get() = activeItemId.takeIf { isPlaying && playbackErrorMessage == null }
 }
 
 interface PlaybackQueueBridge : NowPlayingStripController {

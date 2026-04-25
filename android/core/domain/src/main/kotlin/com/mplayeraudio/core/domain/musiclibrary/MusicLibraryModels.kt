@@ -3,6 +3,7 @@ package com.mplayeraudio.core.domain.musiclibrary
 enum class MusicProviderId {
     Device,
     YandexMusic,
+    UserPlaylists,
 }
 
 @JvmInline
@@ -14,8 +15,27 @@ value class PlaylistKind(val value: Long)
 @JvmInline
 value class PlaylistUuid(val value: String)
 
+sealed interface TrackId {
+    val stableKey: String
+}
+
 @JvmInline
-value class TrackId(val value: String)
+value class YandexTrackId(val value: String) : TrackId {
+    override val stableKey: String
+        get() = value
+}
+
+@JvmInline
+value class DeviceTrackId(val value: Long) : TrackId {
+    override val stableKey: String
+        get() = "device:$value"
+}
+
+@JvmInline
+value class UserPlaylistTrackId(val value: Long) : TrackId {
+    override val stableKey: String
+        get() = "user-playlist:$value"
+}
 
 @JvmInline
 value class AlbumId(val value: String)
@@ -133,7 +153,7 @@ sealed class MusicLibraryException(
     cause: Throwable? = null,
 ) : Exception(message, cause), MusicLibraryError {
 
-    data object Unauthorized : MusicLibraryException(
+    class Unauthorized : MusicLibraryException(
         message = "Yandex Music access token is invalid or expired.",
     )
 
@@ -154,17 +174,5 @@ sealed class MusicLibraryException(
         val description: String,
     ) : MusicLibraryException(
         message = description,
-    )
-
-    data class NetworkFailure(
-        val reason: String,
-        val original: Throwable? = null,
-    ) : MusicLibraryException(
-        message = reason,
-        cause = original,
-    )
-
-    data object PermissionDenied : MusicLibraryException(
-        message = "Required device media permission was denied.",
     )
 }

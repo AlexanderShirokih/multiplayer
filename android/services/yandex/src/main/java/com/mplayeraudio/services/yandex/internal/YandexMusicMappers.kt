@@ -21,6 +21,7 @@ import com.mplayeraudio.core.domain.musiclibrary.Track
 import com.mplayeraudio.core.domain.musiclibrary.TrackId
 import com.mplayeraudio.core.domain.musiclibrary.TrackPreview
 import com.mplayeraudio.core.domain.musiclibrary.TrackRef
+import com.mplayeraudio.core.domain.musiclibrary.YandexTrackId
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -104,13 +105,18 @@ internal fun JsonElement.toSavedTracksResult(): SavedTracksResult {
 }
 
 internal fun TrackRef.toApiTrackId(): String {
-    return albumId?.let { "${trackId.value}:${it.value}" } ?: trackId.value
+    val yandexTrackId = trackId as? YandexTrackId
+        ?: throw MusicLibraryException.ProviderError(
+            code = "yandex-invalid-track-id",
+            description = "Track ID is not a Yandex Music ID.",
+        )
+    return albumId?.let { "${yandexTrackId.value}:${it.value}" } ?: yandexTrackId.value
 }
 
 private fun JsonObject.toPlaylistTrackEntry(position: Int): PlaylistTrackEntry {
     val track = optionalObject("track")?.toTrack()
     val trackId = optionalLong("id")?.toString()
-        ?: track?.preview?.ref?.trackId?.value
+        ?: (track?.preview?.ref?.trackId as? YandexTrackId)?.value
         ?: throw MusicLibraryException.InvalidResponse(
             description = "Playlist track entry does not contain track id.",
         )
@@ -122,7 +128,7 @@ private fun JsonObject.toPlaylistTrackEntry(position: Int): PlaylistTrackEntry {
         originalShuffleIndex = optionalLong("originalShuffleIndex")?.toInt(),
         isRecent = optionalBoolean("recent"),
         trackRef = TrackRef(
-            trackId = TrackId(trackId),
+            trackId = YandexTrackId(trackId),
             albumId = track?.preview?.ref?.albumId,
         ),
         track = track,
@@ -152,7 +158,7 @@ private fun JsonObject.toSavedTrackEntry(position: Int): SavedTrackEntry {
         position = position,
         addedAt = optionalString("timestamp"),
         trackRef = TrackRef(
-            trackId = TrackId(requiredStringOrLong("id")),
+            trackId = YandexTrackId(requiredStringOrLong("id")),
             albumId = optionalStringOrLong("albumId")?.let(::AlbumId),
         ),
         track = optionalObject("track")?.toTrack()?.preview,
@@ -162,7 +168,7 @@ private fun JsonObject.toSavedTrackEntry(position: Int): SavedTrackEntry {
 internal fun JsonObject.toTrack(): Track {
     val trackId = optionalString("id") ?: optionalLong("id")?.toString()
     val ref = TrackRef(
-        trackId = trackId?.let(::TrackId)
+        trackId = trackId?.let(::YandexTrackId)
             ?: throw MusicLibraryException.InvalidResponse(
                 description = "Track response does not contain id.",
             ),

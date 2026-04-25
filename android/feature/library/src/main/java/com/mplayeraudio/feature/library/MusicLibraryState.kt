@@ -7,6 +7,7 @@ import com.mplayeraudio.core.ui.components.MultiplayerCardSurfaceStyle
 
 data class MusicLibraryState(
     val isLoading: Boolean = true,
+    val isCreatingPlaylist: Boolean = false,
     val content: MusicLibraryContent? = null,
 )
 

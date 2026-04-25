@@ -1,9 +1,10 @@
 package com.mplayeraudio.services.mediasession
 
 import com.mplayeraudio.core.domain.musiclibrary.MusicProviderId
-import com.mplayeraudio.core.domain.musiclibrary.TrackId
+import com.mplayeraudio.core.domain.musiclibrary.YandexTrackId
 import com.mplayeraudio.core.player.PlayableSource
 import com.mplayeraudio.core.player.PlaybackQueueItem
+import com.mplayeraudio.core.player.PlaybackQueueState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -31,7 +32,7 @@ class MediaControllerPlaybackQueueBridgeTest {
         assertEquals(1, replacement.startIndex)
         assertEquals(42_000L, replacement.startPositionMs)
         assertTrue(replacement.shouldPlay)
-        assertEquals("1:second", replacement.selectedItemId)
+        assertEquals("1:second", replacement.activeItemId)
     }
 
     @Test
@@ -53,18 +54,18 @@ class MediaControllerPlaybackQueueBridgeTest {
         assertEquals(null, replacement.startIndex)
         assertEquals(0L, replacement.startPositionMs)
         assertFalse(replacement.shouldPlay)
-        assertNull(replacement.selectedItemId)
+        assertNull(replacement.activeItemId)
     }
 
     @Test
-    fun `resolveSelectedQueueItemId ignores default first item after queue prepare`() {
+    fun `resolveActiveQueueItemId ignores default first item after queue prepare`() {
         val queue = listOf(
             queueItem(id = "0:first", durationMs = 120_000L),
             queueItem(id = "1:second", durationMs = 180_000L),
         )
 
-        val selectedItemId = resolveSelectedQueueItemId(
-            existingSelectedItemId = null,
+        val activeItemId = resolveActiveQueueItemId(
+            existingActiveItemId = null,
             playerCurrentMediaItemId = "0:first",
             playerPlayWhenReady = false,
             playerIsPlaying = false,
@@ -73,18 +74,18 @@ class MediaControllerPlaybackQueueBridgeTest {
             queue = queue,
         )
 
-        assertNull(selectedItemId)
+        assertNull(activeItemId)
     }
 
     @Test
-    fun `resolveSelectedQueueItemId adopts player item after explicit playback starts`() {
+    fun `resolveActiveQueueItemId adopts player item after explicit playback starts`() {
         val queue = listOf(
             queueItem(id = "0:first", durationMs = 120_000L),
             queueItem(id = "1:second", durationMs = 180_000L),
         )
 
-        val selectedItemId = resolveSelectedQueueItemId(
-            existingSelectedItemId = null,
+        val activeItemId = resolveActiveQueueItemId(
+            existingActiveItemId = null,
             playerCurrentMediaItemId = "1:second",
             playerPlayWhenReady = true,
             playerIsPlaying = false,
@@ -93,7 +94,27 @@ class MediaControllerPlaybackQueueBridgeTest {
             queue = queue,
         )
 
-        assertEquals("1:second", selectedItemId)
+        assertEquals("1:second", activeItemId)
+    }
+
+    @Test
+    fun `playback error keeps active item but clears playing item`() {
+        val queue = listOf(
+            queueItem(id = "0:first", durationMs = 120_000L),
+            queueItem(id = "1:second", durationMs = 180_000L),
+        )
+
+        val state = PlaybackQueueState(
+            queue = queue,
+            currentIndex = 1,
+            isPlaying = false,
+            currentPositionMs = 0L,
+            controlsEnabled = true,
+            playbackErrorMessage = "Network is unreachable",
+        )
+
+        assertEquals("1:second", state.activeItemId)
+        assertNull(state.playingItemId)
     }
 }
 
@@ -103,7 +124,7 @@ private fun queueItem(
 ): PlaybackQueueItem {
     return PlaybackQueueItem(
         id = id,
-        trackId = TrackId(id),
+        trackId = YandexTrackId(id),
         source = PlayableSource.Remote(MusicProviderId.YandexMusic),
         title = id,
         subtitle = "Artist",

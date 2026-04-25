@@ -19,6 +19,8 @@ import com.mplayeraudio.core.domain.musiclibrary.SavedTracksResult
 import com.mplayeraudio.core.domain.musiclibrary.TrackPreview
 import com.mplayeraudio.core.domain.musiclibrary.TrackRef
 import com.mplayeraudio.core.domain.musiclibrary.TrackId
+import com.mplayeraudio.core.domain.musiclibrary.YandexTrackId
+import com.mplayeraudio.core.domain.musiclibrary.AddTrackResult
 import com.mplayeraudio.core.player.NowPlayingStripExternalState
 import com.mplayeraudio.core.player.PlaybackQueueBridge
 import com.mplayeraudio.core.player.PlaybackQueueItem
@@ -77,6 +79,7 @@ class TrackListViewModelTest {
             observeSavedTracks = ObserveSavedTracksUseCase(library),
             refreshSavedTracks = RefreshSavedTracksUseCase(library),
             playbackBridge = playbackBridge,
+            addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
         )
         advanceUntilIdle()
 
@@ -114,6 +117,7 @@ class TrackListViewModelTest {
             observeSavedTracks = ObserveSavedTracksUseCase(library),
             refreshSavedTracks = RefreshSavedTracksUseCase(library),
             playbackBridge = InMemoryPlaybackQueueBridge(),
+            addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
         )
         advanceUntilIdle()
 
@@ -158,6 +162,7 @@ class TrackListViewModelTest {
             observeSavedTracks = ObserveSavedTracksUseCase(library),
             refreshSavedTracks = RefreshSavedTracksUseCase(library),
             playbackBridge = InMemoryPlaybackQueueBridge(),
+            addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
         )
         advanceUntilIdle()
 
@@ -187,6 +192,7 @@ class TrackListViewModelTest {
             observeSavedTracks = ObserveSavedTracksUseCase(library),
             refreshSavedTracks = RefreshSavedTracksUseCase(library),
             playbackBridge = playbackBridge,
+            addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
         )
         advanceUntilIdle()
 
@@ -206,7 +212,49 @@ class TrackListViewModelTest {
         advanceUntilIdle()
 
         assertEquals(1, viewModel.state.value.activeTrackIndex)
+        assertEquals(1, viewModel.state.value.playingTrackIndex)
         assertEquals("Second Track", viewModel.state.value.tracks[1].title)
+    }
+
+    @Test
+    fun `playback error keeps current track selected but stops playing indicator`() = runTest(dispatcher) {
+        val playlist = playlistFixture()
+        val playbackBridge = ManualPlaybackQueueBridge()
+        val library = FakeMusicLibrary(playlist = playlist)
+        val viewModel = TrackListViewModel(
+            destination = LibraryTrackListDestination(
+                ref = PlaylistRef(
+                    provider = MusicProviderId.YandexMusic,
+                    id = playlistFixtureId,
+                ),
+                title = "Road Trip",
+                role = PlaylistRole.Regular,
+            ),
+            observePlaylist = ObservePlaylistUseCase(library),
+            refreshPlaylist = RefreshPlaylistUseCase(library),
+            observeSavedTracks = ObserveSavedTracksUseCase(library),
+            refreshSavedTracks = RefreshSavedTracksUseCase(library),
+            playbackBridge = playbackBridge,
+            addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
+        )
+        advanceUntilIdle()
+
+        val displayedTracks = viewModel.state.value.tracks
+        playbackBridge.emitState(
+            PlaybackQueueState(
+                queue = displayedTracks.map(TrackListItemState::queueItem),
+                currentIndex = 1,
+                isPlaying = false,
+                currentPositionMs = 0L,
+                controlsEnabled = true,
+                playbackErrorMessage = "Network is unreachable",
+            ),
+        )
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.state.value.activeTrackIndex)
+        assertNull(viewModel.state.value.playingTrackIndex)
+        assertEquals("Network is unreachable", viewModel.state.value.playbackErrorMessage)
     }
 
     @Test
@@ -228,6 +276,7 @@ class TrackListViewModelTest {
             observeSavedTracks = ObserveSavedTracksUseCase(library),
             refreshSavedTracks = RefreshSavedTracksUseCase(library),
             playbackBridge = playbackBridge,
+            addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
         )
         advanceUntilIdle()
 
@@ -235,6 +284,102 @@ class TrackListViewModelTest {
         advanceUntilIdle()
 
         assertEquals(1, playbackBridge.replaceQueueCallCount)
+    }
+
+    @Test
+    fun `onToggleEditing toggles isEditing state`() = runTest(dispatcher) {
+        val library = FakeMusicLibrary(playlist = playlistFixture())
+        val viewModel = TrackListViewModel(
+            destination = LibraryTrackListDestination(
+                ref = PlaylistRef(
+                    provider = MusicProviderId.UserPlaylists,
+                    id = playlistFixtureId,
+                ),
+                title = "My Playlist",
+                role = PlaylistRole.Regular,
+            ),
+            observePlaylist = ObservePlaylistUseCase(library),
+            refreshPlaylist = RefreshPlaylistUseCase(library),
+            observeSavedTracks = ObserveSavedTracksUseCase(library),
+            refreshSavedTracks = RefreshSavedTracksUseCase(library),
+            playbackBridge = InMemoryPlaybackQueueBridge(),
+            addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
+        )
+        advanceUntilIdle()
+
+        assertEquals(false, viewModel.state.value.isEditing)
+        assertEquals(true, viewModel.state.value.canEdit)
+
+        viewModel.onToggleEditing()
+        advanceUntilIdle()
+        assertEquals(true, viewModel.state.value.isEditing)
+
+        viewModel.onToggleEditing()
+        advanceUntilIdle()
+        assertEquals(false, viewModel.state.value.isEditing)
+    }
+
+    @Test
+    fun `onAddTrackByUrl success refreshes playlist`() = runTest(dispatcher) {
+        val library = FakeMusicLibrary(playlist = playlistFixture())
+        val repo = FakeUserPlaylistsRepository()
+        repo.addTrackResult = com.mplayeraudio.core.domain.musiclibrary.AddTrackResult.Success
+        
+        val viewModel = TrackListViewModel(
+            destination = LibraryTrackListDestination(
+                ref = PlaylistRef(
+                    provider = MusicProviderId.UserPlaylists,
+                    id = playlistFixtureId,
+                ),
+                title = "My Playlist",
+                role = PlaylistRole.Regular,
+            ),
+            observePlaylist = ObservePlaylistUseCase(library),
+            refreshPlaylist = RefreshPlaylistUseCase(library),
+            observeSavedTracks = ObserveSavedTracksUseCase(library),
+            refreshSavedTracks = RefreshSavedTracksUseCase(library),
+            playbackBridge = InMemoryPlaybackQueueBridge(),
+            addTrackToPlaylist = AddUserPlaylistTrackUseCase(repo),
+        )
+        advanceUntilIdle()
+        
+        val initialCallCount = library.refreshPlaylistCallCount
+        
+        viewModel.onAddTrackByUrl("https://example.com/song.mp3")
+        advanceUntilIdle()
+        
+        assertEquals(initialCallCount + 1, library.refreshPlaylistCallCount)
+        assertNull(viewModel.state.value.addTrackError)
+    }
+
+    @Test
+    fun `onAddTrackByUrl invalid url sets error state`() = runTest(dispatcher) {
+        val library = FakeMusicLibrary(playlist = playlistFixture())
+        val repo = FakeUserPlaylistsRepository()
+        repo.addTrackResult = com.mplayeraudio.core.domain.musiclibrary.AddTrackResult.InvalidUrl
+        
+        val viewModel = TrackListViewModel(
+            destination = LibraryTrackListDestination(
+                ref = PlaylistRef(
+                    provider = MusicProviderId.UserPlaylists,
+                    id = playlistFixtureId,
+                ),
+                title = "My Playlist",
+                role = PlaylistRole.Regular,
+            ),
+            observePlaylist = ObservePlaylistUseCase(library),
+            refreshPlaylist = RefreshPlaylistUseCase(library),
+            observeSavedTracks = ObserveSavedTracksUseCase(library),
+            refreshSavedTracks = RefreshSavedTracksUseCase(library),
+            playbackBridge = InMemoryPlaybackQueueBridge(),
+            addTrackToPlaylist = AddUserPlaylistTrackUseCase(repo),
+        )
+        advanceUntilIdle()
+        
+        viewModel.onAddTrackByUrl("invalid-url")
+        advanceUntilIdle()
+        
+        assertEquals("InvalidUrl", viewModel.state.value.addTrackError)
     }
 }
 
@@ -461,7 +606,7 @@ private fun trackPreview(
 
 private fun trackRef(trackIdValue: String): TrackRef {
     return TrackRef(
-        trackId = TrackId(trackIdValue),
+        trackId = YandexTrackId(trackIdValue),
         albumId = AlbumId("album-$trackIdValue"),
     )
 }
@@ -470,3 +615,21 @@ private val playlistFixtureId = PlaylistId(
     ownerId = ProviderUserId("owner"),
     kind = PlaylistKind(42L),
 )
+
+private class FakeUserPlaylistsRepository :
+    com.mplayeraudio.core.domain.musiclibrary.UserPlaylistsRepository {
+    var addTrackResult: AddTrackResult = AddTrackResult.Success
+
+    override suspend fun createPlaylist(): PlaylistRef = PlaylistRef(
+        MusicProviderId.UserPlaylists,
+        playlistFixtureId,
+    )
+
+    override suspend fun addTrackByUrl(
+        playlistId: PlaylistId,
+        url: String,
+    ): AddTrackResult = addTrackResult
+
+    override suspend fun deleteTrack(playlistId: PlaylistId, trackId: TrackId) = Unit
+    override suspend fun deletePlaylist(playlistId: PlaylistId) = Unit
+}

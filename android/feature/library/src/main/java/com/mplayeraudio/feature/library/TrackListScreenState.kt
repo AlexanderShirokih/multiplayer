@@ -9,6 +9,8 @@ data class TrackListScreenState(
     val title: String,
     val nowPlaying: NowPlayingStripState?,
     val tracks: List<MultiplayerTrackListItemState>,
+    val isEditable: Boolean = false,
+    val isEditing: Boolean = false,
 ) {
     val trackCount: Int
         get() = tracks.count()

@@ -228,7 +228,7 @@ internal class KtorYandexMusicApi(
             ?: (error as? JsonPrimitive)?.contentOrNull
 
         return when (statusCode) {
-            HttpStatusUnauthorized -> MusicLibraryException.Unauthorized
+            HttpStatusUnauthorized -> MusicLibraryException.Unauthorized()
             HttpStatusUnavailableForLegalReasons -> MusicLibraryException.ServiceUnavailable(
                 description = errorMessage ?: errorName,
             )

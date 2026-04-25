@@ -5,8 +5,11 @@ import android.os.Bundle
 import androidx.core.os.bundleOf
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import com.mplayeraudio.core.domain.musiclibrary.DeviceTrackId
 import com.mplayeraudio.core.domain.musiclibrary.MusicProviderId
 import com.mplayeraudio.core.domain.musiclibrary.TrackId
+import com.mplayeraudio.core.domain.musiclibrary.UserPlaylistTrackId
+import com.mplayeraudio.core.domain.musiclibrary.YandexTrackId
 import com.mplayeraudio.core.player.PlayableSource
 import com.mplayeraudio.core.player.PlaybackQueueItem
 
@@ -35,7 +38,7 @@ internal fun MediaItem.toQueueItem(): PlaybackQueueItem {
     val extras = mediaMetadata.extras
     return PlaybackQueueItem(
         id = mediaId,
-        trackId = TrackId(mediaId),
+        trackId = extras.toTrackId(fallbackMediaId = mediaId),
         source = extras.toPlayableSource(fallbackUri = localConfiguration?.uri?.toString()),
         title = mediaMetadata.title?.toString().orEmpty(),
         subtitle = mediaMetadata.artist?.toString().orEmpty(),
@@ -46,17 +49,64 @@ internal fun MediaItem.toQueueItem(): PlaybackQueueItem {
 
 private fun extrasFor(item: PlaybackQueueItem): Bundle {
     return when (val source = item.source) {
-        is PlayableSource.Local -> bundleOf(
-            MediaItemDurationMsKey to item.durationMs,
-            MediaItemSourceTypeKey to MediaItemSourceTypeLocal,
-            MediaItemSourceLocalUriKey to source.uri,
-        )
+        is PlayableSource.Local -> baseExtrasFor(item).apply {
+            putString(MediaItemSourceTypeKey, MediaItemSourceTypeLocal)
+            putString(MediaItemSourceLocalUriKey, source.uri)
+        }
 
-        is PlayableSource.Remote -> bundleOf(
-            MediaItemDurationMsKey to item.durationMs,
-            MediaItemSourceTypeKey to MediaItemSourceTypeRemote,
-            MediaItemSourceRemoteProviderKey to source.provider.name,
-        )
+        is PlayableSource.Remote -> baseExtrasFor(item).apply {
+            putString(MediaItemSourceTypeKey, MediaItemSourceTypeRemote)
+            putString(MediaItemSourceRemoteProviderKey, source.provider.name)
+        }
+    }
+}
+
+private fun baseExtrasFor(item: PlaybackQueueItem): Bundle {
+    return bundleOf(MediaItemDurationMsKey to item.durationMs).apply {
+        putTrackId(item.trackId)
+    }
+}
+
+private fun Bundle.putTrackId(trackId: TrackId) {
+    when (trackId) {
+        is YandexTrackId -> {
+            putString(MediaItemTrackIdTypeKey, MediaItemTrackIdTypeYandex)
+            putString(MediaItemTrackIdStringKey, trackId.value)
+        }
+
+        is DeviceTrackId -> {
+            putString(MediaItemTrackIdTypeKey, MediaItemTrackIdTypeDevice)
+            putLong(MediaItemTrackIdLongKey, trackId.value)
+        }
+
+        is UserPlaylistTrackId -> {
+            putString(MediaItemTrackIdTypeKey, MediaItemTrackIdTypeUserPlaylist)
+            putLong(MediaItemTrackIdLongKey, trackId.value)
+        }
+    }
+}
+
+private fun Bundle?.toTrackId(fallbackMediaId: String): TrackId {
+    val extras = this ?: return YandexTrackId(fallbackMediaId)
+    return when (extras.getString(MediaItemTrackIdTypeKey)) {
+        MediaItemTrackIdTypeYandex -> extras.getString(MediaItemTrackIdStringKey)
+            ?.let(::YandexTrackId)
+            ?: YandexTrackId(fallbackMediaId)
+        MediaItemTrackIdTypeDevice -> extras.longTrackIdOrNull()
+            ?.let(::DeviceTrackId)
+            ?: YandexTrackId(fallbackMediaId)
+        MediaItemTrackIdTypeUserPlaylist -> extras.longTrackIdOrNull()
+            ?.let(::UserPlaylistTrackId)
+            ?: YandexTrackId(fallbackMediaId)
+        else -> YandexTrackId(fallbackMediaId)
+    }
+}
+
+private fun Bundle.longTrackIdOrNull(): Long? {
+    return if (containsKey(MediaItemTrackIdLongKey)) {
+        getLong(MediaItemTrackIdLongKey)
+    } else {
+        null
     }
 }
 

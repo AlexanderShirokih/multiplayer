@@ -1,6 +1,6 @@
 package com.mplayeraudio.services.yandex
 
-import com.mplayeraudio.core.domain.musiclibrary.TrackId
+import com.mplayeraudio.core.domain.musiclibrary.YandexTrackId
 import com.mplayeraudio.core.domain.yandexauth.YandexAccessTokenProvider
 import com.mplayeraudio.services.yandex.internal.YandexMusicRequestRunner
 import com.mplayeraudio.services.yandex.internal.network.YandexMusicApi
@@ -65,7 +65,7 @@ class YandexTrackStreamUrlProviderTest {
         )
 
         val provider = provider(api)
-        val streamUrl = provider.getStreamUrl(TrackId("565378"))
+        val streamUrl = provider.getStreamUrl(YandexTrackId("565378"))
 
         assertEquals(
             "https://strm.yandex.ru/music-v2/raw/full-track.mp3",
@@ -101,7 +101,7 @@ class YandexTrackStreamUrlProviderTest {
         )
 
         val provider = provider(api)
-        val streamUrl = provider.getStreamUrl(TrackId("42"))
+        val streamUrl = provider.getStreamUrl(YandexTrackId("42"))
 
         assertEquals(
             "https://example.storage.yandex.net/get-mp3/8fbc459932a68898f42f84a5390aa7f2/12345/abc/track.mp3",

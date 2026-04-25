@@ -13,6 +13,7 @@ import com.mplayeraudio.services.devicemusic.di.deviceMusicModule
 import com.mplayeraudio.services.kithara.di.kitharaModule
 import com.mplayeraudio.services.mediasession.MediaPlaybackNotificationChannelId
 import com.mplayeraudio.services.mediasession.di.mediaSessionModule
+import com.mplayeraudio.services.userplaylists.di.userPlaylistsModule
 import com.mplayeraudio.services.yandex.di.yandexMusicModule
 import com.mplayeraudio.services.yandexauth.YandexOAuthConfig
 import com.mplayeraudio.services.yandexauth.di.yandexAuthModule
@@ -33,6 +34,7 @@ class MultiplayerApplication : Application() {
                 yandexAuthModule(yandexOAuthConfig()),
                 deviceMusicModule(),
                 yandexMusicModule(),
+                userPlaylistsModule,
                 kitharaModule(),
                 mediaSessionModule(),
                 yandexMusicAuthModule(),

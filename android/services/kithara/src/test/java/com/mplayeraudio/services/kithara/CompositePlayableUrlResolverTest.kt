@@ -3,6 +3,7 @@ package com.mplayeraudio.services.kithara
 import com.mplayeraudio.core.domain.musiclibrary.MusicProviderId
 import com.mplayeraudio.core.domain.musiclibrary.TrackId
 import com.mplayeraudio.core.domain.musiclibrary.TrackStreamUrlProvider
+import com.mplayeraudio.core.domain.musiclibrary.YandexTrackId
 import com.mplayeraudio.core.player.PlayableSource
 import com.mplayeraudio.core.player.PlaybackQueueItem
 import kotlinx.coroutines.test.runTest
@@ -22,7 +23,7 @@ class CompositePlayableUrlResolverTest {
         val result = resolver.getPlayableUrl(
             PlaybackQueueItem(
                 id = "1",
-                trackId = TrackId("device:1"),
+                trackId = YandexTrackId("device:1"),
                 source = PlayableSource.Local("content://media/external/audio/media/1"),
                 title = "Track",
                 subtitle = "Artist",
@@ -43,7 +44,7 @@ class CompositePlayableUrlResolverTest {
         val result = resolver.getPlayableUrl(
             PlaybackQueueItem(
                 id = "1",
-                trackId = TrackId("42"),
+                trackId = YandexTrackId("42"),
                 source = PlayableSource.Remote(MusicProviderId.YandexMusic),
                 title = "Track",
                 subtitle = "Artist",
@@ -52,7 +53,7 @@ class CompositePlayableUrlResolverTest {
         )
 
         assertEquals("https://stream.example/42.mp3", result)
-        assertEquals(TrackId("42"), provider.requestedTrackId)
+        assertEquals(YandexTrackId("42"), provider.requestedTrackId)
     }
 }
 

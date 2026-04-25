@@ -17,6 +17,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Scaffold
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -36,6 +46,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.mplayeraudio.core.domain.musiclibrary.MusicProviderId
+import com.mplayeraudio.core.player.NowPlayingStripState
 import com.mplayeraudio.core.player.NowPlayingStripViewModel
 import com.mplayeraudio.core.player.PlaybackQueueBridge
 import com.mplayeraudio.core.ui.components.MultiplayerBrandBackgroundDecor
@@ -87,6 +98,27 @@ fun TrackListRoute(
         NowPlayingStripViewModel(playbackBridge)
     }
     val nowPlayingState by nowPlayingViewModel.state.collectAsStateWithLifecycle()
+    var showAddTrackSheet by remember { mutableStateOf(false) }
+    var showAddTrackDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(routeState.addTrackError) {
+        if (routeState.addTrackError != null) {
+            val message = if (routeState.addTrackError == "InvalidUrl") {
+                context.getString(R.string.playlist_add_url_invalid)
+            } else {
+                routeState.addTrackError ?: context.getString(R.string.playlist_add_url_error)
+            }
+            snackbarHostState.showSnackbar(message)
+            viewModel.onClearAddTrackError()
+        }
+    }
+
+    LaunchedEffect(routeState.playbackErrorMessage) {
+        if (routeState.playbackErrorMessage != null) {
+            snackbarHostState.showSnackbar(context.getString(R.string.track_playback_error_message))
+        }
+    }
 
     DisposableEffect(nowPlayingViewModel) {
         onDispose(nowPlayingViewModel::dispose)
@@ -120,87 +152,155 @@ fun TrackListRoute(
         }
     }
 
-    when {
-        isDevicePlaylist && permissionState == DevicePermissionUiState.Denied -> {
-            TrackListFeedbackScreen(
-                title = routeState.title,
-                headline = stringResource(R.string.device_permission_denied_title),
-                message = stringResource(R.string.device_permission_denied_description),
-                onBack = onBack,
-                modifier = modifier,
-            ) {
-                TextButton(
-                    onClick = {
-                        context.startActivity(
-                            Intent(
-                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                Uri.parse("package:${context.packageName}"),
-                            ),
-                        )
-                    },
+    Box(modifier = modifier.fillMaxSize()) {
+        when {
+            isDevicePlaylist && permissionState == DevicePermissionUiState.Denied -> {
+                TrackListFeedbackScreen(
+                    title = routeState.title,
+                    headline = stringResource(R.string.device_permission_denied_title),
+                    message = stringResource(R.string.device_permission_denied_description),
+                    onBack = onBack,
+                    modifier = Modifier,
                 ) {
-                    MultiplayerText(
-                        text = stringResource(R.string.device_permission_denied_cta),
-                        style = MultiplayerTheme.typography.label,
-                        color = MultiplayerTheme.colors.accent,
-                    )
+                    TextButton(
+                        onClick = {
+                            context.startActivity(
+                                Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.parse("package:${context.packageName}"),
+                                ),
+                            )
+                        },
+                    ) {
+                        MultiplayerText(
+                            text = stringResource(R.string.device_permission_denied_cta),
+                            style = MultiplayerTheme.typography.label,
+                            color = MultiplayerTheme.colors.accent,
+                        )
+                    }
                 }
             }
-        }
 
-        routeState.tracks.isNotEmpty() -> {
-            TrackListScreen(
-                state = TrackListScreenState(
-                    title = routeState.title,
-                    nowPlaying = if (routeState.activeTrackIndex != null) nowPlayingState else null,
-                    tracks = routeState.tracks.mapIndexed { index, track ->
-                        MultiplayerTrackListItemState(
-                            title = track.title,
-                            artist = track.artist,
-                            duration = track.duration,
-                            trackPosition = track.trackPosition,
-                            isActive = routeState.activeTrackIndex == index,
-                        )
-                    },
-                ),
-                onNowPlayingAction = nowPlayingViewModel::onAction,
-                onTrackClick = viewModel::onTrackClick,
-                onBack = onBack,
-                modifier = modifier,
-            )
-        }
-
-        routeState.isLoading -> {
-            TrackListFeedbackScreen(
-                title = routeState.title,
-                headline = null,
-                message = stringResource(R.string.track_list_loading_message),
-                onBack = onBack,
-                modifier = modifier,
-            ) {
-                CircularProgressIndicator(
-                    color = MultiplayerTheme.colors.accent,
+            routeState.shouldShowTrackListContent() -> {
+                TrackListScreen(
+                    state = routeState.toScreenState(nowPlayingState),
+                    onNowPlayingAction = nowPlayingViewModel::onAction,
+                    onTrackClick = viewModel::onTrackClick,
+                    onAddTrackClick = { showAddTrackSheet = true },
+                    onEditClick = viewModel::onToggleEditing,
+                    onBack = onBack,
+                    modifier = Modifier,
                 )
             }
+
+            routeState.isLoading -> {
+                TrackListFeedbackScreen(
+                    title = routeState.title,
+                    headline = null,
+                    message = stringResource(R.string.track_list_loading_message),
+                    onBack = onBack,
+                    modifier = Modifier,
+                ) {
+                    CircularProgressIndicator(
+                        color = MultiplayerTheme.colors.accent,
+                    )
+                }
+            }
+
+            else -> {
+                TrackListFeedbackScreen(
+                    title = routeState.title,
+                    headline = null,
+                    message = routeState.status.toMessage(),
+                    onBack = onBack,
+                    modifier = Modifier,
+                ) {
+                    TextButton(onClick = viewModel::onRetry) {
+                        MultiplayerText(
+                            text = stringResource(R.string.track_list_retry),
+                            style = MultiplayerTheme.typography.label,
+                            color = MultiplayerTheme.colors.accent,
+                        )
+                    }
+                }
+            }
         }
 
-        else -> {
-            TrackListFeedbackScreen(
-                title = routeState.title,
-                headline = null,
-                message = routeState.status.toMessage(),
-                onBack = onBack,
-                modifier = modifier,
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding(),
+        )
+    }
+
+    if (showAddTrackSheet) {
+        @OptIn(ExperimentalMaterial3Api::class)
+        ModalBottomSheet(
+            onDismissRequest = { showAddTrackSheet = false },
+            sheetState = rememberModalBottomSheetState(),
+            containerColor = MultiplayerTheme.colors.surfacePrimary,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                TextButton(onClick = viewModel::onRetry) {
+                MultiplayerText(
+                    text = stringResource(R.string.add_track_source_title),
+                    style = MultiplayerTheme.typography.title,
+                    color = MultiplayerTheme.colors.textPrimary,
+                )
+                TextButton(
+                    onClick = {
+                        showAddTrackSheet = false
+                        showAddTrackDialog = true
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     MultiplayerText(
-                        text = stringResource(R.string.track_list_retry),
-                        style = MultiplayerTheme.typography.label,
+                        text = stringResource(R.string.playlist_edit_source_url),
+                        style = MultiplayerTheme.typography.body,
                         color = MultiplayerTheme.colors.accent,
                     )
                 }
             }
         }
+    }
+
+    if (showAddTrackDialog) {
+        var urlInput by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showAddTrackDialog = false },
+            title = { Text(stringResource(R.string.playlist_add_url_dialog_title)) },
+            text = {
+                OutlinedTextField(
+                    value = urlInput,
+                    onValueChange = { urlInput = it },
+                    label = { Text(stringResource(R.string.playlist_add_url_dialog_hint)) },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (urlInput.isNotBlank()) {
+                            viewModel.onAddTrackByUrl(urlInput)
+                            showAddTrackDialog = false
+                        }
+                    }
+                ) {
+                    Text(stringResource(R.string.add))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddTrackDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 }
 
@@ -295,6 +395,30 @@ private fun TrackListStatus?.toMessage(): String {
         null,
         -> stringResource(R.string.track_list_load_error_message)
     }
+}
+
+internal fun TrackListRouteState.shouldShowTrackListContent(): Boolean {
+    return tracks.isNotEmpty() || canEdit && status == TrackListStatus.Empty
+}
+
+internal fun TrackListRouteState.toScreenState(
+    nowPlayingState: NowPlayingStripState,
+): TrackListScreenState {
+    return TrackListScreenState(
+        title = title,
+        nowPlaying = nowPlayingState.takeIf { activeTrackIndex != null },
+        tracks = tracks.mapIndexed { index, track ->
+            MultiplayerTrackListItemState(
+                title = track.title,
+                artist = track.artist,
+                duration = track.duration,
+                trackPosition = track.trackPosition,
+                isActive = playingTrackIndex == index,
+            )
+        },
+        isEditable = canEdit,
+        isEditing = isEditing,
+    )
 }
 
 private enum class DevicePermissionUiState {

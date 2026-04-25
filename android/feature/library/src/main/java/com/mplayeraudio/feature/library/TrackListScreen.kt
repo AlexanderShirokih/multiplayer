@@ -11,7 +11,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.stringResource
@@ -32,6 +37,8 @@ fun TrackListScreen(
     state: TrackListScreenState,
     onNowPlayingAction: (NowPlayingStripAction) -> Unit,
     onTrackClick: (Int) -> Unit,
+    onAddTrackClick: () -> Unit,
+    onEditClick: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -61,6 +68,8 @@ fun TrackListScreen(
                 title = state.title,
                 subtitle = stringResource(R.string.track_list_subtitle, state.trackCount),
                 onBack = onBack,
+                onEditClick = if (state.isEditable) onEditClick else null,
+                isEditing = state.isEditing,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = spacing.md),
@@ -89,6 +98,15 @@ fun TrackListScreen(
                     .weight(1f)
                     .padding(horizontal = MultiplayerTheme.spacing.md)
                     .padding(bottom = MultiplayerTheme.spacing.md),
+            )
+        }
+
+        if (state.isEditing) {
+            EditPlaylistAddBar(
+                onAddClick = onAddTrackClick,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding(),
             )
         }
     }
@@ -156,6 +174,8 @@ private fun TrackListScreenLightPreview() {
             state = previewTrackListState(),
             onNowPlayingAction = {},
             onTrackClick = {},
+            onAddTrackClick = {},
+            onEditClick = {},
             onBack = {},
         )
     }
@@ -169,6 +189,8 @@ private fun TrackListScreenDarkPreview() {
             state = previewTrackListState(),
             onNowPlayingAction = {},
             onTrackClick = {},
+            onAddTrackClick = {},
+            onEditClick = {},
             onBack = {},
         )
     }

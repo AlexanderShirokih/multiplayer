@@ -1,5 +1,6 @@
 package com.mplayeraudio.services.devicemusic
 
+import com.mplayeraudio.core.domain.musiclibrary.DeviceTrackId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -23,7 +24,7 @@ class DeviceMediaStoreMapperTest {
 
         assertEquals(42L, mapped.mediaId)
         assertEquals("content://media/external/audio/media/42", mapped.contentUri)
-        assertEquals("device:42", mapped.entry.trackRef.trackId.value)
+        assertEquals(DeviceTrackId(42L), mapped.entry.trackRef.trackId)
         assertEquals("Local Track", mapped.entry.track?.preview?.title)
         assertEquals("Local Artist", mapped.entry.track?.preview?.artists?.single()?.name)
         assertEquals(

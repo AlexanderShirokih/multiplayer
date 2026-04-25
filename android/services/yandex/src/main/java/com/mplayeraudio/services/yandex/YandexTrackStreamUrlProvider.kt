@@ -3,6 +3,7 @@ package com.mplayeraudio.services.yandex
 import com.mplayeraudio.core.domain.musiclibrary.MusicLibraryException
 import com.mplayeraudio.core.domain.musiclibrary.TrackId
 import com.mplayeraudio.core.domain.musiclibrary.TrackStreamUrlProvider
+import com.mplayeraudio.core.domain.musiclibrary.YandexTrackId
 import com.mplayeraudio.services.yandex.internal.YandexMusicRequestRunner
 import com.mplayeraudio.services.yandex.internal.network.YandexMusicApi
 import kotlinx.serialization.json.JsonObject
@@ -20,8 +21,13 @@ internal class YandexTrackStreamUrlProvider(
 ) : TrackStreamUrlProvider {
 
     override suspend fun getStreamUrl(trackId: TrackId): String {
+        val yandexTrackId = trackId as? YandexTrackId
+            ?: throw MusicLibraryException.ProviderError(
+                code = "yandex-invalid-track-id",
+                description = "Track ID is not a Yandex Music ID.",
+            )
         return requestRunner.withAuthorizedRequest { accessToken ->
-            resolveStreamUrl(accessToken, trackId.value)
+            resolveStreamUrl(accessToken, yandexTrackId.value)
         }
     }
 

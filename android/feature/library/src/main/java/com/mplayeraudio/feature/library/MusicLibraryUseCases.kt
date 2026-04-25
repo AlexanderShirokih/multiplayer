@@ -48,3 +48,18 @@ class RefreshSavedTracksUseCase(
         library.refreshSavedTracks()
     }
 }
+
+class CreateUserPlaylistUseCase(
+    private val repository: com.mplayeraudio.core.domain.musiclibrary.UserPlaylistsRepository,
+) {
+    suspend operator fun invoke(): PlaylistRef = repository.createPlaylist()
+}
+
+class AddUserPlaylistTrackUseCase(
+    private val repository: com.mplayeraudio.core.domain.musiclibrary.UserPlaylistsRepository,
+) {
+    suspend operator fun invoke(
+        playlistId: com.mplayeraudio.core.domain.musiclibrary.PlaylistId,
+        url: String,
+    ): com.mplayeraudio.core.domain.musiclibrary.AddTrackResult = repository.addTrackByUrl(playlistId, url)
+}
