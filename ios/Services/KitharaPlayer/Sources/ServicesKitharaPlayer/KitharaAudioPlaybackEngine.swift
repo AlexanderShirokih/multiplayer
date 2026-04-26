@@ -6,7 +6,7 @@ import Kithara
 import OSLog
 
 final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable {
-    private let player = KitharaPlayer()
+    private let player: KitharaPlayer
     private let stateRelay = AsyncValueRelay<AudioEngineState>(AudioEngineState())
     private let eventRelay = AsyncEventRelay<AudioEngineEvent>()
     private let lock = NSLock()
@@ -19,6 +19,9 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
     private var currentItemCancellable: AnyCancellable?
 
     init() {
+        let player = KitharaPlayer()
+        player.crossfadeDuration = 0
+        self.player = player
         observePlayerEvents()
     }
 
