@@ -1,13 +1,10 @@
-package com.mplayeraudio.services.mediasession
+package com.mplayeraudio.core.player
 
-import com.mplayeraudio.core.player.PlayableSource
-import com.mplayeraudio.core.player.PlayableUrlResolver
-import com.mplayeraudio.core.player.PlaybackQueueItem
-
-internal class CachingPlayableUrlResolver(
+class CachingPlayableUrlResolver(
     private val delegate: PlayableUrlResolver,
-    private val cache: StreamUrlCache = StreamUrlCache(),
 ) : PlayableUrlResolver {
+
+    private val cache = StreamUrlCache()
 
     override suspend fun getPlayableUrl(item: PlaybackQueueItem): String {
         cache.get(item.id)?.let { return it }

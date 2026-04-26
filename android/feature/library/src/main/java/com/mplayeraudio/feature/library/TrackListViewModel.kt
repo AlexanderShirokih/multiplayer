@@ -10,6 +10,7 @@ import com.mplayeraudio.core.domain.musiclibrary.PlaylistTrackEntry
 import com.mplayeraudio.core.domain.musiclibrary.SavedTrackEntry
 import com.mplayeraudio.core.domain.musiclibrary.SavedTracksResult
 import com.mplayeraudio.core.player.PlayableSource
+import com.mplayeraudio.core.player.PlaybackError
 import com.mplayeraudio.core.player.PlaybackQueueBridge
 import com.mplayeraudio.core.player.PlaybackQueueItem
 import com.mplayeraudio.core.player.PlaybackQueueState
@@ -38,7 +39,7 @@ data class TrackListRouteState(
     val playingTrackIndex: Int? = null,
     val isLoading: Boolean = true,
     val status: TrackListStatus? = null,
-    val playbackErrorMessage: String? = null,
+    val playbackError: PlaybackError? = null,
     val isAddingTrack: Boolean = false,
     val addTrackError: String? = null,
     val isEditing: Boolean = false,
@@ -76,6 +77,7 @@ private data class TrackListContentState(
     val playlistDeleteErrorMessage: String? = null,
 )
 
+@Suppress("TooManyFunctions")
 class TrackListViewModel(
     private val destination: LibraryTrackListDestination,
     private val refreshPlaylist: RefreshPlaylistUseCase,
@@ -131,6 +133,10 @@ class TrackListViewModel(
 
     fun onRetry() {
         refresh()
+    }
+
+    fun onAcknowledgePlaybackError() {
+        playbackBridge.acknowledgeError()
     }
 
     fun onClearAddTrackError() {
@@ -289,7 +295,7 @@ private fun TrackListContentState.toRouteState(
         playingTrackIndex = tracks.activeTrackIndex(playbackState.playingItemId),
         isLoading = isLoading,
         status = status,
-        playbackErrorMessage = playbackState.playbackErrorMessage,
+        playbackError = playbackState.playbackError,
         isAddingTrack = isAddingTrack,
         addTrackError = addTrackError,
         isEditing = isEditing,

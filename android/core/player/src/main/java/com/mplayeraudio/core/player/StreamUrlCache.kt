@@ -1,4 +1,4 @@
-package com.mplayeraudio.services.mediasession
+package com.mplayeraudio.core.player
 
 internal fun interface MonotonicClock {
     fun nowMs(): Long
@@ -49,3 +49,5 @@ internal class StreamUrlCache(
         const val LOAD_FACTOR = 0.75f
     }
 }
+
+private const val StreamUrlTtlMs = 25L * 60L * 1_000L

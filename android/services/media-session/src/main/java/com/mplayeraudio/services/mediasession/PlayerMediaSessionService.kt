@@ -6,8 +6,8 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import com.mplayeraudio.core.player.PlayableUrlResolver
-import com.mplayeraudio.services.kithara.AudioPlaybackEngine
+import com.mplayeraudio.core.player.PlaybackPhase
+import com.mplayeraudio.core.player.PlaybackQueueBridge
 import com.mplayeraudio.services.mediasession.di.MediaSessionScopeQualifier
 import kotlinx.coroutines.CoroutineScope
 import org.koin.android.ext.android.getKoin
@@ -18,24 +18,20 @@ class PlayerMediaSessionService : MediaSessionService() {
 
     private var player: KitharaSimplePlayer? = null
     private var mediaSession: MediaSession? = null
-    private var cachingResolver: CachingPlayableUrlResolver? = null
+    private var bridge: PlaybackQueueBridge? = null
 
     override fun onCreate() {
         super.onCreate()
 
         val koin = getKoin()
-        val resolver = CachingPlayableUrlResolver(
-            delegate = koin.get<PlayableUrlResolver>(),
-        )
+        val controller = koin.get<PlaybackQueueBridge>()
         val sessionPlayer = KitharaSimplePlayer(
-            context = applicationContext,
-            engine = koin.get<AudioPlaybackEngine>(),
-            urlResolver = resolver,
+            controller = controller,
             scope = koin.get<CoroutineScope>(named(MediaSessionScopeQualifier)),
             looper = Looper.getMainLooper(),
         )
 
-        cachingResolver = resolver
+        bridge = controller
         player = sessionPlayer
         mediaSession = MediaSession.Builder(this, sessionPlayer)
             .setId(MediaSessionId)
@@ -48,8 +44,9 @@ class PlayerMediaSessionService : MediaSessionService() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        val sessionPlayer = player
-        if (sessionPlayer == null || !sessionPlayer.isPlaying) {
+        val currentPhase = bridge?.playbackState?.value?.phase
+        if (currentPhase != PlaybackPhase.Playing) {
+            bridge?.shutdown()
             stopSelf()
         }
     }
@@ -59,8 +56,8 @@ class PlayerMediaSessionService : MediaSessionService() {
         mediaSession = null
         player?.release()
         player = null
-        cachingResolver?.clear()
-        cachingResolver = null
+        bridge?.shutdown()
+        bridge = null
         super.onDestroy()
     }
 }

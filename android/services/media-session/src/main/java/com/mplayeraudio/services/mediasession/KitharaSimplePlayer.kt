@@ -1,50 +1,43 @@
 package com.mplayeraudio.services.mediasession
 
-import android.content.Context
 import android.os.Looper
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.util.UnstableApi
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import com.mplayeraudio.core.domain.musiclibrary.MusicLibraryException
-import com.mplayeraudio.core.player.PlayableUrlResolver
+import com.mplayeraudio.core.player.PlaybackError
+import com.mplayeraudio.core.player.PlaybackPhase
+import com.mplayeraudio.core.player.PlaybackQueueBridge
 import com.mplayeraudio.core.player.PlaybackQueueItem
-import com.mplayeraudio.services.kithara.AudioEngineEvent
-import com.mplayeraudio.services.kithara.AudioEngineState
-import com.mplayeraudio.services.kithara.AudioPlaybackEngine
-import com.mplayeraudio.services.kithara.AudioTrackRequest
+import com.mplayeraudio.core.player.PlaybackQueueState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Адаптер между Media3 [SimpleBasePlayer] и нашим [AudioPlaybackEngine].
+ * Тонкий адаптер между Media3 [SimpleBasePlayer] и [PlaybackQueueBridge].
  *
- * Состояние держится в [PlayerSnapshot]; конструирование `Player.State` вынесено
- * в [PlaybackStateBuilder], кэширование URL'ов — в [CachingPlayableUrlResolver].
+ * Не хранит собственного состояния — весь state живёт в [PlaybackQueueBridge].
+ * Задача: синхронизировать Media3-сессию (уведомление, lock-screen, Bluetooth)
+ * с канонным состоянием контроллера, и делегировать входящие Media3-команды
+ * обратно в контроллер.
  */
 @OptIn(UnstableApi::class)
 @Suppress("TooManyFunctions")
 internal class KitharaSimplePlayer(
-    private val context: Context,
-    private val engine: AudioPlaybackEngine,
-    private val urlResolver: PlayableUrlResolver,
+    private val controller: PlaybackQueueBridge,
     private val scope: CoroutineScope,
-    private val stateBuilder: PlaybackStateBuilder = PlaybackStateBuilder(),
     looper: Looper = Looper.myLooper() ?: Looper.getMainLooper(),
 ) : SimpleBasePlayer(looper) {
 
-    private val backgroundJobs = mutableListOf<Job>()
-    private var snapshot = PlayerSnapshot()
-    private var loadJob: Job? = null
-    private var tickerJob: Job? = null
+    private var currentState = PlaybackQueueState()
+    private var collectJob: Job? = null
 
     init {
         setAudioAttributes(
@@ -54,12 +47,15 @@ internal class KitharaSimplePlayer(
                 .build(),
             true,
         )
-
-        backgroundJobs += scope.launch { syncEngineState() }
-        backgroundJobs += scope.launch { handleEngineEvents() }
+        collectJob = scope.launch {
+            controller.playbackState.collect { state ->
+                currentState = state
+                invalidateState()
+            }
+        }
     }
 
-    override fun getState(): State = stateBuilder.build(snapshot)
+    override fun getState(): State = currentState.toPlayer3State()
 
     override fun handleSetMediaItems(
         mediaItems: List<MediaItem>,
@@ -68,47 +64,16 @@ internal class KitharaSimplePlayer(
     ): ListenableFuture<Any> {
         val queue = mediaItems.map(MediaItem::toQueueItem)
         val nextIndex = startIndex.takeIf { it in queue.indices }
-        snapshot = snapshot.copy(
-            queue = queue,
-            currentIndex = nextIndex,
-            playbackState = if (queue.isEmpty()) STATE_IDLE else STATE_READY,
-            playerError = null,
-        ).withPosition(startPositionMs)
-
-        when {
-            queue.isEmpty() -> resetEngine()
-            nextIndex != null && snapshot.playWhenReady -> enqueue {
-                playQueueItem(nextIndex, startPositionMs, playWhenReady = true)
-            }
-            else -> invalidateState()
+        scope.launch {
+            controller.replaceQueue(queue = queue, startIndex = nextIndex, autoPlay = false)
         }
-
         return ImmediateVoid
     }
 
     override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<Any> {
-        snapshot = snapshot.copy(
-            playWhenReady = playWhenReady,
-            playWhenReadyChangeReason = PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-        )
-
-        when {
-            !playWhenReady -> pauseEngine()
-            snapshot.queue.isEmpty() -> Unit
-            snapshot.currentIndex == null -> enqueue {
-                playQueueItem(0, 0L, playWhenReady = true)
-            }
-            engine.engineState.value.currentItemId == snapshot.currentItem?.id -> resumeEngine()
-            else -> enqueue {
-                playQueueItem(
-                    index = snapshot.currentIndex ?: 0,
-                    startPositionMs = snapshot.contentPositionMs,
-                    playWhenReady = true,
-                )
-            }
+        scope.launch {
+            if (playWhenReady) controller.play() else controller.pause()
         }
-
-        invalidateState()
         return ImmediateVoid
     }
 
@@ -117,246 +82,116 @@ internal class KitharaSimplePlayer(
         positionMs: Long,
         seekCommand: Int,
     ): ListenableFuture<Any> {
-        when (seekCommand) {
-            COMMAND_SEEK_TO_NEXT,
-            COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> enqueue { playNextOrEnd() }
+        scope.launch {
+            when (seekCommand) {
+                COMMAND_SEEK_TO_NEXT,
+                COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> controller.skipNext()
 
-            COMMAND_SEEK_TO_PREVIOUS,
-            COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> enqueue { handlePreviousCommand() }
+                COMMAND_SEEK_TO_PREVIOUS,
+                COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> controller.skipPrevious()
 
-            else -> handleSeekToIndex(mediaItemIndex, positionMs)
+                else -> controller.seekTo(positionMs)
+            }
         }
         return ImmediateVoid
     }
 
-    override fun handlePrepare(): ListenableFuture<Any> {
-        snapshot = snapshot.copy(
-            playbackState = if (snapshot.queue.isEmpty()) STATE_IDLE else STATE_READY,
-            playerError = null,
-        )
-        invalidateState()
-        return ImmediateVoid
-    }
+    override fun handlePrepare(): ListenableFuture<Any> = ImmediateVoid
 
     override fun handleRelease(): ListenableFuture<Any> {
-        cancelLoadJob()
-        tickerJob?.cancel()
-        tickerJob = null
-        backgroundJobs.forEach(Job::cancel)
-        backgroundJobs.clear()
-        engine.stop()
+        collectJob?.cancel()
+        collectJob = null
         return ImmediateVoid
     }
 
     override fun handleSetAudioAttributes(
         audioAttributes: AudioAttributes,
         handleAudioFocus: Boolean,
-    ): ListenableFuture<Any> {
-        snapshot = snapshot.copy(audioAttributes = audioAttributes)
-        invalidateState()
-        return ImmediateVoid
-    }
-
-    private fun resetEngine() {
-        cancelLoadJob()
-        engine.stop()
-        updateTicker(isPlaying = false)
-    }
-
-    private fun pauseEngine() {
-        engine.pause()
-        snapshot = snapshot.copy(isPlaying = false)
-        updateTicker(isPlaying = false)
-    }
-
-    private fun resumeEngine() {
-        engine.play()
-        snapshot = snapshot.copy(isPlaying = true, playbackState = STATE_READY)
-        updateTicker(isPlaying = true)
-    }
-
-    private fun handleSeekToIndex(mediaItemIndex: Int, positionMs: Long) {
-        val targetIndex = mediaItemIndex.takeIf { it in snapshot.queue.indices }
-            ?: snapshot.currentIndex
-            ?: return
-        val clampedPositionMs = positionMs.coerceAtLeast(0L)
-        val targetItemId = snapshot.queue[targetIndex].id
-        val needsReload = targetIndex != snapshot.currentIndex ||
-            engine.engineState.value.currentItemId != targetItemId
-
-        enqueue {
-            if (needsReload) {
-                playQueueItem(targetIndex, clampedPositionMs, snapshot.playWhenReady)
-            } else {
-                seekCurrentItem(clampedPositionMs)
-            }
-        }
-    }
-
-    private suspend fun syncEngineState() {
-        engine.engineState.collect { engineState ->
-            applyEngineState(engineState)
-            updateTicker(isPlaying = snapshot.isPlaying)
-            invalidateState()
-        }
-    }
-
-    private fun applyEngineState(engineState: AudioEngineState) {
-        snapshot = snapshot.applyEngineState(engineState)
-    }
-
-    private suspend fun handleEngineEvents() {
-        engine.events.collect { event ->
-            when (event) {
-                is AudioEngineEvent.CurrentItemChanged -> Unit
-                is AudioEngineEvent.PlayedToEnd -> playNextOrEnd()
-                is AudioEngineEvent.ItemFailed -> handleItemFailed(event)
-            }
-        }
-    }
-
-    private fun enqueue(block: suspend () -> Unit) {
-        cancelLoadJob()
-        loadJob = scope.launch { block() }
-    }
-
-    private fun cancelLoadJob() {
-        loadJob?.cancel()
-        loadJob = null
-    }
-
-    private suspend fun playQueueItem(
-        index: Int,
-        startPositionMs: Long,
-        playWhenReady: Boolean,
-    ) {
-        val item = snapshot.queue.getOrNull(index) ?: return
-
-        val durationCap = item.durationMs.coerceAtLeast(0L)
-        snapshot = snapshot.copy(
-            currentIndex = index,
-            playWhenReady = playWhenReady,
-            playWhenReadyChangeReason = PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-            isPlaying = playWhenReady,
-            playbackState = STATE_BUFFERING,
-            playerError = null,
-        ).withPosition(startPositionMs.coerceIn(0L, durationCap))
-
-        invalidateState()
-        loadAndStartItem(item, startPositionMs, playWhenReady)
-    }
-
-    private suspend fun loadAndStartItem(
-        item: PlaybackQueueItem,
-        startPositionMs: Long,
-        playWhenReady: Boolean,
-    ) {
-        try {
-            val url = urlResolver.getPlayableUrl(item)
-            engine.loadTrack(AudioTrackRequest(id = item.id, url = url))
-            if (startPositionMs > 0L) {
-                engine.seekTo(startPositionMs)
-            }
-            if (!playWhenReady) {
-                engine.pause()
-            }
-        } catch (error: MusicLibraryException) {
-            handleLoadFailure(item, error)
-        } catch (error: IllegalArgumentException) {
-            handleLoadFailure(item, error)
-        } catch (error: IllegalStateException) {
-            handleLoadFailure(item, error)
-        }
-    }
-
-    private suspend fun seekCurrentItem(positionMs: Long) {
-        val currentItem = snapshot.currentItem ?: return
-        val clampedPosition = positionMs.coerceIn(0L, currentItem.durationMs.coerceAtLeast(0L))
-        engine.seekTo(clampedPosition)
-        snapshot = snapshot.withPosition(clampedPosition)
-        invalidateState()
-    }
-
-    private suspend fun playNextOrEnd() {
-        val currentIndex = snapshot.currentIndex ?: return
-        val nextIndex = currentIndex + 1
-        if (nextIndex > snapshot.queue.lastIndex) {
-            markQueueFinished()
-            return
-        }
-        playQueueItem(nextIndex, startPositionMs = 0L, playWhenReady = true)
-    }
-
-    private fun markQueueFinished() {
-        snapshot = snapshot.copy(
-            isPlaying = false,
-            playWhenReady = false,
-            playWhenReadyChangeReason = PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM,
-            playbackState = STATE_ENDED,
-        ).withPosition(0L)
-        updateTicker(isPlaying = false)
-        invalidateState()
-    }
-
-    private suspend fun handlePreviousCommand() {
-        val currentIndex = snapshot.currentIndex ?: return
-        if (snapshot.contentPositionMs > RestartThresholdMs || currentIndex == 0) {
-            seekCurrentItem(0L)
-            return
-        }
-        playQueueItem(currentIndex - 1, startPositionMs = 0L, playWhenReady = true)
-    }
-
-    private fun handleItemFailed(event: AudioEngineEvent.ItemFailed) {
-        Log.e(TAG, "Item failed: ${event.itemId}, reason: ${event.reason}")
-        val currentItem = snapshot.currentItem ?: return
-        if (event.itemId != currentItem.id) return
-
-        handleLoadFailure(currentItem, IllegalStateException(event.reason))
-    }
-
-    private fun handleLoadFailure(item: PlaybackQueueItem, error: Exception) {
-        if (item.id != snapshot.currentItem?.id) return
-
-        Log.e(TAG, "Failed to load track ${item.trackId}", error)
-        val message = error.message?.takeUnless(String::isBlank)
-            ?: context.getString(R.string.media_session_load_failure)
-        loadJob = null
-        snapshot = snapshot.copy(
-            isPlaying = false,
-            playWhenReady = false,
-            playWhenReadyChangeReason = PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-            playbackState = STATE_IDLE,
-            playerError = PlaybackException(
-                message,
-                error,
-                PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
-            ),
-        ).withPosition(0L)
-        engine.stop()
-        updateTicker(isPlaying = false)
-        invalidateState()
-    }
-
-    private fun updateTicker(isPlaying: Boolean) {
-        if (!isPlaying) {
-            tickerJob?.cancel()
-            tickerJob = null
-            return
-        }
-        if (tickerJob?.isActive == true) return
-
-        tickerJob = scope.launch {
-            while (true) {
-                delay(PositionUpdateIntervalMs)
-                invalidateState()
-            }
-        }
-    }
+    ): ListenableFuture<Any> = ImmediateVoid
 
     private companion object {
-        const val TAG = "KitharaSimplePlayer"
-
         val ImmediateVoid: ListenableFuture<Any> = Futures.immediateFuture(Unit)
     }
 }
+
+@OptIn(UnstableApi::class)
+private fun PlaybackQueueState.toPlayer3State(): SimpleBasePlayer.State {
+    val (player3PlaybackState, playWhenReady) = when (phase) {
+        PlaybackPhase.Idle -> Player.STATE_IDLE to false
+        PlaybackPhase.Loading, PlaybackPhase.Buffering -> Player.STATE_BUFFERING to true
+        PlaybackPhase.Playing -> Player.STATE_READY to true
+        PlaybackPhase.Paused -> Player.STATE_READY to false
+        PlaybackPhase.Failed -> Player.STATE_IDLE to false
+        PlaybackPhase.Ended -> Player.STATE_ENDED to false
+    }
+
+    val playerError = if (phase == PlaybackPhase.Failed) {
+        PlaybackException(
+            playbackError.toErrorMessage(),
+            null,
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+        )
+    } else {
+        null
+    }
+
+    return SimpleBasePlayer.State.Builder()
+        .setAvailableCommands(defaultAvailableCommands())
+        .setPlaylist(buildPlaylist())
+        .setCurrentMediaItemIndex(currentIndex ?: C.INDEX_UNSET)
+        .setPlaybackState(player3PlaybackState)
+        .setPlayWhenReady(playWhenReady, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+        .setContentPositionMs { currentPositionMs }
+        .setContentBufferedPositionMs { bufferedPositionMs }
+        .setMaxSeekToPreviousPositionMs(RestartThresholdMs)
+        .setPlayerError(playerError)
+        .build()
+}
+
+@OptIn(UnstableApi::class)
+private fun PlaybackQueueState.buildPlaylist(): List<SimpleBasePlayer.MediaItemData> {
+    return queue.mapIndexed { index, item ->
+        val effectiveDuration = if (index == currentIndex) {
+            currentDurationMs ?: item.durationMs
+        } else {
+            item.durationMs
+        }
+        SimpleBasePlayer.MediaItemData.Builder(item.id)
+            .setMediaItem(item.toMediaItem())
+            .setDurationUs(effectiveDuration * MicrosecondsPerMillisecond)
+            .build()
+    }
+}
+
+private fun PlaybackError?.toErrorMessage(): String {
+    return when (this) {
+        is PlaybackError.TrackUnavailable -> message
+        is PlaybackError.StreamFailed -> message
+        is PlaybackError.EngineCrashed -> message
+        null -> "Playback error"
+    }
+}
+
+@OptIn(UnstableApi::class)
+@Suppress("MagicNumber")
+private fun defaultAvailableCommands(): Player.Commands {
+    return Player.Commands.Builder()
+        .add(Player.COMMAND_CHANGE_MEDIA_ITEMS)
+        .add(Player.COMMAND_GET_AUDIO_ATTRIBUTES)
+        .add(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
+        .add(Player.COMMAND_GET_METADATA)
+        .add(Player.COMMAND_GET_TEXT)
+        .add(Player.COMMAND_PLAY_PAUSE)
+        .add(Player.COMMAND_PREPARE)
+        .add(Player.COMMAND_RELEASE)
+        .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+        .add(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
+        .add(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
+        .add(Player.COMMAND_SEEK_TO_NEXT)
+        .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+        .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+        .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+        .add(Player.COMMAND_SET_AUDIO_ATTRIBUTES)
+        .build()
+}
+

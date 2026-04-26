@@ -116,9 +116,17 @@ fun TrackListRoute(
         }
     }
 
-    LaunchedEffect(routeState.playbackErrorMessage) {
-        if (routeState.playbackErrorMessage != null) {
-            snackbarHostState.showSnackbar(context.getString(R.string.track_playback_error_message))
+    LaunchedEffect(routeState.playbackError) {
+        if (routeState.playbackError != null) {
+            val messageRes = when (routeState.playbackError) {
+                is com.mplayeraudio.core.player.PlaybackError.StreamFailed ->
+                    R.string.track_playback_stream_error_message
+                is com.mplayeraudio.core.player.PlaybackError.EngineCrashed ->
+                    R.string.track_playback_engine_error_message
+                else -> R.string.track_playback_error_message
+            }
+            snackbarHostState.showSnackbar(context.getString(messageRes))
+            viewModel.onAcknowledgePlaybackError()
         }
     }
 

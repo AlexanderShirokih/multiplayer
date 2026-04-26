@@ -10,6 +10,6 @@ interface AudioPlaybackEngine {
     fun play()
     fun pause()
     suspend fun seekTo(positionMs: Long): Boolean
-    fun loadTrack(request: AudioTrackRequest)
+    fun loadTrack(request: AudioTrackRequest, autoPlay: Boolean = true)
     fun stop()
 }

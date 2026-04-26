@@ -22,6 +22,8 @@ import com.mplayeraudio.core.domain.musiclibrary.TrackId
 import com.mplayeraudio.core.domain.musiclibrary.YandexTrackId
 import com.mplayeraudio.core.domain.musiclibrary.AddTrackResult
 import com.mplayeraudio.core.player.NowPlayingStripExternalState
+import com.mplayeraudio.core.player.PlaybackError
+import com.mplayeraudio.core.player.PlaybackPhase
 import com.mplayeraudio.core.player.PlaybackQueueBridge
 import com.mplayeraudio.core.player.PlaybackQueueItem
 import com.mplayeraudio.core.player.PlaybackQueueState
@@ -30,6 +32,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
@@ -40,6 +44,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -209,9 +214,8 @@ class TrackListViewModelTest {
                     displayedTracks[0].queueItem,
                 ),
                 currentIndex = 0,
-                isPlaying = true,
+                phase = PlaybackPhase.Playing,
                 currentPositionMs = 15_000L,
-                controlsEnabled = true,
             ),
         )
         advanceUntilIdle()
@@ -250,17 +254,19 @@ class TrackListViewModelTest {
             PlaybackQueueState(
                 queue = displayedTracks.map(TrackListItemState::queueItem),
                 currentIndex = 1,
-                isPlaying = false,
-                currentPositionMs = 0L,
-                controlsEnabled = true,
-                playbackErrorMessage = "Network is unreachable",
+                phase = PlaybackPhase.Failed,
+                playbackError = PlaybackError.TrackUnavailable(
+                    itemId = displayedTracks[1].queueItem.id,
+                    message = "Network is unreachable",
+                ),
             ),
         )
         advanceUntilIdle()
 
         assertEquals(1, viewModel.state.value.activeTrackIndex)
         assertNull(viewModel.state.value.playingTrackIndex)
-        assertEquals("Network is unreachable", viewModel.state.value.playbackErrorMessage)
+        assertNotNull(viewModel.state.value.playbackError)
+        assertTrue(viewModel.state.value.playbackError is PlaybackError.TrackUnavailable)
     }
 
     @Test
@@ -534,41 +540,31 @@ private class ManualPlaybackQueueBridge(
 
     private val stateFlow = MutableStateFlow(initialState)
 
-    override val playbackState: Flow<PlaybackQueueState> = stateFlow
+    override val playbackState: StateFlow<PlaybackQueueState> = stateFlow.asStateFlow()
 
-    override val state: Flow<NowPlayingStripExternalState> = playbackState.map { playbackState ->
-        val currentItem = playbackState.currentItem
+    override val state: Flow<NowPlayingStripExternalState> = playbackState.map { ps ->
+        val currentItem = ps.currentItem
         NowPlayingStripExternalState(
             title = currentItem?.title.orEmpty(),
             subtitle = currentItem?.subtitle.orEmpty(),
-            isPlaying = playbackState.isPlaying,
-            currentPositionMs = playbackState.currentPositionMs,
-            durationMs = currentItem?.durationMs ?: 0L,
-            controlsEnabled = playbackState.controlsEnabled,
+            isPlaying = ps.isPlaying,
+            currentPositionMs = ps.currentPositionMs,
+            durationMs = ps.currentDurationMs ?: currentItem?.durationMs ?: 0L,
+            controlsEnabled = ps.controlsEnabled,
         )
     }
 
-    fun emitState(state: PlaybackQueueState) {
-        stateFlow.value = state
-    }
+    fun emitState(state: PlaybackQueueState) { stateFlow.value = state }
 
-    override suspend fun replaceQueue(
-        queue: List<PlaybackQueueItem>,
-        startIndex: Int?,
-        autoPlay: Boolean,
-    ) = Unit
-
+    override suspend fun replaceQueue(queue: List<PlaybackQueueItem>, startIndex: Int?, autoPlay: Boolean) = Unit
     override suspend fun playTrack(index: Int) = Unit
-
     override suspend fun play() = Unit
-
     override suspend fun pause() = Unit
-
     override suspend fun skipNext() = Unit
-
     override suspend fun skipPrevious() = Unit
-
     override suspend fun seekTo(positionMs: Long) = Unit
+    override fun acknowledgeError() = Unit
+    override fun shutdown() = Unit
 }
 
 private class CountingPlaybackQueueBridge : PlaybackQueueBridge {
@@ -578,46 +574,37 @@ private class CountingPlaybackQueueBridge : PlaybackQueueBridge {
     var replaceQueueCallCount = 0
         private set
 
-    override val playbackState: Flow<PlaybackQueueState> = stateFlow
+    override val playbackState: StateFlow<PlaybackQueueState> = stateFlow.asStateFlow()
 
-    override val state: Flow<NowPlayingStripExternalState> = playbackState.map { playbackState ->
-        val currentItem = playbackState.currentItem
+    override val state: Flow<NowPlayingStripExternalState> = playbackState.map { ps ->
+        val currentItem = ps.currentItem
         NowPlayingStripExternalState(
             title = currentItem?.title.orEmpty(),
             subtitle = currentItem?.subtitle.orEmpty(),
-            isPlaying = playbackState.isPlaying,
-            currentPositionMs = playbackState.currentPositionMs,
-            durationMs = currentItem?.durationMs ?: 0L,
-            controlsEnabled = playbackState.controlsEnabled,
+            isPlaying = ps.isPlaying,
+            currentPositionMs = ps.currentPositionMs,
+            durationMs = ps.currentDurationMs ?: currentItem?.durationMs ?: 0L,
+            controlsEnabled = ps.controlsEnabled,
         )
     }
 
-    override suspend fun replaceQueue(
-        queue: List<PlaybackQueueItem>,
-        startIndex: Int?,
-        autoPlay: Boolean,
-    ) {
+    override suspend fun replaceQueue(queue: List<PlaybackQueueItem>, startIndex: Int?, autoPlay: Boolean) {
         replaceQueueCallCount += 1
         stateFlow.value = PlaybackQueueState(
             queue = queue,
             currentIndex = startIndex,
-            isPlaying = autoPlay,
-            currentPositionMs = 0L,
-            controlsEnabled = queue.isNotEmpty(),
+            phase = if (autoPlay && queue.isNotEmpty()) PlaybackPhase.Playing else PlaybackPhase.Idle,
         )
     }
 
     override suspend fun playTrack(index: Int) = Unit
-
     override suspend fun play() = Unit
-
     override suspend fun pause() = Unit
-
     override suspend fun skipNext() = Unit
-
     override suspend fun skipPrevious() = Unit
-
     override suspend fun seekTo(positionMs: Long) = Unit
+    override fun acknowledgeError() = Unit
+    override fun shutdown() = Unit
 }
 
 private fun playlistFixture(

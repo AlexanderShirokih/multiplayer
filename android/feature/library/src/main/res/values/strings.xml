@@ -10,6 +10,8 @@
     <string name="track_list_loading_message">Загружаем треки…</string>
     <string name="track_list_load_error_message">Не удалось загрузить список треков. Попробуйте ещё раз.</string>
     <string name="track_playback_error_message">Не удалось воспроизвести трек. Проверьте подключение или источник трека.</string>
+    <string name="track_playback_stream_error_message">Потоковое воспроизведение прервано. Проверьте подключение к сети.</string>
+    <string name="track_playback_engine_error_message">Произошла внутренняя ошибка плеера. Попробуйте ещё раз.</string>
     <string name="track_list_private_library_message">Эта медиатека недоступна для просмотра.</string>
     <string name="track_list_empty_message">В этом списке пока нет треков.</string>
     <string name="track_list_retry">Повторить</string>

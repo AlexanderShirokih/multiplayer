@@ -1,11 +1,13 @@
 package com.mplayeraudio.feature.library
 
 import com.mplayeraudio.core.player.NowPlayingStripExternalState
+import com.mplayeraudio.core.player.PlaybackPhase
 import com.mplayeraudio.core.player.PlaybackQueueBridge
 import com.mplayeraudio.core.player.PlaybackQueueItem
 import com.mplayeraudio.core.player.PlaybackQueueState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 
@@ -13,17 +15,17 @@ internal class InMemoryPlaybackQueueBridge : PlaybackQueueBridge {
 
     private val stateFlow = MutableStateFlow(PlaybackQueueState())
 
-    override val playbackState: Flow<PlaybackQueueState> = stateFlow.asStateFlow()
+    override val playbackState: StateFlow<PlaybackQueueState> = stateFlow.asStateFlow()
 
-    override val state: Flow<NowPlayingStripExternalState> = playbackState.map { playbackState ->
-        val currentItem = playbackState.currentItem
+    override val state: Flow<NowPlayingStripExternalState> = playbackState.map { ps ->
+        val currentItem = ps.currentItem
         NowPlayingStripExternalState(
             title = currentItem?.title.orEmpty(),
             subtitle = currentItem?.subtitle.orEmpty(),
-            isPlaying = playbackState.isPlaying,
-            currentPositionMs = playbackState.currentPositionMs,
-            durationMs = currentItem?.durationMs ?: 0L,
-            controlsEnabled = playbackState.controlsEnabled,
+            isPlaying = ps.isPlaying,
+            currentPositionMs = ps.currentPositionMs,
+            durationMs = ps.currentDurationMs ?: currentItem?.durationMs ?: 0L,
+            controlsEnabled = ps.controlsEnabled,
         )
     }
 
@@ -32,101 +34,96 @@ internal class InMemoryPlaybackQueueBridge : PlaybackQueueBridge {
         startIndex: Int?,
         autoPlay: Boolean,
     ) {
-        val previousState = stateFlow.value
-        val preservedIndex = previousState.currentItem
-            ?.let { currentItem ->
-                queue.indexOfFirst { queuedItem -> queuedItem.id == currentItem.id }
-                    .takeIf { index -> index >= 0 }
-            }
+        val previous = stateFlow.value
+        val preservedIndex = previous.currentItem
+            ?.let { curr -> queue.indexOfFirst { it.id == curr.id }.takeIf { it >= 0 } }
         val nextIndex = startIndex ?: preservedIndex
-        val currentPositionMs = if (nextIndex != null && nextIndex == preservedIndex) {
-            previousState.currentPositionMs.coerceIn(0L, queue[nextIndex].durationMs.coerceAtLeast(0L))
+        val preservingCurrentTrack = nextIndex != null && nextIndex == preservedIndex
+        val currentPositionMs = if (preservingCurrentTrack && nextIndex != null) {
+            previous.currentPositionMs.coerceIn(0L, queue[nextIndex].durationMs.coerceAtLeast(0L))
         } else {
             0L
+        }
+        val phase = when {
+            queue.isEmpty() -> PlaybackPhase.Idle
+            autoPlay && nextIndex != null -> PlaybackPhase.Playing
+            preservingCurrentTrack -> previous.phase
+            else -> PlaybackPhase.Idle
         }
 
         stateFlow.value = PlaybackQueueState(
             queue = queue,
             currentIndex = nextIndex,
-            isPlaying = when {
-                queue.isEmpty() -> false
-                autoPlay && nextIndex != null -> true
-                nextIndex != null && nextIndex == preservedIndex -> previousState.isPlaying
-                else -> false
-            },
+            phase = phase,
             currentPositionMs = currentPositionMs,
-            controlsEnabled = queue.isNotEmpty(),
         )
     }
 
     override suspend fun playTrack(index: Int) {
-        val currentState = stateFlow.value
-        if (index !in currentState.queue.indices) return
-
-        stateFlow.value = currentState.copy(
+        val current = stateFlow.value
+        if (index !in current.queue.indices) return
+        stateFlow.value = current.copy(
             currentIndex = index,
-            isPlaying = true,
+            phase = PlaybackPhase.Playing,
             currentPositionMs = 0L,
-            controlsEnabled = currentState.queue.isNotEmpty(),
         )
     }
 
     override suspend fun play() {
-        val currentState = stateFlow.value
-        if (currentState.queue.isEmpty()) return
-
-        stateFlow.value = currentState.copy(
-            currentIndex = currentState.currentIndex ?: 0,
-            isPlaying = true,
-            controlsEnabled = true,
+        val current = stateFlow.value
+        if (current.queue.isEmpty()) return
+        stateFlow.value = current.copy(
+            currentIndex = current.currentIndex ?: 0,
+            phase = PlaybackPhase.Playing,
         )
     }
 
     override suspend fun pause() {
-        val currentState = stateFlow.value
-        if (currentState.queue.isEmpty()) return
-
-        stateFlow.value = currentState.copy(
-            isPlaying = false,
-        )
+        val current = stateFlow.value
+        if (current.queue.isEmpty()) return
+        stateFlow.value = current.copy(phase = PlaybackPhase.Paused)
     }
 
     override suspend fun skipNext() {
-        val currentState = stateFlow.value
-        val currentIndex = currentState.currentIndex ?: return
-        val nextIndex = (currentIndex + 1).coerceAtMost(currentState.queue.lastIndex)
-
-        stateFlow.value = currentState.copy(
+        val current = stateFlow.value
+        val currentIndex = current.currentIndex ?: return
+        val nextIndex = (currentIndex + 1).coerceAtMost(current.queue.lastIndex)
+        stateFlow.value = current.copy(
             currentIndex = nextIndex,
             currentPositionMs = 0L,
-            isPlaying = true,
+            phase = PlaybackPhase.Playing,
         )
     }
 
     override suspend fun skipPrevious() {
-        val currentState = stateFlow.value
-        val currentIndex = currentState.currentIndex ?: return
-
-        if (currentState.currentPositionMs > RestartThresholdMs) {
-            stateFlow.value = currentState.copy(currentPositionMs = 0L)
+        val current = stateFlow.value
+        val currentIndex = current.currentIndex ?: return
+        if (current.currentPositionMs > RestartThresholdMs) {
+            stateFlow.value = current.copy(currentPositionMs = 0L)
             return
         }
-
         val previousIndex = (currentIndex - 1).coerceAtLeast(0)
-        stateFlow.value = currentState.copy(
+        stateFlow.value = current.copy(
             currentIndex = previousIndex,
             currentPositionMs = 0L,
-            isPlaying = true,
+            phase = PlaybackPhase.Playing,
         )
     }
 
     override suspend fun seekTo(positionMs: Long) {
-        val currentState = stateFlow.value
-        val currentItem = currentState.currentItem ?: return
-
-        stateFlow.value = currentState.copy(
+        val current = stateFlow.value
+        val currentItem = current.currentItem ?: return
+        stateFlow.value = current.copy(
             currentPositionMs = positionMs.coerceIn(0L, currentItem.durationMs.coerceAtLeast(0L)),
         )
+    }
+
+    override fun acknowledgeError() {
+        stateFlow.value = stateFlow.value.copy(playbackError = null)
+    }
+
+    override fun shutdown() {
+        stateFlow.value = PlaybackQueueState()
     }
 }
 
