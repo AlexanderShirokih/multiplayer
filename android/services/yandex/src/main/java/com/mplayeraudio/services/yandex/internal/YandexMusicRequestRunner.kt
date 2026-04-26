@@ -3,6 +3,7 @@ package com.mplayeraudio.services.yandex.internal
 import com.mplayeraudio.core.domain.musiclibrary.MusicLibraryException
 import com.mplayeraudio.core.domain.musiclibrary.ProviderUserId
 import com.mplayeraudio.core.domain.yandexauth.YandexAccessTokenProvider
+import com.mplayeraudio.core.domain.yandexauth.YandexAuthException
 import com.mplayeraudio.services.yandex.internal.network.YandexMusicApi
 
 internal class YandexMusicRequestRunner(
@@ -24,12 +25,20 @@ internal class YandexMusicRequestRunner(
     suspend fun <T> withAuthorizedRequest(
         block: suspend (accessToken: String) -> T,
     ): T {
-        val currentToken = accessTokenProvider.getValidAccessToken(forceRefresh = false)
+        val currentToken = obtainAccessToken(forceRefresh = false)
         return try {
             block(currentToken)
         } catch (_: MusicLibraryException.Unauthorized) {
-            val refreshedToken = accessTokenProvider.getValidAccessToken(forceRefresh = true)
+            val refreshedToken = obtainAccessToken(forceRefresh = true)
             block(refreshedToken)
+        }
+    }
+
+    private suspend fun obtainAccessToken(forceRefresh: Boolean): String {
+        return try {
+            accessTokenProvider.getValidAccessToken(forceRefresh = forceRefresh)
+        } catch (_: YandexAuthException) {
+            throw MusicLibraryException.Unauthorized()
         }
     }
 
