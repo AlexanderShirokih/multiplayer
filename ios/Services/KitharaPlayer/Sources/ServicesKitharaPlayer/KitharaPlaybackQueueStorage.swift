@@ -220,8 +220,8 @@ extension PlaybackQueueStorage {
     func handleEngineEvent(_ event: AudioEngineEvent) async {
         playbackQueueLog.info("engine event received event=\(String(describing: event), privacy: .public)")
         switch event {
-        case .playedToEnd:
-            await handlePlayedToEnd()
+        case let .playedToEnd(itemId):
+            await handlePlayedToEnd(itemId: itemId)
 
         case let .itemFailed(itemId, _):
             await handleItemFailed(itemId: itemId)
@@ -391,9 +391,16 @@ extension PlaybackQueueStorage {
         urlCache = urlCache.filter { !$0.value.isExpired }
     }
 
-    private func handlePlayedToEnd() async {
-        guard let currentIndex = playbackState.currentIndex else {
+    private func handlePlayedToEnd(itemId: String) async {
+        guard let currentIndex = playbackState.currentIndex,
+              let currentItem = playbackState.currentItem else {
             playbackQueueLog.error("handlePlayedToEnd ignored because currentIndex is nil")
+            return
+        }
+        guard itemId == currentItem.id else {
+            playbackQueueLog.info(
+                "ignore playedToEnd eventItemId=\(itemId, privacy: .public) currentItemId=\(currentItem.id, privacy: .public)"
+            )
             return
         }
         let nextIndex = currentIndex + 1
@@ -443,7 +450,7 @@ extension PlaybackQueueStorage {
             retriedItemIDs.remove(currentItem.id)
             urlCache.removeValue(forKey: currentItem.id)
             playbackQueueLog.error("item failure fallback to handlePlayedToEnd itemId=\(currentItem.id, privacy: .public)")
-            await handlePlayedToEnd()
+            await handlePlayedToEnd(itemId: currentItem.id)
             return
         }
 
@@ -469,7 +476,7 @@ extension PlaybackQueueStorage {
             playbackQueueLog.error(
                 "retry load failed itemId=\(currentItem.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
             )
-            await handlePlayedToEnd()
+            await handlePlayedToEnd(itemId: currentItem.id)
         }
     }
 

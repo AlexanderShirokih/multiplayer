@@ -183,7 +183,7 @@ class PlaybackQueueControllerTest {
         controller.replaceQueue(queue = listOf(item("t1"), item("t2")), autoPlay = true)
         advanceTimeBy(1L)
 
-        engine.emitEvent(AudioEngineEvent.PlayedToEnd)
+        engine.emitEvent(AudioEngineEvent.PlayedToEnd(itemId = "t1"))
         advanceTimeBy(1L) // collectEngineEvents processes event, onPlayedToEnd calls loadAndPlay inline
 
         assertEquals(1, controller.playbackState.value.currentIndex)
@@ -201,10 +201,31 @@ class PlaybackQueueControllerTest {
         controller.replaceQueue(queue = listOf(item("t1")), autoPlay = true)
         advanceTimeBy(1L)
 
-        engine.emitEvent(AudioEngineEvent.PlayedToEnd)
+        engine.emitEvent(AudioEngineEvent.PlayedToEnd(itemId = "t1"))
         advanceTimeBy(1L)
 
         assertEquals(PlaybackPhase.Ended, controller.playbackState.value.phase)
+
+        controller.shutdown()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `PlayedToEnd for stale item does not advance queue`() = runTest {
+        val engine = FakeAudioPlaybackEngine()
+        val controller = PlaybackQueueController(engine, StaticUrlResolver(), scope = this)
+
+        controller.replaceQueue(queue = listOf(item("t1"), item("t2"), item("t3")), autoPlay = false)
+        advanceTimeBy(1L)
+
+        controller.playTrack(1)
+        advanceTimeBy(1L)
+
+        engine.emitEvent(AudioEngineEvent.PlayedToEnd(itemId = "t1"))
+        advanceTimeBy(1L)
+
+        assertEquals(1, controller.playbackState.value.currentIndex)
+        assertEquals(1, engine.loadRequests.count { it.id == "t2" })
 
         controller.shutdown()
         advanceUntilIdle()

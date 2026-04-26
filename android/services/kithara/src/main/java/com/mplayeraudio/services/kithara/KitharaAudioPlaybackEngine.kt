@@ -164,7 +164,8 @@ internal class KitharaAudioPlaybackEngine(
                     _events.emit(AudioEngineEvent.CurrentItemChanged(appItemId))
                 }
                 is EnginePlayerEvent.PlayedToEnd -> {
-                    _events.emit(AudioEngineEvent.PlayedToEnd)
+                    val appItemId = itemIdMap[event.kitharaItemId] ?: return@collect
+                    _events.emit(AudioEngineEvent.PlayedToEnd(appItemId))
                 }
             }
         }

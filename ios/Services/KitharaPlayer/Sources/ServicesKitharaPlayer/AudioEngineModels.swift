@@ -22,6 +22,6 @@ enum AudioEngineStatus: Sendable {
 
 enum AudioEngineEvent: Sendable {
     case currentItemChanged(itemId: String?)
-    case playedToEnd
+    case playedToEnd(itemId: String)
     case itemFailed(itemId: String?, reason: String)
 }

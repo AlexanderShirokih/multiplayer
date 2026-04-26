@@ -375,10 +375,62 @@ class KitharaAudioPlaybackEngineTest {
         val engine = KitharaAudioPlaybackEngine(scope = this, player = fakePlayer)
 
         val events = engine.collectEvents(this)
-        fakePlayer.emitPlayerEvent(EnginePlayerEvent.PlayedToEnd)
+        engine.loadTrack(AudioTrackRequest(id = "app-id", url = "http://host/1.mp3"))
         runCurrent()
 
-        assertTrue(events.any { it is AudioEngineEvent.PlayedToEnd })
+        val kitharaId = fakePlayer.lastItem!!.kitharaId
+        fakePlayer.emitPlayerEvent(EnginePlayerEvent.PlayedToEnd(kitharaId))
+        runCurrent()
+
+        val event = events.filterIsInstance<AudioEngineEvent.PlayedToEnd>().singleOrNull()
+        assertNotNull(event)
+        assertEquals("app-id", event!!.itemId)
+        shutdownEngine(engine)
+    }
+
+    @Test
+    fun `PlayedToEnd for unmapped kithara item is ignored`() = runTest {
+        val fakePlayer = FakeKitharaPlayerHandle()
+        val engine = KitharaAudioPlaybackEngine(scope = this, player = fakePlayer)
+
+        val events = engine.collectEvents(this)
+        engine.loadTrack(AudioTrackRequest(id = "t1", url = "http://host/1.mp3"))
+        runCurrent()
+
+        fakePlayer.emitPlayerEvent(EnginePlayerEvent.PlayedToEnd("stale-kithara-id"))
+        runCurrent()
+
+        assertTrue(events.filterIsInstance<AudioEngineEvent.PlayedToEnd>().isEmpty())
+
+        shutdownEngine(engine)
+    }
+
+    @Test
+    fun `PlayedToEnd after replace resolves to current app item only`() = runTest {
+        val fakePlayer = FakeKitharaPlayerHandle()
+        val engine = KitharaAudioPlaybackEngine(scope = this, player = fakePlayer)
+
+        val events = engine.collectEvents(this)
+
+        engine.loadTrack(AudioTrackRequest(id = "t1", url = "http://host/1.mp3"))
+        runCurrent()
+        val firstKitharaId = fakePlayer.lastItem!!.kitharaId
+
+        engine.loadTrack(AudioTrackRequest(id = "t2", url = "http://host/2.mp3"))
+        runCurrent()
+        val secondKitharaId = fakePlayer.lastItem!!.kitharaId
+
+        fakePlayer.emitPlayerEvent(EnginePlayerEvent.PlayedToEnd(firstKitharaId))
+        runCurrent()
+        assertTrue(events.filterIsInstance<AudioEngineEvent.PlayedToEnd>().isEmpty())
+
+        fakePlayer.emitPlayerEvent(EnginePlayerEvent.PlayedToEnd(secondKitharaId))
+        runCurrent()
+
+        val playedToEndEvents = events.filterIsInstance<AudioEngineEvent.PlayedToEnd>()
+        assertEquals(1, playedToEndEvents.size)
+        assertEquals("t2", playedToEndEvents.single().itemId)
+
         shutdownEngine(engine)
     }
 

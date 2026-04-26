@@ -40,7 +40,7 @@ internal data class EnginePlayerSnapshot(
 /** Событие плеера, отображённое из Kithara без утечки FFI-типов. */
 internal sealed interface EnginePlayerEvent {
     data class CurrentItemChanged(val kitharaItemId: String?) : EnginePlayerEvent
-    data object PlayedToEnd : EnginePlayerEvent
+    data class PlayedToEnd(val kitharaItemId: String) : EnginePlayerEvent
 }
 
 /**
@@ -104,7 +104,7 @@ internal class RealKitharaPlayerHandle(private val scope: CoroutineScope) : Kith
                 is KitharaPlayerEvent.CurrentItemChanged ->
                     EnginePlayerEvent.CurrentItemChanged(event.itemId)
                 is KitharaPlayerEvent.PlayedToEnd ->
-                    EnginePlayerEvent.PlayedToEnd
+                    EnginePlayerEvent.PlayedToEnd(event.itemId)
             }
         }
 

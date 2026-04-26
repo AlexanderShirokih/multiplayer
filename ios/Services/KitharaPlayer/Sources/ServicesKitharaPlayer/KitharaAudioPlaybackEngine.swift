@@ -188,11 +188,14 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
             emitItemFailedOnce(itemId: currentItemId, reason: error)
             publishState(forcedStatus: .failed)
 
-        case .itemDidPlayToEnd:
-            writeKitharaEngineTrace("player itemDidPlayToEnd")
-            kitharaEngineLog.info("player itemDidPlayToEnd")
+        case let .itemDidPlayToEnd(itemId):
+            writeKitharaEngineTrace("player itemDidPlayToEnd kitharaItemId=\(itemId)")
+            kitharaEngineLog.info("player itemDidPlayToEnd kitharaItemId=\(itemId, privacy: .public)")
             publishState()
-            eventRelay.yield(.playedToEnd)
+            guard let appItemId = mapAppItemId(for: itemId) else {
+                return
+            }
+            eventRelay.yield(.playedToEnd(itemId: appItemId))
 
         case .bufferedDurationChanged,
                 .volumeChanged,

@@ -295,7 +295,7 @@ class PlaybackQueueController(
     private suspend fun collectEngineEvents() {
         engine.events.collect { event ->
             when (event) {
-                is AudioEngineEvent.PlayedToEnd -> onPlayedToEnd()
+                is AudioEngineEvent.PlayedToEnd -> onPlayedToEnd(event.itemId)
                 is AudioEngineEvent.ItemFailed ->
                     onItemFailed(event.itemId, event.reason.toPlaybackError(event.itemId))
                 is AudioEngineEvent.EngineFailed -> {
@@ -315,23 +315,28 @@ class PlaybackQueueController(
         }
     }
 
-    private suspend fun onPlayedToEnd() {
+    private suspend fun onPlayedToEnd(itemId: String) {
         val current = _state.value
+        val currentItem = current.currentItem
+        if (currentItem == null || itemId != currentItem.id) {
+            return
+        }
+
         val nextIndex = (current.currentIndex ?: -1) + 1
         if (nextIndex > current.queue.lastIndex) {
             markEnded()
-            return
+        } else {
+            failedCountSinceLastSuccess = 0
+            _state.update {
+                it.copy(
+                    currentIndex = nextIndex,
+                    phase = PlaybackPhase.Loading,
+                    currentPositionMs = 0L,
+                    currentDurationMs = null,
+                )
+            }
+            loadAndPlay(nextIndex, 0L)
         }
-        failedCountSinceLastSuccess = 0
-        _state.update {
-            it.copy(
-                currentIndex = nextIndex,
-                phase = PlaybackPhase.Loading,
-                currentPositionMs = 0L,
-                currentDurationMs = null,
-            )
-        }
-        loadAndPlay(nextIndex, 0L)
     }
 
     private fun onItemFailed(itemId: String, error: PlaybackError) {

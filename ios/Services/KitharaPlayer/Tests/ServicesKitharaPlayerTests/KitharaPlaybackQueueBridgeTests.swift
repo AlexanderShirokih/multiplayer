@@ -59,7 +59,7 @@ final class KitharaPlaybackQueueBridgeTests: XCTestCase {
             startIndex: 0,
             autoPlay: true
         )
-        engine.emit(event: .playedToEnd)
+        engine.emit(event: .playedToEnd(itemId: "0:first"))
 
         await waitUntil {
             engine.loadedRequests.count == 2
@@ -67,6 +67,40 @@ final class KitharaPlaybackQueueBridgeTests: XCTestCase {
 
         let state = await firstValue(from: bridge.playbackStateStream())
         XCTAssertEqual(state.currentIndex, 1)
+        XCTAssertEqual(engine.loadedRequests.last?.id, "1:second")
+    }
+
+    func testPlayedToEndForStaleItemDoesNotAdvanceQueue() async {
+        let engine = FakeAudioPlaybackEngine()
+        let bridge = KitharaPlaybackQueueBridge(
+            engine: engine,
+            urlResolver: ProviderPlayableUrlResolver(
+                urlProvider: FakeTrackStreamURLProvider(
+                    urls: [
+                        TrackId(rawValue: "first"): URL(string: "https://example.com/first.mp3")!,
+                        TrackId(rawValue: "second"): URL(string: "https://example.com/second.mp3")!,
+                        TrackId(rawValue: "third"): URL(string: "https://example.com/third.mp3")!
+                    ])
+            )
+        )
+
+        await bridge.replaceQueue(
+            queue: [
+                makeQueueItem(id: "0:first", trackId: "first"),
+                makeQueueItem(id: "1:second", trackId: "second"),
+                makeQueueItem(id: "2:third", trackId: "third")
+            ],
+            startIndex: nil,
+            autoPlay: false
+        )
+        await bridge.playTrack(index: 1)
+        engine.emit(event: .playedToEnd(itemId: "0:first"))
+
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        let state = await firstValue(from: bridge.playbackStateStream())
+        XCTAssertEqual(state.currentIndex, 1)
+        XCTAssertEqual(engine.loadedRequests.count, 1)
         XCTAssertEqual(engine.loadedRequests.last?.id, "1:second")
     }
 

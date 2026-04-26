@@ -23,7 +23,7 @@ enum class AudioEngineStatus {
 
 sealed interface AudioEngineEvent {
     data class CurrentItemChanged(val itemId: String?) : AudioEngineEvent
-    data object PlayedToEnd : AudioEngineEvent
+    data class PlayedToEnd(val itemId: String) : AudioEngineEvent
     data class ItemFailed(val itemId: String, val reason: AudioEngineError) : AudioEngineEvent
     data class EngineFailed(val reason: AudioEngineError) : AudioEngineEvent
     data class DurationDiscovered(val itemId: String, val durationMs: Long) : AudioEngineEvent
