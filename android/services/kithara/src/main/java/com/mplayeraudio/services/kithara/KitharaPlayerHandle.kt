@@ -77,7 +77,9 @@ internal interface KitharaPlayerHandle {
 
 internal class RealKitharaPlayerHandle(private val scope: CoroutineScope) : KitharaPlayerHandle {
 
-    private val player = KitharaPlayer()
+    private val player = KitharaPlayer().apply {
+        crossfadeDuration = 0f
+    }
 
     override val snapshots: StateFlow<EnginePlayerSnapshot> = player.state
         .map { ps ->
