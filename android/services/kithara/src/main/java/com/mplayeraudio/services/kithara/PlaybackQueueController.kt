@@ -1,6 +1,5 @@
 package com.mplayeraudio.services.kithara
 
-import android.util.Log
 import com.mplayeraudio.core.player.CachingPlayableUrlResolver
 import com.mplayeraudio.core.player.NowPlayingStripExternalState
 import com.mplayeraudio.core.player.PlayableUrlResolver
@@ -28,6 +27,7 @@ class PlaybackQueueController(
     urlResolver: PlayableUrlResolver,
     scope: CoroutineScope,
     private val loadTimeoutMs: Long = DefaultLoadTimeoutMs,
+    private val logger: KitharaLogger = NoOpKitharaLogger,
 ) : PlaybackQueueBridge {
 
     private val cachingResolver = CachingPlayableUrlResolver(delegate = urlResolver)
@@ -47,9 +47,6 @@ class PlaybackQueueController(
         )
     }
 
-    // All internal coroutines (state/event collection, watchdog, ticker, auto-skip)
-    // are launched in childScope. shutdown() cancels the whole scope at once,
-    // which makes advanceUntilIdle() safe in tests.
     private val childScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
 
     private var failedCountSinceLastSuccess = 0
@@ -77,7 +74,7 @@ class PlaybackQueueController(
         previous: PlaybackQueueState,
     ): QueueReplacementPlan {
         val preservedIndex = previous.currentItem
-            ?.let { curr -> queue.indexOfFirst { it.id == curr.id }.takeIf { it >= 0 } }
+            ?.let { currentItem -> queue.indexOfFirst { it.id == currentItem.id }.takeIf { it >= 0 } }
         val nextIndex = startIndex ?: preservedIndex ?: if (queue.isNotEmpty()) 0 else null
         val preservingCurrentTrack = nextIndex != null && nextIndex == preservedIndex
         val startPositionMs = resolvedStartPosition(queue, nextIndex, preservingCurrentTrack, previous)
@@ -116,26 +113,50 @@ class PlaybackQueueController(
         _state.value = PlaybackQueueState(
             queue = queue,
             currentIndex = plan.nextIndex,
-            phase = if (queue.isEmpty() || !plan.preservingCurrentTrack) PlaybackPhase.Idle else previous.phase,
+            phase = when {
+                queue.isEmpty() -> PlaybackPhase.Idle
+                plan.preservingCurrentTrack -> previous.phase
+                plan.shouldPlay -> PlaybackPhase.Loading
+                else -> PlaybackPhase.Idle
+            },
             currentPositionMs = plan.startPositionMs,
             currentDurationMs = if (plan.preservingCurrentTrack) previous.currentDurationMs else null,
         )
 
-        if (queue.isEmpty() || !plan.preservingCurrentTrack) {
+        if (queue.isEmpty()) {
             cancelWatchdog()
             updateTicker(isPlaying = false)
             engine.stop()
-        }
+        } else {
+            plan.nextIndex?.let { nextIndex ->
+                failedCountSinceLastSuccess = 0
 
-        if (plan.shouldPlay && plan.nextIndex != null) {
-            failedCountSinceLastSuccess = 0
-            loadAndPlay(plan.nextIndex, plan.startPositionMs)
+                if (plan.preservingCurrentTrack) {
+                    cancelWatchdog()
+                    syncPreservedWindow(previous = previous, nextIndex = nextIndex)
+
+                    if (plan.shouldPlay && !previous.isPlaying) {
+                        engine.play()
+                        _state.update { it.copy(phase = PlaybackPhase.Playing) }
+                        updateTicker(isPlaying = true)
+                    } else {
+                        updateTicker(isPlaying = previous.isPlaying)
+                    }
+                } else {
+                    applyWindow(
+                        currentIndex = nextIndex,
+                        autoPlay = plan.shouldPlay,
+                        startPositionMs = plan.startPositionMs,
+                    )
+                }
+            }
         }
     }
 
     override suspend fun playTrack(index: Int) {
         val currentQueue = _state.value.queue
         if (index !in currentQueue.indices) return
+
         failedCountSinceLastSuccess = 0
         _state.update {
             it.copy(
@@ -146,23 +167,35 @@ class PlaybackQueueController(
                 playbackError = null,
             )
         }
-        loadAndPlay(index, 0L)
+
+        selectOrApplyWindow(index)
     }
 
     override suspend fun play() {
         val current = _state.value
         if (current.queue.isEmpty()) return
+
         val index = current.currentIndex ?: 0
         val loadedItemId = engine.engineState.value.currentItemId
         val currentItemId = current.queue.getOrNull(index)?.id
 
         if (loadedItemId == currentItemId && loadedItemId != null) {
             engine.play()
-            _state.update { it.copy(phase = PlaybackPhase.Playing) }
+            _state.update { it.copy(phase = PlaybackPhase.Playing, playbackError = null) }
             updateTicker(isPlaying = true)
-        } else {
-            loadAndPlay(index, current.currentPositionMs)
+            return
         }
+
+        failedCountSinceLastSuccess = 0
+        _state.update {
+            it.copy(
+                currentIndex = index,
+                phase = PlaybackPhase.Loading,
+                currentDurationMs = null,
+                playbackError = null,
+            )
+        }
+        applyWindow(index, autoPlay = true, startPositionMs = current.currentPositionMs)
     }
 
     override suspend fun pause() {
@@ -187,6 +220,7 @@ class PlaybackQueueController(
             markEnded()
             return
         }
+
         failedCountSinceLastSuccess = 0
         _state.update {
             it.copy(
@@ -197,7 +231,8 @@ class PlaybackQueueController(
                 playbackError = null,
             )
         }
-        loadAndPlay(nextIndex, 0L)
+
+        selectOrApplyWindow(nextIndex)
     }
 
     override suspend fun skipPrevious() {
@@ -208,17 +243,20 @@ class PlaybackQueueController(
             _state.update { it.copy(currentPositionMs = 0L) }
             return
         }
-        val prevIndex = currentIndex - 1
+
+        val previousIndex = currentIndex - 1
+        failedCountSinceLastSuccess = 0
         _state.update {
             it.copy(
-                currentIndex = prevIndex,
+                currentIndex = previousIndex,
                 phase = PlaybackPhase.Loading,
                 currentPositionMs = 0L,
                 currentDurationMs = null,
                 playbackError = null,
             )
         }
-        loadAndPlay(prevIndex, 0L)
+
+        selectOrApplyWindow(previousIndex)
     }
 
     override suspend fun seekTo(positionMs: Long) {
@@ -241,23 +279,82 @@ class PlaybackQueueController(
     }
 
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun loadAndPlay(index: Int, startPositionMs: Long) {
-        val item = _state.value.queue.getOrNull(index) ?: return
-        _state.update { it.copy(phase = PlaybackPhase.Loading, playbackError = null) }
-        startWatchdog(item.id)
+    private suspend fun applyWindow(
+        currentIndex: Int,
+        autoPlay: Boolean,
+        startPositionMs: Long,
+    ) {
+        val queue = _state.value.queue
+        val currentItem = queue.getOrNull(currentIndex) ?: return
+        val nextItem = queue.getOrNull(currentIndex + 1)
+
+        if (autoPlay) {
+            startWatchdog(currentItem.id)
+        } else {
+            cancelWatchdog()
+        }
 
         try {
-            val url = cachingResolver.getPlayableUrl(item)
-            engine.loadTrack(AudioTrackRequest(id = item.id, url = url), autoPlay = true)
+            val currentUrl = cachingResolver.getPlayableUrl(currentItem)
+            val nextRequest = nextItem?.let { item ->
+                AudioTrackRequest(id = item.id, url = cachingResolver.getPlayableUrl(item))
+            }
+
+            engine.setQueueWindow(
+                current = AudioTrackRequest(id = currentItem.id, url = currentUrl),
+                next = nextRequest,
+                autoPlay = autoPlay,
+            )
+
             if (startPositionMs > 0L) {
                 engine.seekTo(startPositionMs)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load track ${item.id}", e)
+            logger.error(TAG, "Failed to apply queue window for ${currentItem.id}", e)
             cancelWatchdog()
             val message = e.message?.takeUnless(String::isBlank) ?: "Load failed"
-            onItemFailed(item.id, PlaybackError.TrackUnavailable(item.id, message))
+            onItemFailed(currentItem.id, PlaybackError.TrackUnavailable(currentItem.id, message))
         }
+    }
+
+    private suspend fun selectOrApplyWindow(index: Int) {
+        val item = _state.value.queue.getOrNull(index) ?: return
+        if (engine.selectInWindow(item.id, autoPlay = true)) {
+            cancelWatchdog()
+            return
+        }
+
+        applyWindow(currentIndex = index, autoPlay = true, startPositionMs = 0L)
+    }
+
+    private suspend fun syncPreservedWindow(
+        previous: PlaybackQueueState,
+        nextIndex: Int,
+    ) {
+        val queue = _state.value.queue
+        engine.pruneWindow(keepAppItemIds(queue, nextIndex))
+
+        val previousNextId = previous.currentIndex
+            ?.plus(1)
+            ?.let(previous.queue::getOrNull)
+            ?.id
+        val nextItem = queue.getOrNull(nextIndex + 1) ?: return
+        if (nextItem.id == previousNextId) return
+
+        val url = cachingResolver.getPlayableUrl(nextItem)
+        engine.appendNext(AudioTrackRequest(id = nextItem.id, url = url))
+    }
+
+    private suspend fun extendWindowIfNeeded() {
+        val current = _state.value
+        val currentIndex = current.currentIndex ?: return
+        val queue = current.queue
+
+        engine.pruneWindow(keepAppItemIds(queue, currentIndex))
+
+        val nextItem = queue.getOrNull(currentIndex + 1) ?: return
+        val url = cachingResolver.getPlayableUrl(nextItem)
+        engine.appendNext(AudioTrackRequest(id = nextItem.id, url = url))
     }
 
     private suspend fun collectEngineState() {
@@ -269,7 +366,8 @@ class PlaybackQueueController(
 
                 val newPhase = when {
                     current.phase == PlaybackPhase.Failed ||
-                        current.phase == PlaybackPhase.Idle -> current.phase
+                        current.phase == PlaybackPhase.Idle ||
+                        current.phase == PlaybackPhase.Ended -> current.phase
                     engineState.isPlaying -> PlaybackPhase.Playing
                     engineState.status == AudioEngineStatus.ReadyToPlay && !engineState.isPlaying ->
                         if (current.phase == PlaybackPhase.Playing) PlaybackPhase.Paused else current.phase
@@ -296,8 +394,9 @@ class PlaybackQueueController(
         engine.events.collect { event ->
             when (event) {
                 is AudioEngineEvent.PlayedToEnd -> onPlayedToEnd(event.itemId)
+                is AudioEngineEvent.CurrentItemChanged -> onCurrentItemChanged(event.itemId)
                 is AudioEngineEvent.ItemFailed ->
-                    onItemFailed(event.itemId, event.reason.toPlaybackError(event.itemId))
+                    onEngineItemFailed(event.itemId, event.reason.toPlaybackError(event.itemId))
                 is AudioEngineEvent.EngineFailed -> {
                     val currentItemId = _state.value.currentItem?.id
                     onItemFailed(
@@ -310,32 +409,41 @@ class PlaybackQueueController(
                         _state.update { it.copy(currentDurationMs = event.durationMs) }
                     }
                 }
-                is AudioEngineEvent.CurrentItemChanged -> Unit
             }
         }
     }
 
-    private suspend fun onPlayedToEnd(itemId: String) {
+    private fun onPlayedToEnd(itemId: String) {
         val current = _state.value
-        val currentItem = current.currentItem
-        if (currentItem == null || itemId != currentItem.id) {
-            return
-        }
+        val currentItem = current.currentItem ?: return
+        if (itemId != currentItem.id || current.currentIndex != current.queue.lastIndex) return
+        markEnded()
+    }
 
-        val nextIndex = (current.currentIndex ?: -1) + 1
-        if (nextIndex > current.queue.lastIndex) {
-            markEnded()
-        } else {
-            failedCountSinceLastSuccess = 0
-            _state.update {
-                it.copy(
-                    currentIndex = nextIndex,
-                    phase = PlaybackPhase.Loading,
-                    currentPositionMs = 0L,
-                    currentDurationMs = null,
-                )
-            }
-            loadAndPlay(nextIndex, 0L)
+    private suspend fun onCurrentItemChanged(appItemId: String?) {
+        if (appItemId == null) return
+
+        val nextIndex = _state.value.queue.indexOfFirst { it.id == appItemId }
+        if (nextIndex < 0) return
+
+        failedCountSinceLastSuccess = 0
+        cancelWatchdog()
+        _state.update { current ->
+            current.copy(
+                currentIndex = nextIndex,
+                phase = if (engine.engineState.value.isPlaying) PlaybackPhase.Playing else current.phase,
+                currentPositionMs = 0L,
+                currentDurationMs = null,
+                playbackError = null,
+            )
+        }
+        updateTicker(isPlaying = engine.engineState.value.isPlaying)
+        extendWindowIfNeeded()
+    }
+
+    private fun onEngineItemFailed(itemId: String, error: PlaybackError) {
+        if (itemId == _state.value.currentItem?.id) {
+            onItemFailed(itemId, error)
         }
     }
 
@@ -361,9 +469,10 @@ class PlaybackQueueController(
                             phase = PlaybackPhase.Loading,
                             currentPositionMs = 0L,
                             currentDurationMs = null,
+                            playbackError = null,
                         )
                     }
-                    loadAndPlay(nextIndex, 0L)
+                    selectOrApplyWindow(nextIndex)
                 }
             }
         }
@@ -409,6 +518,14 @@ class PlaybackQueueController(
                 _state.update { it.copy(currentPositionMs = engine.engineState.value.currentPositionMs) }
             }
         }
+    }
+
+    private fun keepAppItemIds(
+        queue: List<PlaybackQueueItem>,
+        currentIndex: Int,
+    ): Set<String> = buildSet {
+        queue.getOrNull(currentIndex)?.let { add(it.id) }
+        queue.getOrNull(currentIndex + 1)?.let { add(it.id) }
     }
 
     private companion object {

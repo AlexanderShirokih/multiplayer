@@ -10,6 +10,17 @@ interface AudioPlaybackEngine {
     fun play()
     fun pause()
     suspend fun seekTo(positionMs: Long): Boolean
-    fun loadTrack(request: AudioTrackRequest, autoPlay: Boolean = true)
+    fun setQueueWindow(
+        current: AudioTrackRequest,
+        next: AudioTrackRequest?,
+        autoPlay: Boolean,
+    )
+
+    fun appendNext(next: AudioTrackRequest)
+
+    suspend fun selectInWindow(appItemId: String, autoPlay: Boolean): Boolean
+
+    fun pruneWindow(keepAppItemIds: Set<String>)
+
     fun stop()
 }

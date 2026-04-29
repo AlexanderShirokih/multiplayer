@@ -5,7 +5,9 @@ import com.mplayeraudio.core.domain.musiclibrary.TrackStreamUrlProvider
 import com.mplayeraudio.core.player.PlayableUrlResolver
 import com.mplayeraudio.core.player.PlaybackQueueBridge
 import com.mplayeraudio.services.kithara.AudioPlaybackEngine
+import com.mplayeraudio.services.kithara.AndroidKitharaLogger
 import com.mplayeraudio.services.kithara.CompositePlayableUrlResolver
+import com.mplayeraudio.services.kithara.KitharaLogger
 import com.mplayeraudio.services.kithara.KitharaAudioPlaybackEngine
 import com.mplayeraudio.services.kithara.PlaybackQueueController
 import kotlinx.coroutines.CoroutineScope
@@ -21,8 +23,12 @@ fun kitharaModule(): Module = module {
     single(named(KitharaScopeQualifier)) {
         CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     }
+    single<KitharaLogger> { AndroidKitharaLogger }
     single<AudioPlaybackEngine> {
-        KitharaAudioPlaybackEngine(scope = get(named(KitharaScopeQualifier)))
+        KitharaAudioPlaybackEngine(
+            scope = get(named(KitharaScopeQualifier)),
+            logger = get(),
+        )
     }
     single<PlayableUrlResolver> {
         CompositePlayableUrlResolver(
@@ -44,6 +50,7 @@ fun kitharaModule(): Module = module {
             engine = get(),
             urlResolver = get(),
             scope = get(named(KitharaScopeQualifier)),
+            logger = get(),
         )
     }
 }

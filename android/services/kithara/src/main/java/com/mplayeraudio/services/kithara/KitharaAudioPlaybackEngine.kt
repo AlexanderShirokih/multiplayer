@@ -1,6 +1,5 @@
 package com.mplayeraudio.services.kithara
 
-import com.kithara.KitharaError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -15,21 +14,23 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.DurationUnit
 
+@Suppress("TooManyFunctions")
 internal class KitharaAudioPlaybackEngine(
     scope: CoroutineScope,
     player: KitharaPlayerHandle? = null,
+    private val logger: KitharaLogger = NoOpKitharaLogger,
 ) : AudioPlaybackEngine {
-    // Internal collectors should not run directly in the caller scope.
-    // shutdown() cancels childScope in tests, mirroring PlaybackQueueController.
     private val childScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
     private val player: KitharaPlayerHandle = player ?: RealKitharaPlayerHandle(childScope)
 
-
     /** kitharaId → appItemId */
     private val itemIdMap = mutableMapOf<String, String>()
-    private var currentItemHandle: KitharaItemHandle? = null
-    private var itemObservationJob: Job? = null
+    private val windowHandles = LinkedHashMap<String, KitharaItemHandle>()
+    private val itemObservationJobs = mutableMapOf<String, Job>()
+    private var pendingAutoPlayAppItemId: String? = null
 
     private val _engineState = MutableStateFlow(AudioEngineState())
     override val engineState: StateFlow<AudioEngineState> = _engineState.asStateFlow()
@@ -51,7 +52,7 @@ internal class KitharaAudioPlaybackEngine(
     }
 
     override suspend fun seekTo(positionMs: Long): Boolean {
-        val seconds = positionMs.toDouble() / MsPerSecond
+        val seconds = positionMs.milliseconds.toDouble(DurationUnit.SECONDS)
         return suspendCancellableCoroutine { continuation ->
             player.seek(seconds) { didFinish ->
                 if (continuation.isActive) {
@@ -61,24 +62,66 @@ internal class KitharaAudioPlaybackEngine(
         }
     }
 
-    override fun loadTrack(request: AudioTrackRequest, autoPlay: Boolean) {
-        cancelItemObservation()
-        player.removeAllItems()
-        itemIdMap.clear()
-
-        val item = player.createAndLoadItem(request.url)
-        currentItemHandle = item
-        itemIdMap[item.kitharaId] = request.id
-        _engineState.update { it.copy(currentItemId = request.id) }
-
-        itemObservationJob = childScope.launch { observeItem(item, request.id, autoPlay) }
-    }
-
-    override fun stop() {
-        cancelItemObservation()
+    override fun setQueueWindow(
+        current: AudioTrackRequest,
+        next: AudioTrackRequest?,
+        autoPlay: Boolean,
+    ) {
+        cancelAllItemObservations()
         player.pause()
         player.removeAllItems()
         itemIdMap.clear()
+        windowHandles.clear()
+        pendingAutoPlayAppItemId = current.id.takeIf { autoPlay }
+        _engineState.value = AudioEngineState(currentItemId = current.id)
+
+        insertWindowItem(current)
+        next?.let(::insertWindowItem)
+    }
+
+    override fun appendNext(next: AudioTrackRequest) {
+        if (windowHandles.containsKey(next.id)) return
+        insertWindowItem(next)
+    }
+
+    override suspend fun selectInWindow(appItemId: String, autoPlay: Boolean): Boolean {
+        val item = windowHandles[appItemId] ?: return false
+
+        player.selectItem(item.kitharaId)
+        _engineState.update {
+            it.copy(
+                currentItemId = appItemId,
+                currentPositionMs = 0L,
+                bufferedPositionMs = 0L,
+                durationMs = item.snapshots.value.durationMs,
+                error = null,
+            )
+        }
+
+        if (autoPlay && item.snapshots.value.status == EngineItemStatus.ReadyToPlay) {
+            pendingAutoPlayAppItemId = null
+            player.play()
+        } else {
+            pendingAutoPlayAppItemId = appItemId.takeIf { autoPlay }
+        }
+
+        return true
+    }
+
+    override fun pruneWindow(keepAppItemIds: Set<String>) {
+        windowHandles.keys
+            .filterNot(keepAppItemIds::contains)
+            .toList()
+            .forEach(::removeWindowItem)
+    }
+
+    override fun stop() {
+        cancelAllItemObservations()
+        player.pause()
+        player.removeAllItems()
+        itemIdMap.clear()
+        windowHandles.clear()
+        pendingAutoPlayAppItemId = null
         _engineState.value = AudioEngineState()
     }
 
@@ -87,41 +130,64 @@ internal class KitharaAudioPlaybackEngine(
         childScope.cancel()
     }
 
-    private fun cancelItemObservation() {
-        itemObservationJob?.cancel()
-        itemObservationJob = null
-        currentItemHandle = null
+    private fun cancelAllItemObservations() {
+        itemObservationJobs.values.forEach(Job::cancel)
+        itemObservationJobs.clear()
+    }
+
+    private fun insertWindowItem(request: AudioTrackRequest) {
+        if (windowHandles.containsKey(request.id)) return
+
+        val item = player.insertItem(request.url)
+        windowHandles[request.id] = item
+        itemIdMap[item.kitharaId] = request.id
+        itemObservationJobs[request.id] = childScope.launch { observeItem(item, request.id) }
+    }
+
+    private fun removeWindowItem(appItemId: String) {
+        val item = windowHandles.remove(appItemId) ?: return
+        itemObservationJobs.remove(appItemId)?.cancel()
+        itemIdMap.remove(item.kitharaId)
+        if (pendingAutoPlayAppItemId == appItemId) {
+            pendingAutoPlayAppItemId = null
+        }
+        player.removeItem(item.kitharaId)
     }
 
     private suspend fun observeItem(
         item: KitharaItemHandle,
         requestId: String,
-        autoPlay: Boolean,
     ) {
-        var playTriggered = false
-        var failureEmitted = false
+        var failureHandled = false
         var lastEmittedDurationMs: Long? = null
 
         item.snapshots.collect { snapshot ->
             val durationMs = snapshot.durationMs
             if (durationMs != null && durationMs != lastEmittedDurationMs) {
                 lastEmittedDurationMs = durationMs
-                _engineState.update { it.copy(durationMs = durationMs) }
+                if (_engineState.value.currentItemId == requestId) {
+                    _engineState.update { it.copy(durationMs = durationMs) }
+                }
                 _events.emit(AudioEngineEvent.DurationDiscovered(requestId, durationMs))
             }
 
             when (snapshot.status) {
                 EngineItemStatus.ReadyToPlay -> {
-                    if (autoPlay && !playTriggered) {
-                        playTriggered = true
+                    if (pendingAutoPlayAppItemId == requestId) {
+                        pendingAutoPlayAppItemId = null
                         player.play()
                     }
                 }
                 EngineItemStatus.Failed -> {
-                    if (!failureEmitted) {
-                        failureEmitted = true
+                    if (failureHandled) return@collect
+                    failureHandled = true
+
+                    if (_engineState.value.currentItemId == requestId) {
                         val error = snapshot.error ?: AudioEngineError.LoadFailed("Unknown item error")
                         _events.emit(AudioEngineEvent.ItemFailed(requestId, error))
+                    } else {
+                        logger.trace(TAG, "Dropping failed preloaded item: $requestId")
+                        childScope.launch { removeWindowItem(requestId) }
                     }
                 }
                 EngineItemStatus.Unknown -> Unit
@@ -132,14 +198,12 @@ internal class KitharaAudioPlaybackEngine(
     private suspend fun collectPlayerState() {
         var engineFailedEmitted = false
         player.snapshots.collect { snapshot ->
-            val currentAppItemId = snapshot.currentKitharaItemId?.let { itemIdMap[it] }
-
             _engineState.update { current ->
                 current.copy(
                     status = snapshot.status,
                     currentPositionMs = snapshot.currentPositionMs,
                     bufferedPositionMs = snapshot.bufferedPositionMs,
-                    currentItemId = currentAppItemId ?: current.currentItemId,
+                    currentItemId = snapshot.currentKitharaItemId?.let(itemIdMap::get) ?: current.currentItemId,
                     isPlaying = snapshot.rate > 0f,
                     error = snapshot.error,
                 )
@@ -161,6 +225,14 @@ internal class KitharaAudioPlaybackEngine(
             when (event) {
                 is EnginePlayerEvent.CurrentItemChanged -> {
                     val appItemId = event.kitharaItemId?.let { itemIdMap[it] }
+                    _engineState.update {
+                        it.copy(
+                            currentItemId = appItemId,
+                            currentPositionMs = 0L,
+                            durationMs = appItemId?.let(windowHandles::get)?.snapshots?.value?.durationMs,
+                            error = null,
+                        )
+                    }
                     _events.emit(AudioEngineEvent.CurrentItemChanged(appItemId))
                 }
                 is EnginePlayerEvent.PlayedToEnd -> {
@@ -170,17 +242,10 @@ internal class KitharaAudioPlaybackEngine(
             }
         }
     }
+
+    private companion object {
+        const val TAG = "KitharaPlaybackEngine"
+    }
 }
 
-internal fun KitharaError?.toAudioEngineError(): AudioEngineError = when (this) {
-    is KitharaError.ItemFailed -> AudioEngineError.LoadFailed(reason)
-    is KitharaError.Internal -> AudioEngineError.EngineCrashed(description)
-    is KitharaError.EngineNotRunning -> AudioEngineError.EngineCrashed("Engine not running")
-    is KitharaError.InvalidArgument -> AudioEngineError.LoadFailed(reason)
-    is KitharaError.NotReady -> AudioEngineError.LoadFailed("Engine not ready")
-    is KitharaError.SeekFailed -> AudioEngineError.SeekFailed
-    null -> AudioEngineError.EngineCrashed("Unknown error")
-}
-
-private const val MsPerSecond = 1_000.0
 private const val EventBufferCapacity = 16
