@@ -77,6 +77,7 @@ internal interface KitharaPlayerDriver {
     fun pause()
     suspend fun seek(seconds: Double): Boolean
     fun createItem(url: String): KitharaPlayerItem
+    fun load(item: KitharaPlayerItem)
     fun insert(item: KitharaPlayerItem)
     fun selectItem(index: Int, autoplay: Boolean)
     fun remove(item: KitharaPlayerItem)
@@ -152,6 +153,7 @@ internal class KitharaPlayerWrapper(
 
     fun insertItem(url: String): KitharaItemHandle {
         val item = player.createItem(url)
+        player.load(item)
         player.insert(item)
         insertedItems[item.id] = item
         observeItem(item)
@@ -285,6 +287,10 @@ private class RealKitharaPlayerDriver(
         }
 
     override fun createItem(url: String): KitharaPlayerItem = KitharaPlayerItem(url = url)
+
+    override fun load(item: KitharaPlayerItem) {
+        item.load()
+    }
 
     override fun insert(item: KitharaPlayerItem) {
         delegate.insert(item)

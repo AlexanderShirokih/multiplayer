@@ -12,10 +12,8 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -67,11 +65,54 @@ class PlaybackQueueControllerTest {
     }
 
     @Test
-    fun `replaceQueue waits for inserted item readiness before selecting`() = runTest {
+    fun `autoPlay waits for current item selection before playing`() = runTest {
+        val ctx = controllerTestContext(this)
+        ctx.player.blockSelection()
+
+        backgroundScope.launch {
+            ctx.controller.replaceQueue(queue = listOf(item("t1")), autoPlay = true)
+        }
+        runCurrent()
+
+        ctx.player.item("http://host/t1.mp3")!!.setSnapshot(
+            EngineItemSnapshot(status = EngineItemStatus.ReadyToPlay, durationMs = 42_000L),
+        )
+        runCurrent()
+
+        assertEquals(0, ctx.player.playCallCount)
+        assertEquals(0, ctx.player.selectCallCount)
+
+        ctx.player.releaseBlockedSelection()
+        advanceUntilIdle()
+
+        assertEquals(1, ctx.player.selectCallCount)
+        assertEquals(1, ctx.player.playCallCount)
+        assertEquals(PlaybackPhase.Playing, ctx.controller.playbackState.value.phase)
+        shutdown(ctx, this)
+    }
+
+    @Test
+    fun `replaceQueue without explicit target only syncs queue`() = runTest {
         val ctx = controllerTestContext(this)
 
         backgroundScope.launch {
             ctx.controller.replaceQueue(queue = listOf(item("t1")), autoPlay = false)
+        }
+        runCurrent()
+
+        assertTrue(ctx.player.insertedUrls.isEmpty())
+        assertEquals(PlaybackPhase.Idle, ctx.controller.playbackState.value.phase)
+        assertEquals(null, ctx.controller.playbackState.value.currentIndex)
+        assertEquals(0, ctx.player.selectCallCount)
+        shutdown(ctx, this)
+    }
+
+    @Test
+    fun `replaceQueue with explicit start index waits for inserted item readiness before selecting`() = runTest {
+        val ctx = controllerTestContext(this)
+
+        backgroundScope.launch {
+            ctx.controller.replaceQueue(queue = listOf(item("t1")), startIndex = 0, autoPlay = false)
         }
         runCurrent()
 
@@ -93,7 +134,7 @@ class PlaybackQueueControllerTest {
         val ctx = controllerTestContext(this)
 
         backgroundScope.launch {
-            ctx.controller.replaceQueue(queue = listOf(item("t1"), item("t2")), autoPlay = false)
+            ctx.controller.replaceQueue(queue = listOf(item("t1"), item("t2")), startIndex = 0, autoPlay = false)
         }
         runCurrent()
         ctx.player.item("http://host/t1.mp3")!!.setSnapshot(
@@ -153,7 +194,7 @@ class PlaybackQueueControllerTest {
         val ctx = controllerTestContext(this)
 
         backgroundScope.launch {
-            ctx.controller.replaceQueue(queue = listOf(item("t1")), autoPlay = false)
+            ctx.controller.replaceQueue(queue = listOf(item("t1")), startIndex = 0, autoPlay = false)
         }
         runCurrent()
         ctx.player.item("http://host/t1.mp3")!!.setSnapshot(
@@ -175,6 +216,44 @@ class PlaybackQueueControllerTest {
         assertEquals(90_000L, ctx.controller.playbackState.value.currentPositionMs)
         assertFalse(seekJob.isCancelled)
         seekJob.join()
+        shutdown(ctx, this)
+    }
+
+    @Test
+    fun `late playing snapshot from previous item must not cancel autoplay for newly selected item`() = runTest {
+        val ctx = controllerTestContext(this)
+
+        backgroundScope.launch {
+            ctx.controller.replaceQueue(queue = listOf(item("t1"), item("t2")), autoPlay = true)
+        }
+        runCurrent()
+        ctx.player.item("http://host/t1.mp3")!!.setSnapshot(
+            EngineItemSnapshot(status = EngineItemStatus.ReadyToPlay, durationMs = 42_000L),
+        )
+        advanceUntilIdle()
+        assertEquals(1, ctx.player.playCallCount)
+
+        ctx.player.blockSelection()
+        val switchJob = backgroundScope.launch {
+            ctx.controller.playTrack(1)
+        }
+        runCurrent()
+
+        ctx.player.updatePosition(positionMs = 7_000L, isPlaying = true)
+        runCurrent()
+
+        ctx.player.item("http://host/t2.mp3")!!.setSnapshot(
+            EngineItemSnapshot(status = EngineItemStatus.ReadyToPlay, durationMs = 50_000L),
+        )
+        runCurrent()
+        ctx.player.releaseBlockedSelection()
+        advanceUntilIdle()
+
+        assertEquals(2, ctx.player.selectCallCount)
+        assertEquals(2, ctx.player.playCallCount)
+        assertEquals(PlaybackPhase.Playing, ctx.controller.playbackState.value.phase)
+        assertEquals("t2", ctx.controller.playbackState.value.currentItem?.id)
+        switchJob.join()
         shutdown(ctx, this)
     }
 }
@@ -228,6 +307,8 @@ private class MockKitharaPlayerHarness {
     private val itemsById = linkedMapOf<String, TestKitharaItemHandle>()
     private var pendingSeekCallback: ((Boolean) -> Unit)? = null
     private var nextItemOrdinal = 0
+    private var selectionBlocked = false
+    private var selectionGate = CompletableDeferred<Unit>()
 
     val wrapper: KitharaPlayerWrapper = mockk(relaxed = true)
     val insertedUrls = mutableListOf<String>()
@@ -271,6 +352,9 @@ private class MockKitharaPlayerHarness {
             val kitharaId = firstArg<String>()
             val item = itemsById[kitharaId] ?: error("Missing test item: $kitharaId")
             item.awaitSelectionReady()
+            if (selectionBlocked) {
+                selectionGate.await()
+            }
             if (item.lastSnapshot.status == EngineItemStatus.Failed) {
                 throw IllegalStateException(
                     item.lastSnapshot.error?.toTestFailureMessage() ?: "Item failed to load",
@@ -278,6 +362,7 @@ private class MockKitharaPlayerHarness {
             }
             selectCallCount += 1
             snapshotState.value = snapshotState.value.copy(currentKitharaItemId = kitharaId)
+            eventFlow.tryEmit(KitharaPlayerEvent.CurrentItemChanged(kitharaId))
         }
         every { wrapper.removeItem(any()) } answers {
             val kitharaId = firstArg<String>()
@@ -309,6 +394,16 @@ private class MockKitharaPlayerHarness {
     fun blockSeek() {
         seekBlocked = true
         pendingSeekCallback = null
+    }
+
+    fun blockSelection() {
+        selectionBlocked = true
+        selectionGate = CompletableDeferred()
+    }
+
+    fun releaseBlockedSelection() {
+        selectionBlocked = false
+        selectionGate.complete(Unit)
     }
 
     fun finishBlockedSeek(success: Boolean, positionMs: Long) {

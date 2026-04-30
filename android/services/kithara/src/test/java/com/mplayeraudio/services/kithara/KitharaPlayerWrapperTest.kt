@@ -92,6 +92,7 @@ class KitharaPlayerWrapperTest {
         val item = mockItem(id = "item-1", state = itemState)
         val player = mockPlayer()
         every { player.createItem("http://host/track.mp3") } returns item
+        every { player.load(item) } just Runs
         every { player.insert(item) } just Runs
 
         val wrapper = KitharaPlayerWrapper(scope = backgroundScope, player = player)
@@ -116,6 +117,7 @@ class KitharaPlayerWrapperTest {
         )
         wrapper.removeAllItems()
         verify(exactly = 1) { player.createItem("http://host/track.mp3") }
+        verify(exactly = 1) { player.load(item) }
         verify(exactly = 1) { player.insert(item) }
     }
 
@@ -125,6 +127,7 @@ class KitharaPlayerWrapperTest {
         val item = mockItem(id = "item-7", state = itemState)
         val player = mockPlayer()
         every { player.createItem("http://host/track.mp3") } returns item
+        every { player.load(item) } just Runs
         every { player.insert(item) } just Runs
         every { player.selectItem(index = 0, autoplay = false) } just Runs
 
@@ -148,6 +151,7 @@ class KitharaPlayerWrapperTest {
         val item = mockItem(id = "item-9", state = itemState)
         val player = mockPlayer()
         every { player.createItem("http://host/track.mp3") } returns item
+        every { player.load(item) } just Runs
         every { player.insert(item) } just Runs
 
         var attempts = 0
@@ -183,6 +187,7 @@ class KitharaPlayerWrapperTest {
         val item = mockItem(id = "item-remove", state = itemState)
         val player = mockPlayer()
         every { player.createItem("http://host/track.mp3") } returns item
+        every { player.load(item) } just Runs
         every { player.insert(item) } just Runs
         every { player.remove(item) } just Runs
 
@@ -213,6 +218,7 @@ class KitharaPlayerWrapperTest {
         every { player.events } returns events
         every { player.play() } just Runs
         every { player.pause() } just Runs
+        every { player.load(any()) } just Runs
         every { player.createItem(any()) } answers {
             KitharaPlayerItem(url = firstArg())
         }

@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LargeClass")
 internal class PlaybackQueueController(
     private val player: KitharaPlayerWrapper,
     urlResolver: PlayableUrlResolver,
@@ -66,7 +66,18 @@ internal class PlaybackQueueController(
     ) {
         val previous = _state.value
         val preservedIndex = preservedIndex(previous, queue)
-        val nextIndex = nextIndex(queue, startIndex, preservedIndex)
+        val shouldPrepareItem = shouldPrepareItem(
+            queue = queue,
+            startIndex = startIndex,
+            preservedIndex = preservedIndex,
+            autoPlay = autoPlay,
+        )
+        val nextIndex = nextIndex(
+            queue = queue,
+            startIndex = startIndex,
+            preservedIndex = preservedIndex,
+            shouldPrepareItem = shouldPrepareItem,
+        )
         val preservingCurrentTrack = nextIndex != null && nextIndex == preservedIndex
         val startPositionMs = startPosition(previous, queue, nextIndex, preservingCurrentTrack)
         val shouldPlay = shouldPlay(
@@ -85,22 +96,47 @@ internal class PlaybackQueueController(
             startPositionMs = startPositionMs,
         )
 
-        if (queue.isEmpty()) {
-            resetPlayer()
-        } else {
-            nextIndex?.let { targetIndex ->
-                if (preservingCurrentTrack && loadedItemId == queue[targetIndex].id) {
-                    cancelWatchdog()
-                    pendingTransition = null
-                    if (shouldPlay && !previous.isPlaying) {
-                        player.play()
-                        _state.update { it.copy(phase = PlaybackPhase.Playing) }
-                    }
-                } else {
-                    failedCountSinceLastSuccess = 0
-                    resetError()
-                    loadItem(index = targetIndex, autoPlay = shouldPlay, startPositionMs = startPositionMs)
-                }
+        val action = when {
+            queue.isEmpty() || !shouldPrepareItem -> QueueReplacementAction.ResetPlayer
+            nextIndex == null -> QueueReplacementAction.None
+            preservingCurrentTrack && loadedItemId == queue[nextIndex].id ->
+                QueueReplacementAction.ResumePreserved(
+                    shouldPlay = shouldPlay,
+                    wasPlaying = previous.isPlaying,
+                )
+
+            else -> QueueReplacementAction.Load(
+                index = nextIndex,
+                autoPlay = shouldPlay,
+                startPositionMs = startPositionMs,
+            )
+        }
+
+        logger.trace(
+            TAG,
+            "replaceQueue action=$action queueSize=${queue.size} startIndex=$startIndex " +
+                "autoPlay=$autoPlay preservedIndex=$preservedIndex nextIndex=$nextIndex " +
+                "loadedItemId=$loadedItemId currentIndex=${previous.currentIndex} phase=${previous.phase}",
+        )
+
+        when (action) {
+            QueueReplacementAction.None -> Unit
+            QueueReplacementAction.ResetPlayer -> resetPlayer()
+            is QueueReplacementAction.ResumePreserved -> {
+                resumePreservedTrackIfNeeded(
+                    shouldPlay = action.shouldPlay,
+                    wasPlaying = action.wasPlaying,
+                )
+            }
+            is QueueReplacementAction.Load -> {
+                failedCountSinceLastSuccess = 0
+                resetError()
+                loadItem(
+                    index = action.index,
+                    autoPlay = action.autoPlay,
+                    startPositionMs = action.startPositionMs,
+                    reason = "replaceQueue",
+                )
             }
         }
     }
@@ -109,7 +145,12 @@ internal class PlaybackQueueController(
         if (index !in _state.value.queue.indices) return
         failedCountSinceLastSuccess = 0
         resetError()
-        loadItem(index = index, autoPlay = true, startPositionMs = 0L)
+        loadItem(
+            index = index,
+            autoPlay = true,
+            startPositionMs = 0L,
+            reason = "playTrack(index=$index)",
+        )
     }
 
     override suspend fun play() {
@@ -123,7 +164,12 @@ internal class PlaybackQueueController(
             } else if (targetItemId != null) {
                 failedCountSinceLastSuccess = 0
                 resetError()
-                loadItem(index = index, autoPlay = true, startPositionMs = current.currentPositionMs)
+                loadItem(
+                    index = index,
+                    autoPlay = true,
+                    startPositionMs = current.currentPositionMs,
+                    reason = "play()",
+                )
             }
         }
     }
@@ -153,7 +199,12 @@ internal class PlaybackQueueController(
 
         failedCountSinceLastSuccess = 0
         resetError()
-        loadItem(index = nextIndex, autoPlay = true, startPositionMs = 0L)
+        loadItem(
+            index = nextIndex,
+            autoPlay = true,
+            startPositionMs = 0L,
+            reason = "skipNext()",
+        )
     }
 
     override suspend fun skipPrevious() {
@@ -166,7 +217,12 @@ internal class PlaybackQueueController(
 
         failedCountSinceLastSuccess = 0
         resetError()
-        loadItem(index = currentIndex - 1, autoPlay = true, startPositionMs = 0L)
+        loadItem(
+            index = currentIndex - 1,
+            autoPlay = true,
+            startPositionMs = 0L,
+            reason = "skipPrevious()",
+        )
     }
 
     override suspend fun seekTo(positionMs: Long) {
@@ -224,8 +280,14 @@ internal class PlaybackQueueController(
         index: Int,
         autoPlay: Boolean,
         startPositionMs: Long,
+        reason: String,
     ) {
         val item = _state.value.queue.getOrNull(index) ?: return
+        logger.trace(
+            TAG,
+            "loadItem reason=$reason index=$index itemId=${item.id} autoPlay=$autoPlay " +
+                "startPositionMs=$startPositionMs queueSize=${_state.value.queue.size}",
+        )
         pendingTransition = PendingTransition.Load(
             itemId = item.id,
             autoPlay = autoPlay,
@@ -282,21 +344,58 @@ internal class PlaybackQueueController(
                 }
             }
         }
+    }
 
-        val loadTransition = pendingTransition as? PendingTransition.Load
-        val initialSeekPositionMs = loadTransition
+    private suspend fun onCurrentItemSelected(appItemId: String) {
+        val loadTransition = (pendingTransition as? PendingTransition.Load)
             ?.takeIf { it.itemId == appItemId }
-            ?.initialSeekPositionMs
+            ?: return
+
+        val initialSeekPositionMs = loadTransition.initialSeekPositionMs
         if (initialSeekPositionMs != null) {
-            pendingTransition = loadTransition.copy(initialSeekPositionMs = null)
+            pendingTransition = PendingTransition.Seek(
+                itemId = appItemId,
+                positionMs = initialSeekPositionMs,
+                wasPlaying = loadTransition.autoPlay,
+            )
             val didSeek = performPlayerSeek(initialSeekPositionMs)
             if (!didSeek) {
+                pendingTransition = null
                 onItemFailed(appItemId, PlaybackError.StreamFailed(appItemId, "Seek failed"))
+                return
             }
-        } else if (loadTransition?.itemId == appItemId && loadTransition.autoPlay) {
+
+            _state.update { current ->
+                if (current.currentItem?.id == appItemId) {
+                    current.copy(currentPositionMs = initialSeekPositionMs)
+                } else {
+                    current
+                }
+            }
+
+            if (loadTransition.autoPlay) {
+                pendingTransition = loadTransition.copy(
+                    initialSeekPositionMs = null,
+                    playRequested = true,
+                )
+                player.play()
+                confirmPlaybackFromLatestSnapshotIfRunning()
+            } else {
+                pendingTransition = null
+                cancelWatchdog()
+                _state.update { current ->
+                    if (current.currentItem?.id == appItemId) {
+                        current.copy(phase = PlaybackPhase.Paused)
+                    } else {
+                        current
+                    }
+                }
+            }
+        } else if (loadTransition.autoPlay) {
             if (!loadTransition.playRequested) {
                 pendingTransition = loadTransition.copy(playRequested = true)
                 player.play()
+                confirmPlaybackFromLatestSnapshotIfRunning()
             }
         } else {
             pendingTransition = null
@@ -323,8 +422,13 @@ internal class PlaybackQueueController(
                 return@collect
             }
 
-            val isPlaying = snapshot.rate > 0f
-            if (isPlaying) {
+            val transition = pendingTransition
+            val snapshotMatchesCurrentItem = snapshot.kitharaItemIdMatches(currentHandle)
+            val confirmedPlayback = snapshot.confirmsCurrentPlayback(
+                handle = currentHandle,
+                transition = transition,
+            )
+            if (confirmedPlayback) {
                 failedCountSinceLastSuccess = 0
                 pendingTransition = null
                 cancelWatchdog()
@@ -335,12 +439,16 @@ internal class PlaybackQueueController(
                     phase = resolvePhase(
                         currentPhase = current.phase,
                         playerStatus = snapshot.status,
-                        isPlaying = isPlaying,
+                        isPlaying = confirmedPlayback,
                         pendingTransition = pendingTransition,
                     ),
                     currentPositionMs = (pendingTransition as? PendingTransition.Seek)?.positionMs
-                        ?: snapshot.currentPositionMs,
-                    bufferedPositionMs = snapshot.bufferedPositionMs,
+                        ?: current.currentPositionMs.takeIf { transition is PendingTransition.Load }
+                        ?: snapshot.currentPositionMs.takeIf { snapshotMatchesCurrentItem }
+                        ?: current.currentPositionMs,
+                    bufferedPositionMs = current.bufferedPositionMs.takeIf { transition is PendingTransition.Load }
+                        ?: snapshot.bufferedPositionMs.takeIf { snapshotMatchesCurrentItem }
+                        ?: current.bufferedPositionMs,
                 )
             }
         }
@@ -359,6 +467,11 @@ internal class PlaybackQueueController(
                         pendingTransition = null
                     }
                     _state.update { it.copy(currentPositionMs = 0L, bufferedPositionMs = 0L, playbackError = null) }
+                    if (event.kitharaItemId == currentHandle?.kitharaId) {
+                        currentLoadedAppItemId()?.let { appItemId ->
+                            onCurrentItemSelected(appItemId)
+                        }
+                    }
                 }
             }
             is KitharaPlayerEvent.PlayedToEnd -> {
@@ -406,7 +519,17 @@ internal class PlaybackQueueController(
         childScope.launch {
             failedCountSinceLastSuccess = 0
             resetError()
-            loadItem(index = nextIndex, autoPlay = true, startPositionMs = 0L)
+            logger.trace(
+                TAG,
+                "onCurrentItemEnded currentIndex=$currentIndex nextIndex=$nextIndex " +
+                    "currentItemId=${_state.value.currentItem?.id}",
+            )
+            loadItem(
+                index = nextIndex,
+                autoPlay = true,
+                startPositionMs = 0L,
+                reason = "playedToEnd(currentIndex=$currentIndex)",
+            )
         }
     }
 
@@ -441,7 +564,12 @@ internal class PlaybackQueueController(
                 delay(AutoSkipDelayMs)
                 if (_state.value.phase == PlaybackPhase.Failed) {
                     _state.update { it.copy(playbackError = null) }
-                    loadItem(index = nextIndex, autoPlay = true, startPositionMs = 0L)
+                    loadItem(
+                        index = nextIndex,
+                        autoPlay = true,
+                        startPositionMs = 0L,
+                        reason = "autoSkipAfterFailure(itemId=$itemId)",
+                    )
                 }
             }
         }
@@ -490,6 +618,22 @@ internal class PlaybackQueueController(
         watchdogJob = null
     }
 
+    private fun confirmPlaybackFromLatestSnapshotIfRunning() {
+        val snapshot = player.snapshots.value
+        if (!snapshot.kitharaItemIdMatches(currentHandle) || snapshot.rate <= 0f) return
+
+        failedCountSinceLastSuccess = 0
+        pendingTransition = null
+        cancelWatchdog()
+        _state.update { current ->
+            current.copy(
+                phase = PlaybackPhase.Playing,
+                currentPositionMs = snapshot.currentPositionMs,
+                bufferedPositionMs = snapshot.bufferedPositionMs,
+            )
+        }
+    }
+
     private fun resetPlayer() {
         cancelWatchdog()
         pendingTransition = null
@@ -497,6 +641,18 @@ internal class PlaybackQueueController(
         player.removeAllItems()
         clearCurrentHandle()
         loadedItemId = null
+    }
+
+    private fun resumePreservedTrackIfNeeded(
+        shouldPlay: Boolean,
+        wasPlaying: Boolean,
+    ) {
+        cancelWatchdog()
+        pendingTransition = null
+        if (shouldPlay && !wasPlaying) {
+            player.play()
+            _state.update { it.copy(phase = PlaybackPhase.Playing) }
+        }
     }
 
     private fun clearCurrentHandle() {
@@ -515,8 +671,19 @@ internal class PlaybackQueueController(
         queue: List<PlaybackQueueItem>,
         startIndex: Int?,
         preservedIndex: Int?,
+        shouldPrepareItem: Boolean,
     ): Int? {
+        if (!shouldPrepareItem) return null
         return startIndex ?: preservedIndex ?: queue.indices.firstOrNull()
+    }
+
+    private fun shouldPrepareItem(
+        queue: List<PlaybackQueueItem>,
+        startIndex: Int?,
+        preservedIndex: Int?,
+        autoPlay: Boolean,
+    ): Boolean {
+        return queue.isNotEmpty() && (autoPlay || startIndex != null || preservedIndex != null)
     }
 
     private fun startPosition(
@@ -585,6 +752,21 @@ private fun AudioEngineError.toPlaybackError(itemId: String): PlaybackError = wh
     AudioEngineError.SeekFailed -> PlaybackError.StreamFailed(itemId, "Seek failed")
 }
 
+private fun EnginePlayerSnapshot.kitharaItemIdMatches(handle: KitharaItemHandle?): Boolean {
+    return currentKitharaItemId != null && currentKitharaItemId == handle?.kitharaId
+}
+
+private fun EnginePlayerSnapshot.confirmsCurrentPlayback(
+    handle: KitharaItemHandle?,
+    transition: PendingTransition?,
+): Boolean {
+    if (!kitharaItemIdMatches(handle) || rate <= 0f) return false
+    return when (transition) {
+        is PendingTransition.Load -> transition.playRequested
+        else -> true
+    }
+}
+
 private sealed interface PendingTransition {
     val itemId: String
 
@@ -600,4 +782,20 @@ private sealed interface PendingTransition {
         val positionMs: Long,
         val wasPlaying: Boolean,
     ) : PendingTransition
+}
+
+private sealed interface QueueReplacementAction {
+    data object None : QueueReplacementAction
+    data object ResetPlayer : QueueReplacementAction
+
+    data class ResumePreserved(
+        val shouldPlay: Boolean,
+        val wasPlaying: Boolean,
+    ) : QueueReplacementAction
+
+    data class Load(
+        val index: Int,
+        val autoPlay: Boolean,
+        val startPositionMs: Long,
+    ) : QueueReplacementAction
 }

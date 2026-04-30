@@ -36,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -134,6 +135,49 @@ class TrackListViewModelTest {
             PlayableSource.Remote(MusicProviderId.Device),
             viewModel.state.value.tracks.single().queueItem.source,
         )
+    }
+
+    @Test
+    fun `device playlist tap keeps playback queue stable when same playlist is emitted again`() = runTest(dispatcher) {
+        val playlist = playlistFixture(provider = MusicProviderId.Device, trackPrefix = "device:77")
+        val library = FakeMusicLibrary(playlist = playlist)
+        val playbackBridge = RecordingPlaybackQueueBridge()
+        val viewModel = TrackListViewModel(
+            destination = LibraryTrackListDestination(
+                ref = PlaylistRef(
+                    provider = MusicProviderId.Device,
+                    id = playlistFixtureId,
+                ),
+                title = "Треки с устройства",
+                role = PlaylistRole.Regular,
+            ),
+            observePlaylist = ObservePlaylistUseCase(library),
+            refreshPlaylist = RefreshPlaylistUseCase(library),
+            observeSavedTracks = ObserveSavedTracksUseCase(library),
+            refreshSavedTracks = RefreshSavedTracksUseCase(library),
+            playbackBridge = playbackBridge,
+            addTrackToPlaylist = AddUserPlaylistTrackUseCase(FakeUserPlaylistsRepository()),
+            deletePlaylist = DeleteUserPlaylistUseCase(FakeUserPlaylistsRepository()),
+        )
+        advanceUntilIdle()
+
+        assertEquals(1, playbackBridge.replaceQueueCalls.size)
+        val initialQueue = playbackBridge.playbackState.value.queue
+
+        viewModel.onTrackClick(0)
+        advanceUntilIdle()
+
+        assertEquals(1, playbackBridge.playTrackCalls)
+        assertEquals(PlaybackPhase.Playing, playbackBridge.playbackState.value.phase)
+        assertEquals(0, viewModel.state.value.activeTrackIndex)
+
+        library.emitPlaylist(playlist)
+        advanceUntilIdle()
+
+        assertEquals(1, playbackBridge.replaceQueueCalls.size)
+        assertEquals(initialQueue, playbackBridge.playbackState.value.queue)
+        assertEquals(PlaybackPhase.Playing, playbackBridge.playbackState.value.phase)
+        assertEquals(0, viewModel.state.value.activeTrackIndex)
     }
 
     @Test
@@ -515,6 +559,48 @@ private fun playbackQueueBridgeMock(
         coEvery { skipPrevious() } returns Unit
         coEvery { seekTo(any()) } returns Unit
     }
+}
+
+private class RecordingPlaybackQueueBridge : PlaybackQueueBridge {
+    private val delegate = InMemoryPlaybackQueueBridge()
+
+    val replaceQueueCalls = mutableListOf<List<PlaybackQueueItem>>()
+    var playTrackCalls = 0
+        private set
+
+    override val playbackState: StateFlow<PlaybackQueueState>
+        get() = delegate.playbackState
+
+    override val state: Flow<NowPlayingStripExternalState>
+        get() = delegate.state
+
+    override suspend fun replaceQueue(
+        queue: List<PlaybackQueueItem>,
+        startIndex: Int?,
+        autoPlay: Boolean,
+    ) {
+        replaceQueueCalls += queue
+        delegate.replaceQueue(queue, startIndex, autoPlay)
+    }
+
+    override suspend fun playTrack(index: Int) {
+        playTrackCalls += 1
+        delegate.playTrack(index)
+    }
+
+    override suspend fun play() = delegate.play()
+
+    override suspend fun pause() = delegate.pause()
+
+    override suspend fun skipNext() = delegate.skipNext()
+
+    override suspend fun skipPrevious() = delegate.skipPrevious()
+
+    override suspend fun seekTo(positionMs: Long) = delegate.seekTo(positionMs)
+
+    override fun resetError() = delegate.resetError()
+
+    override fun shutdown() = delegate.shutdown()
 }
 
 private class FakeMusicLibrary(
