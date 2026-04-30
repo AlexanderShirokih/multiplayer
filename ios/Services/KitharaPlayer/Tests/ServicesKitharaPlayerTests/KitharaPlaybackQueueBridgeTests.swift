@@ -5,40 +5,7 @@ import Foundation
 import XCTest
 
 final class KitharaPlaybackQueueBridgeTests: XCTestCase {
-    func testPlayTrackLoadsResolvedURLAndUpdatesCurrentIndex() async {
-        let engine = FakeAudioPlaybackEngine()
-        let bridge = KitharaPlaybackQueueBridge(
-            engine: engine,
-            urlResolver: ProviderPlayableUrlResolver(
-                urlProvider: FakeTrackStreamURLProvider(
-                urls: [
-                    TrackId(rawValue: "first"): URL(string: "https://example.com/first.mp3")!,
-                    TrackId(rawValue: "second"): URL(string: "https://example.com/second.mp3")!
-                ])
-            )
-        )
-
-        await bridge.replaceQueue(
-            queue: [
-                makeQueueItem(id: "0:first", trackId: "first"),
-                makeQueueItem(id: "1:second", trackId: "second")
-            ],
-            startIndex: nil,
-            autoPlay: false
-        )
-        await bridge.playTrack(index: 1)
-
-        let state = await firstValue(from: bridge.playbackStateStream())
-        XCTAssertEqual(state.currentIndex, 1)
-        XCTAssertTrue(state.isPlaying)
-        XCTAssertEqual(engine.loadedRequests.last?.id, "1:second")
-        XCTAssertEqual(
-            engine.loadedRequests.last?.url,
-            "https://example.com/second.mp3"
-        )
-    }
-
-    func testPlayedToEndAdvancesToNextTrack() async {
+    func testReplaceQueueAutoPlaySetsCurrentAndNextWindow() async {
         let engine = FakeAudioPlaybackEngine()
         let bridge = KitharaPlaybackQueueBridge(
             engine: engine,
@@ -59,15 +26,118 @@ final class KitharaPlaybackQueueBridgeTests: XCTestCase {
             startIndex: 0,
             autoPlay: true
         )
-        engine.emit(event: .playedToEnd(itemId: "0:first"))
-
-        await waitUntil {
-            engine.loadedRequests.count == 2
-        }
 
         let state = await firstValue(from: bridge.playbackStateStream())
+        XCTAssertEqual(state.currentIndex, 0)
+        XCTAssertTrue(state.isPlaying)
+        XCTAssertEqual(engine.setQueueWindows.last?.current.id, "0:first")
+        XCTAssertEqual(engine.setQueueWindows.last?.next?.id, "1:second")
+        XCTAssertEqual(engine.setQueueWindows.last?.autoPlay, true)
+        XCTAssertEqual(
+            engine.setQueueWindows.last?.current.url,
+            "https://example.com/first.mp3"
+        )
+        XCTAssertEqual(
+            engine.setQueueWindows.last?.next?.url,
+            "https://example.com/second.mp3"
+        )
+    }
+
+    func testPlayTrackOutsideWindowFallsBackToSetQueueWindow() async {
+        let engine = FakeAudioPlaybackEngine()
+        let bridge = KitharaPlaybackQueueBridge(
+            engine: engine,
+            urlResolver: ProviderPlayableUrlResolver(
+                urlProvider: FakeTrackStreamURLProvider(
+                urls: [
+                    TrackId(rawValue: "first"): URL(string: "https://example.com/first.mp3")!,
+                    TrackId(rawValue: "second"): URL(string: "https://example.com/second.mp3")!,
+                    TrackId(rawValue: "third"): URL(string: "https://example.com/third.mp3")!
+                ])
+            )
+        )
+
+        await bridge.replaceQueue(
+            queue: [
+                makeQueueItem(id: "0:first", trackId: "first"),
+                makeQueueItem(id: "1:second", trackId: "second"),
+                makeQueueItem(id: "2:third", trackId: "third")
+            ],
+            startIndex: 0,
+            autoPlay: true
+        )
+        await bridge.playTrack(index: 2)
+
+        let state = await firstValue(from: bridge.playbackStateStream())
+        XCTAssertEqual(state.currentIndex, 2)
+        XCTAssertEqual(engine.selectedItemIds, ["2:third"])
+        XCTAssertEqual(engine.setQueueWindows.count, 2)
+        XCTAssertEqual(engine.setQueueWindows.last?.current.id, "2:third")
+    }
+
+    func testCurrentItemChangedAdvancesQueueWithoutRebuild() async {
+        let engine = FakeAudioPlaybackEngine()
+        let bridge = KitharaPlaybackQueueBridge(
+            engine: engine,
+            urlResolver: ProviderPlayableUrlResolver(
+                urlProvider: FakeTrackStreamURLProvider(
+                urls: [
+                    TrackId(rawValue: "first"): URL(string: "https://example.com/first.mp3")!,
+                    TrackId(rawValue: "second"): URL(string: "https://example.com/second.mp3")!,
+                    TrackId(rawValue: "third"): URL(string: "https://example.com/third.mp3")!
+                ])
+            )
+        )
+
+        await bridge.replaceQueue(
+            queue: [
+                makeQueueItem(id: "0:first", trackId: "first"),
+                makeQueueItem(id: "1:second", trackId: "second"),
+                makeQueueItem(id: "2:third", trackId: "third")
+            ],
+            startIndex: 0,
+            autoPlay: true
+        )
+        let setWindowCount = engine.setQueueWindows.count
+        engine.emit(event: .currentItemChanged(itemId: "1:second"))
+
+        let state = await waitForPlaybackState(from: bridge) { $0.currentIndex == 1 }
         XCTAssertEqual(state.currentIndex, 1)
-        XCTAssertEqual(engine.loadedRequests.last?.id, "1:second")
+        XCTAssertEqual(engine.setQueueWindows.count, setWindowCount)
+        XCTAssertEqual(engine.prunedWindows.last, Set(["1:second", "2:third"]))
+        XCTAssertEqual(engine.appendNextRequests.last?.id, "2:third")
+    }
+
+    func testPlayedToEndMidQueueDoesNotReloadNext() async {
+        let engine = FakeAudioPlaybackEngine()
+        let bridge = KitharaPlaybackQueueBridge(
+            engine: engine,
+            urlResolver: ProviderPlayableUrlResolver(
+                urlProvider: FakeTrackStreamURLProvider(
+                    urls: [
+                        TrackId(rawValue: "first"): URL(string: "https://example.com/first.mp3")!,
+                        TrackId(rawValue: "second"): URL(string: "https://example.com/second.mp3")!
+                    ])
+            )
+        )
+
+        await bridge.replaceQueue(
+            queue: [
+                makeQueueItem(id: "0:first", trackId: "first"),
+                makeQueueItem(id: "1:second", trackId: "second")
+            ],
+            startIndex: 0,
+            autoPlay: true
+        )
+        let setWindowCount = engine.setQueueWindows.count
+        engine.emit(event: .playedToEnd(itemId: "0:first"))
+
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        let state = await firstValue(from: bridge.playbackStateStream())
+        XCTAssertEqual(state.currentIndex, 0)
+        XCTAssertEqual(engine.setQueueWindows.count, setWindowCount)
+        XCTAssertTrue(state.isPlaying)
     }
 
     func testPlayedToEndForStaleItemDoesNotAdvanceQueue() async {
@@ -100,8 +170,165 @@ final class KitharaPlaybackQueueBridgeTests: XCTestCase {
 
         let state = await firstValue(from: bridge.playbackStateStream())
         XCTAssertEqual(state.currentIndex, 1)
-        XCTAssertEqual(engine.loadedRequests.count, 1)
-        XCTAssertEqual(engine.loadedRequests.last?.id, "1:second")
+        XCTAssertEqual(engine.setQueueWindows.last?.current.id, "1:second")
+    }
+
+    func testPlayedToEndLastItemEndsQueue() async {
+        let engine = FakeAudioPlaybackEngine()
+        let bridge = KitharaPlaybackQueueBridge(
+            engine: engine,
+            urlResolver: ProviderPlayableUrlResolver(
+                urlProvider: FakeTrackStreamURLProvider(
+                    urls: [
+                        TrackId(rawValue: "first"): URL(string: "https://example.com/first.mp3")!
+                    ])
+            )
+        )
+
+        await bridge.replaceQueue(
+            queue: [makeQueueItem(id: "0:first", trackId: "first")],
+            startIndex: 0,
+            autoPlay: true
+        )
+        engine.emit(event: .playedToEnd(itemId: "0:first"))
+
+        let state = await waitForPlaybackState(from: bridge) { !$0.isPlaying }
+        XCTAssertEqual(state.currentIndex, 0)
+        XCTAssertFalse(state.isPlaying)
+    }
+
+    func testReplaceQueuePreservingCurrentDoesNotRebuildEngineWindow() async {
+        let engine = FakeAudioPlaybackEngine()
+        let bridge = KitharaPlaybackQueueBridge(
+            engine: engine,
+            urlResolver: ProviderPlayableUrlResolver(
+                urlProvider: FakeTrackStreamURLProvider(
+                    urls: [
+                        TrackId(rawValue: "first"): URL(string: "https://example.com/first.mp3")!,
+                        TrackId(rawValue: "second"): URL(string: "https://example.com/second.mp3")!,
+                        TrackId(rawValue: "third"): URL(string: "https://example.com/third.mp3")!
+                    ])
+            )
+        )
+
+        await bridge.replaceQueue(
+            queue: [
+                makeQueueItem(id: "0:first", trackId: "first"),
+                makeQueueItem(id: "1:second", trackId: "second")
+            ],
+            startIndex: 0,
+            autoPlay: true
+        )
+        let setWindowCount = engine.setQueueWindows.count
+
+        await bridge.replaceQueue(
+            queue: [
+                makeQueueItem(id: "0:first", trackId: "first"),
+                makeQueueItem(id: "2:third", trackId: "third")
+            ],
+            startIndex: nil,
+            autoPlay: false
+        )
+
+        XCTAssertEqual(engine.setQueueWindows.count, setWindowCount)
+        XCTAssertEqual(engine.prunedWindows.last, Set(["0:first", "2:third"]))
+        XCTAssertEqual(engine.appendNextRequests.last?.id, "2:third")
+    }
+
+    func testSkipNextUsesSelectInWindowWhenNextAlreadyPreloaded() async {
+        let engine = FakeAudioPlaybackEngine()
+        let bridge = KitharaPlaybackQueueBridge(
+            engine: engine,
+            urlResolver: ProviderPlayableUrlResolver(
+                urlProvider: FakeTrackStreamURLProvider(
+                    urls: [
+                        TrackId(rawValue: "first"): URL(string: "https://example.com/first.mp3")!,
+                        TrackId(rawValue: "second"): URL(string: "https://example.com/second.mp3")!,
+                        TrackId(rawValue: "third"): URL(string: "https://example.com/third.mp3")!
+                    ])
+            )
+        )
+
+        await bridge.replaceQueue(
+            queue: [
+                makeQueueItem(id: "0:first", trackId: "first"),
+                makeQueueItem(id: "1:second", trackId: "second"),
+                makeQueueItem(id: "2:third", trackId: "third")
+            ],
+            startIndex: 0,
+            autoPlay: true
+        )
+        let setWindowCount = engine.setQueueWindows.count
+
+        await bridge.skipNext()
+
+        let state = await firstValue(from: bridge.playbackStateStream())
+        XCTAssertEqual(state.currentIndex, 1)
+        XCTAssertEqual(engine.selectedItemIds, ["1:second"])
+        XCTAssertEqual(engine.setQueueWindows.count, setWindowCount)
+        XCTAssertEqual(engine.appendNextRequests.last?.id, "2:third")
+    }
+
+    func testPreloadedNextFailureDoesNotFailPlaybackState() async {
+        let engine = FakeAudioPlaybackEngine()
+        let bridge = KitharaPlaybackQueueBridge(
+            engine: engine,
+            urlResolver: ProviderPlayableUrlResolver(
+                urlProvider: FakeTrackStreamURLProvider(
+                    urls: [
+                        TrackId(rawValue: "first"): URL(string: "https://example.com/first.mp3")!,
+                        TrackId(rawValue: "second"): URL(string: "https://example.com/second.mp3")!
+                    ])
+            )
+        )
+
+        await bridge.replaceQueue(
+            queue: [
+                makeQueueItem(id: "0:first", trackId: "first"),
+                makeQueueItem(id: "1:second", trackId: "second")
+            ],
+            startIndex: 0,
+            autoPlay: true
+        )
+        engine.emit(event: .itemFailed(itemId: "1:second", reason: "next failed"))
+
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        let state = await firstValue(from: bridge.playbackStateStream())
+        XCTAssertEqual(state.currentIndex, 0)
+        XCTAssertTrue(state.isPlaying)
+    }
+
+    func testCurrentItemFailureRetriesWithWindow() async {
+        let engine = FakeAudioPlaybackEngine()
+        let bridge = KitharaPlaybackQueueBridge(
+            engine: engine,
+            urlResolver: ProviderPlayableUrlResolver(
+                urlProvider: FakeTrackStreamURLProvider(
+                    urls: [
+                        TrackId(rawValue: "first"): URL(string: "https://example.com/first.mp3")!,
+                        TrackId(rawValue: "second"): URL(string: "https://example.com/second.mp3")!
+                    ])
+            )
+        )
+
+        await bridge.replaceQueue(
+            queue: [
+                makeQueueItem(id: "0:first", trackId: "first"),
+                makeQueueItem(id: "1:second", trackId: "second")
+            ],
+            startIndex: 0,
+            autoPlay: true
+        )
+        let setWindowCount = engine.setQueueWindows.count
+        engine.emit(event: .itemFailed(itemId: "0:first", reason: "current failed"))
+
+        await waitUntil {
+            engine.setQueueWindows.count == setWindowCount + 1
+        }
+
+        XCTAssertEqual(engine.setQueueWindows.last?.current.id, "0:first")
+        XCTAssertEqual(engine.setQueueWindows.last?.next?.id, "1:second")
     }
 
     func testStaleEngineStateAfterPauseDoesNotResumePlayback() async {
@@ -122,7 +349,7 @@ final class KitharaPlaybackQueueBridgeTests: XCTestCase {
             autoPlay: true
         )
         await waitUntil {
-            engine.loadedRequests.count == 1
+            engine.setQueueWindows.count == 1
         }
 
         await bridge.pause()
@@ -139,7 +366,7 @@ final class KitharaPlaybackQueueBridgeTests: XCTestCase {
         XCTAssertFalse(state.isPlaying)
     }
 
-    func testPlayAfterPauseResumesLoadedTrackWithoutReloadingQueueItem() async {
+    func testPlayAfterPauseRebuildsWindowAtCurrentPosition() async {
         let engine = FakeAudioPlaybackEngine()
         let bridge = KitharaPlaybackQueueBridge(
             engine: engine,
@@ -159,18 +386,27 @@ final class KitharaPlaybackQueueBridgeTests: XCTestCase {
             autoPlay: true
         )
         await waitUntil {
-            engine.loadedRequests.count == 1
+            engine.setQueueWindows.count == 1
         }
 
-        let playCallCountBeforeResume = engine.playCallCount
+        engine.emit(
+            state: AudioEngineState(
+                status: .readyToPlay,
+                currentPositionMs: 42_000,
+                currentItemId: "0:first",
+                isPlaying: true
+            )
+        )
+        _ = await waitForPlaybackState(from: bridge) { $0.currentPositionMs == 42_000 }
         await bridge.pause()
         await bridge.play()
 
         let state = await firstValue(from: bridge.playbackStateStream())
         XCTAssertTrue(state.isPlaying)
         XCTAssertEqual(state.currentIndex, 0)
-        XCTAssertEqual(engine.loadedRequests.count, 1)
-        XCTAssertEqual(engine.playCallCount, playCallCountBeforeResume + 1)
+        XCTAssertEqual(engine.setQueueWindows.count, 2)
+        XCTAssertEqual(engine.setQueueWindows.last?.current.id, "0:first")
+        XCTAssertEqual(engine.seekPositions.last, 42_000)
     }
 
     private func firstValue(
@@ -221,7 +457,13 @@ private final class FakeAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sen
     private let eventRelay = AsyncEventRelay<AudioEngineEvent>()
     private let lock = NSLock()
     private(set) var loadedRequests: [AudioTrackRequest] = []
+    private(set) var setQueueWindows: [FakeQueueWindow] = []
+    private(set) var appendNextRequests: [AudioTrackRequest] = []
+    private(set) var selectedItemIds: [String] = []
+    private(set) var prunedWindows: [Set<String>] = []
+    private(set) var seekPositions: [Int64] = []
     private(set) var playCallCount = 0
+    private var windowItemIds = Set<String>()
 
     var currentState: AudioEngineState {
         stateRelay.currentValue
@@ -249,24 +491,72 @@ private final class FakeAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sen
     }
 
     func seekTo(positionMs: Int64) async -> Bool {
+        lock.withLock {
+            seekPositions.append(positionMs)
+        }
         updateState { state in
             state.currentPositionMs = positionMs
         }
         return true
     }
 
-    func loadTrack(_ request: AudioTrackRequest, autoPlay: Bool) {
+    func setQueueWindow(current: AudioTrackRequest, next: AudioTrackRequest?, autoPlay: Bool) {
         lock.withLock {
-            loadedRequests.append(request)
+            setQueueWindows.append(
+                FakeQueueWindow(
+                    current: current,
+                    next: next,
+                    autoPlay: autoPlay
+                )
+            )
+            loadedRequests.append(current)
+            if let next {
+                loadedRequests.append(next)
+            }
+            windowItemIds = Set([current.id] + [next?.id].compactMap { $0 })
         }
         updateState { state in
-            state.currentItemId = request.id
+            state.currentItemId = current.id
             state.isPlaying = autoPlay
             state.status = .readyToPlay
         }
     }
 
+    func appendNext(_ next: AudioTrackRequest) {
+        lock.withLock {
+            appendNextRequests.append(next)
+            loadedRequests.append(next)
+            windowItemIds.insert(next.id)
+        }
+    }
+
+    func selectInWindow(appItemId: String, autoPlay: Bool) async -> Bool {
+        lock.withLock {
+            selectedItemIds.append(appItemId)
+        }
+        guard lock.withLock({ windowItemIds.contains(appItemId) }) else {
+            return false
+        }
+        updateState { state in
+            state.currentItemId = appItemId
+            state.isPlaying = autoPlay
+            state.status = .readyToPlay
+            state.currentPositionMs = 0
+        }
+        return true
+    }
+
+    func pruneWindow(keepAppItemIds: Set<String>) {
+        lock.withLock {
+            prunedWindows.append(keepAppItemIds)
+            windowItemIds = windowItemIds.intersection(keepAppItemIds)
+        }
+    }
+
     func stop() {
+        lock.withLock {
+            windowItemIds.removeAll()
+        }
         stateRelay.yield(AudioEngineState())
     }
 
@@ -283,6 +573,12 @@ private final class FakeAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sen
         mutate(&nextState)
         stateRelay.yield(nextState)
     }
+}
+
+private struct FakeQueueWindow {
+    let current: AudioTrackRequest
+    let next: AudioTrackRequest?
+    let autoPlay: Bool
 }
 
 private struct FakeTrackStreamURLProvider: TrackStreamUrlProvider {

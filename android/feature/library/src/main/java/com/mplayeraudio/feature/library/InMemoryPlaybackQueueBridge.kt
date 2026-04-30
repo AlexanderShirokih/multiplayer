@@ -118,7 +118,7 @@ internal class InMemoryPlaybackQueueBridge : PlaybackQueueBridge {
         )
     }
 
-    override fun acknowledgeError() {
+    override fun resetError() {
         stateFlow.value = stateFlow.value.copy(playbackError = null)
     }
 

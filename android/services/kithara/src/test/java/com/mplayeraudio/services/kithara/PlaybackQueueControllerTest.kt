@@ -7,13 +7,19 @@ import com.mplayeraudio.core.player.PlayableUrlResolver
 import com.mplayeraudio.core.player.PlaybackError
 import com.mplayeraudio.core.player.PlaybackPhase
 import com.mplayeraudio.core.player.PlaybackQueueItem
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -27,237 +33,179 @@ import org.junit.Test
 class PlaybackQueueControllerTest {
 
     @Test
-    fun `replaceQueue with autoPlay=true sets current-next window`() = runTest {
-        val engine = FakeAudioPlaybackEngine()
-        val controller = PlaybackQueueController(engine, StaticUrlResolver(), scope = this)
+    fun `replaceQueue with autoPlay loads first item and enters Loading`() = runTest {
+        val ctx = controllerTestContext(this)
 
-        controller.replaceQueue(queue = listOf(item("t1"), item("t2"), item("t3")), autoPlay = true)
-        advanceTimeBy(1L)
+        backgroundScope.launch {
+            ctx.controller.replaceQueue(queue = listOf(item("t1"), item("t2")), autoPlay = true)
+        }
+        runCurrent()
 
-        assertEquals(PlaybackPhase.Loading, controller.playbackState.value.phase)
-        assertEquals(
-            listOf(
-                WindowOp.SetWindow(
-                    current = AudioTrackRequest("t1", "http://host/t1.mp3"),
-                    next = AudioTrackRequest("t2", "http://host/t2.mp3"),
-                    autoPlay = true,
-                ),
-            ),
-            engine.windowOps,
+        assertEquals(listOf("http://host/t1.mp3"), ctx.player.insertedUrls)
+        assertEquals(PlaybackPhase.Loading, ctx.controller.playbackState.value.phase)
+        assertEquals(0, ctx.controller.playbackState.value.currentIndex)
+        shutdown(ctx, this)
+    }
+
+    @Test
+    fun `ready item triggers play for autoPlay request`() = runTest {
+        val ctx = controllerTestContext(this)
+
+        backgroundScope.launch {
+            ctx.controller.replaceQueue(queue = listOf(item("t1")), autoPlay = true)
+        }
+        runCurrent()
+        ctx.player.item("http://host/t1.mp3")!!.setSnapshot(
+            EngineItemSnapshot(status = EngineItemStatus.ReadyToPlay, durationMs = 42_000L),
         )
-
-        controller.shutdown()
         advanceUntilIdle()
+
+        assertEquals(1, ctx.player.playCallCount)
+        assertEquals(PlaybackPhase.Playing, ctx.controller.playbackState.value.phase)
+        assertEquals(42_000L, ctx.controller.playbackState.value.currentDurationMs)
+        shutdown(ctx, this)
     }
 
     @Test
-    fun `replaceQueue preserving current prunes window without reloading`() = runTest {
-        val engine = FakeAudioPlaybackEngine()
-        val controller = PlaybackQueueController(engine, StaticUrlResolver(), scope = this)
+    fun `replaceQueue waits for inserted item readiness before selecting`() = runTest {
+        val ctx = controllerTestContext(this)
 
-        controller.replaceQueue(queue = listOf(item("t1"), item("t2")), autoPlay = true)
-        advanceTimeBy(1L)
-        engine.windowOps.clear()
+        backgroundScope.launch {
+            ctx.controller.replaceQueue(queue = listOf(item("t1")), autoPlay = false)
+        }
+        runCurrent()
 
-        controller.replaceQueue(queue = listOf(item("t1"), item("t3")), autoPlay = false)
-        advanceTimeBy(1L)
+        assertEquals(PlaybackPhase.Loading, ctx.controller.playbackState.value.phase)
+        assertEquals(0, ctx.player.selectCallCount)
 
-        assertEquals(
-            listOf(
-                WindowOp.PruneWindow(setOf("t1", "t3")),
-                WindowOp.AppendNext(AudioTrackRequest("t3", "http://host/t3.mp3")),
-            ),
-            engine.windowOps,
+        ctx.player.item("http://host/t1.mp3")!!.setSnapshot(
+            EngineItemSnapshot(status = EngineItemStatus.ReadyToPlay),
         )
-        assertEquals(0, engine.stopCallCount)
-
-        controller.shutdown()
         advanceUntilIdle()
+
+        assertEquals(1, ctx.player.selectCallCount)
+        assertEquals(PlaybackPhase.Paused, ctx.controller.playbackState.value.phase)
+        shutdown(ctx, this)
     }
 
     @Test
-    fun `CurrentItemChanged advances queue without reload and extends window`() = runTest {
-        val engine = FakeAudioPlaybackEngine()
-        val controller = PlaybackQueueController(engine, StaticUrlResolver(), scope = this)
+    fun `replaceQueue preserving loaded current item does not reload`() = runTest {
+        val ctx = controllerTestContext(this)
 
-        controller.replaceQueue(queue = listOf(item("t1"), item("t2"), item("t3")), autoPlay = true)
-        advanceTimeBy(1L)
-        engine.windowOps.clear()
-
-        engine.emitEvent(AudioEngineEvent.CurrentItemChanged("t2"))
-        advanceTimeBy(1L)
-
-        assertEquals(1, controller.playbackState.value.currentIndex)
-        assertEquals(
-            listOf(
-                WindowOp.PruneWindow(setOf("t2", "t3")),
-                WindowOp.AppendNext(AudioTrackRequest("t3", "http://host/t3.mp3")),
-            ),
-            engine.windowOps,
+        backgroundScope.launch {
+            ctx.controller.replaceQueue(queue = listOf(item("t1"), item("t2")), autoPlay = false)
+        }
+        runCurrent()
+        ctx.player.item("http://host/t1.mp3")!!.setSnapshot(
+            EngineItemSnapshot(status = EngineItemStatus.ReadyToPlay),
         )
-        assertFalse(engine.windowOps.any { it is WindowOp.SetWindow })
-
-        controller.shutdown()
         advanceUntilIdle()
+        ctx.player.resetRecordedOps()
+
+        ctx.controller.replaceQueue(queue = listOf(item("t1"), item("t3")), autoPlay = false)
+        runCurrent()
+
+        assertTrue(ctx.player.insertedUrls.isEmpty())
+        assertEquals(0, ctx.player.removeAllItemsCallCount)
+        shutdown(ctx, this)
     }
 
     @Test
-    fun `PlayedToEnd in mid queue does not trigger reload`() = runTest {
-        val engine = FakeAudioPlaybackEngine()
-        val controller = PlaybackQueueController(engine, StaticUrlResolver(), scope = this)
+    fun `played to end loads next queue item`() = runTest {
+        val ctx = controllerTestContext(this)
 
-        controller.replaceQueue(queue = listOf(item("t1"), item("t2")), autoPlay = true)
-        advanceTimeBy(1L)
-        engine.windowOps.clear()
-
-        engine.emitEvent(AudioEngineEvent.PlayedToEnd("t1"))
-        advanceTimeBy(1L)
-
-        assertTrue(engine.windowOps.isEmpty())
-        assertEquals(0, controller.playbackState.value.currentIndex)
-
-        controller.shutdown()
+        backgroundScope.launch {
+            ctx.controller.replaceQueue(queue = listOf(item("t1"), item("t2")), autoPlay = true)
+        }
+        runCurrent()
+        val currentHandle = ctx.player.item("http://host/t1.mp3")!!
+        currentHandle.setSnapshot(EngineItemSnapshot(status = EngineItemStatus.ReadyToPlay))
         advanceUntilIdle()
+        ctx.player.resetRecordedOps()
+
+        ctx.player.emitPlayerEvent(KitharaPlayerEvent.PlayedToEnd(currentHandle.kitharaId))
+        runCurrent()
+
+        assertEquals(listOf("http://host/t2.mp3"), ctx.player.insertedUrls)
+        assertEquals(1, ctx.controller.playbackState.value.currentIndex)
+        assertEquals(PlaybackPhase.Loading, ctx.controller.playbackState.value.phase)
+        shutdown(ctx, this)
     }
 
     @Test
-    fun `PlayedToEnd on last track transitions to Ended`() = runTest {
-        val engine = FakeAudioPlaybackEngine()
-        val controller = PlaybackQueueController(engine, StaticUrlResolver(), scope = this)
+    fun `watchdog marks playback as failed when item never becomes ready`() = runTest {
+        val ctx = controllerTestContext(this, loadTimeoutMs = 5_000L)
 
-        controller.replaceQueue(queue = listOf(item("t1")), autoPlay = true)
-        advanceTimeBy(1L)
-
-        engine.emitEvent(AudioEngineEvent.PlayedToEnd("t1"))
-        advanceTimeBy(1L)
-
-        assertEquals(PlaybackPhase.Ended, controller.playbackState.value.phase)
-
-        controller.shutdown()
+        backgroundScope.launch {
+            ctx.controller.replaceQueue(queue = listOf(item("t1")), autoPlay = true)
+        }
+        runCurrent()
+        advanceTimeBy(5_001L)
         advanceUntilIdle()
+
+        assertEquals(PlaybackPhase.Failed, ctx.controller.playbackState.value.phase)
+        assertTrue(ctx.controller.playbackState.value.playbackError is PlaybackError.StreamFailed)
+        shutdown(ctx, this)
     }
 
     @Test
-    fun `skipNext uses selectInWindow when next already preloaded`() = runTest {
-        val engine = FakeAudioPlaybackEngine()
-        val controller = PlaybackQueueController(engine, StaticUrlResolver(), scope = this)
+    fun `seek publishes confirmed position after callback`() = runTest {
+        val ctx = controllerTestContext(this)
 
-        controller.replaceQueue(queue = listOf(item("t1"), item("t2")), autoPlay = false)
-        advanceTimeBy(1L)
-        engine.windowOps.clear()
-
-        controller.skipNext()
-        advanceTimeBy(1L)
-
-        assertEquals(
-            listOf(WindowOp.SelectInWindow(appItemId = "t2", autoPlay = true)),
-            engine.windowOps,
+        backgroundScope.launch {
+            ctx.controller.replaceQueue(queue = listOf(item("t1")), autoPlay = false)
+        }
+        runCurrent()
+        ctx.player.item("http://host/t1.mp3")!!.setSnapshot(
+            EngineItemSnapshot(status = EngineItemStatus.ReadyToPlay, durationMs = 120_000L),
         )
-
-        controller.shutdown()
         advanceUntilIdle()
-    }
+        ctx.player.updatePosition(15_000L)
+        ctx.player.blockSeek()
 
-    @Test
-    fun `skipNext falls back to setQueueWindow when target is outside window`() = runTest {
-        val engine = FakeAudioPlaybackEngine()
-        val controller = PlaybackQueueController(engine, StaticUrlResolver(), scope = this)
+        val seekJob = backgroundScope.launch {
+            ctx.controller.seekTo(90_000L)
+        }
+        runCurrent()
 
-        controller.replaceQueue(queue = listOf(item("t1"), item("t2"), item("t3")), autoPlay = false)
-        advanceTimeBy(1L)
-        engine.windowItemIds.clear()
-        engine.windowOps.clear()
-
-        controller.skipNext()
-        advanceTimeBy(1L)
-
-        assertEquals(
-            listOf(
-                WindowOp.SelectInWindow(appItemId = "t2", autoPlay = true),
-                WindowOp.SetWindow(
-                    current = AudioTrackRequest("t2", "http://host/t2.mp3"),
-                    next = AudioTrackRequest("t3", "http://host/t3.mp3"),
-                    autoPlay = true,
-                ),
-            ),
-            engine.windowOps,
-        )
-
-        controller.shutdown()
-        advanceUntilIdle()
-    }
-
-    @Test
-    fun `watchdog fires for setQueueWindow path when loading stalls`() = runTest {
-        val engine = FakeAudioPlaybackEngine()
-        val timeoutMs = 5_000L
-        val controller = PlaybackQueueController(engine, StaticUrlResolver(), scope = this, loadTimeoutMs = timeoutMs)
-
-        controller.replaceQueue(queue = listOf(item("t1")), autoPlay = true)
-        advanceTimeBy(1L)
-        advanceTimeBy(timeoutMs + 1L)
-
-        assertEquals(PlaybackPhase.Failed, controller.playbackState.value.phase)
-        assertTrue(controller.playbackState.value.playbackError is PlaybackError.StreamFailed)
-
-        controller.shutdown()
-        advanceUntilIdle()
-    }
-
-    @Test
-    fun `watchdog is not armed when skipNext succeeds via selectInWindow`() = runTest {
-        val engine = FakeAudioPlaybackEngine()
-        val timeoutMs = 5_000L
-        val controller = PlaybackQueueController(engine, StaticUrlResolver(), scope = this, loadTimeoutMs = timeoutMs)
-
-        controller.replaceQueue(queue = listOf(item("t1"), item("t2")), autoPlay = false)
-        advanceTimeBy(1L)
-        engine.windowOps.clear()
-
-        controller.skipNext()
-        advanceTimeBy(1L)
-        advanceTimeBy(timeoutMs + 1L)
-
-        assertFalse(controller.playbackState.value.phase == PlaybackPhase.Failed)
-        assertTrue(engine.windowOps.contains(WindowOp.SelectInWindow("t2", true)))
-
-        controller.shutdown()
-        advanceUntilIdle()
-    }
-
-    @Test
-    fun `pause transitions active loading phase to Paused`() = runTest {
-        val engine = FakeAudioPlaybackEngine()
-        val controller = PlaybackQueueController(engine, StaticUrlResolver(), scope = this)
-
-        controller.replaceQueue(queue = listOf(item("t1")), autoPlay = true)
-        advanceTimeBy(1L)
-
-        controller.pause()
-        advanceTimeBy(1L)
-
-        assertEquals(PlaybackPhase.Paused, controller.playbackState.value.phase)
-        assertEquals(1, engine.pauseCallCount)
-
-        controller.shutdown()
-        advanceUntilIdle()
-    }
-
-    @Test
-    fun `shutdown resets state and stops engine`() = runTest {
-        val engine = FakeAudioPlaybackEngine()
-        val controller = PlaybackQueueController(engine, StaticUrlResolver(), scope = this)
-
-        controller.replaceQueue(queue = listOf(item("t1")), autoPlay = false)
-        advanceTimeBy(1L)
-
-        controller.shutdown()
+        assertEquals(15_000L, ctx.controller.playbackState.value.currentPositionMs)
+        ctx.player.finishBlockedSeek(success = true, positionMs = 90_000L)
         advanceUntilIdle()
 
-        assertEquals(PlaybackPhase.Idle, controller.playbackState.value.phase)
-        assertTrue(controller.playbackState.value.queue.isEmpty())
-        assertEquals(1, engine.stopCallCount)
+        assertEquals(90_000L, ctx.controller.playbackState.value.currentPositionMs)
+        assertFalse(seekJob.isCancelled)
+        seekJob.join()
+        shutdown(ctx, this)
     }
+}
+
+private data class ControllerTestContext(
+    val controller: PlaybackQueueController,
+    val player: MockKitharaPlayerHarness,
+)
+
+private fun controllerTestContext(
+    scope: TestScope,
+    resolver: PlayableUrlResolver = StaticUrlResolver(),
+    loadTimeoutMs: Long = 30_000L,
+): ControllerTestContext {
+    val playerHarness = MockKitharaPlayerHarness()
+    val controller = PlaybackQueueController(
+        player = playerHarness.wrapper,
+        urlResolver = resolver,
+        scope = scope,
+        loadTimeoutMs = loadTimeoutMs,
+    )
+    return ControllerTestContext(controller = controller, player = playerHarness)
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+private fun shutdown(
+    ctx: ControllerTestContext,
+    scope: TestScope,
+) {
+    ctx.controller.shutdown()
+    scope.advanceUntilIdle()
 }
 
 private fun item(id: String, durationMs: Long = 180_000L) = PlaybackQueueItem(
@@ -273,96 +221,164 @@ private class StaticUrlResolver : PlayableUrlResolver {
     override suspend fun getPlayableUrl(item: PlaybackQueueItem): String = "http://host/${item.id}.mp3"
 }
 
-private sealed interface WindowOp {
-    data class SetWindow(
-        val current: AudioTrackRequest,
-        val next: AudioTrackRequest?,
-        val autoPlay: Boolean,
-    ) : WindowOp
+private class MockKitharaPlayerHarness {
+    private val snapshotState = MutableStateFlow(EnginePlayerSnapshot())
+    private val eventFlow = MutableSharedFlow<KitharaPlayerEvent>(extraBufferCapacity = 16)
+    private val itemsByUrl = linkedMapOf<String, TestKitharaItemHandle>()
+    private val itemsById = linkedMapOf<String, TestKitharaItemHandle>()
+    private var pendingSeekCallback: ((Boolean) -> Unit)? = null
+    private var nextItemOrdinal = 0
 
-    data class AppendNext(val request: AudioTrackRequest) : WindowOp
+    val wrapper: KitharaPlayerWrapper = mockk(relaxed = true)
+    val insertedUrls = mutableListOf<String>()
+    var playCallCount = 0
+    var removeAllItemsCallCount = 0
+    var selectCallCount = 0
+    private var seekBlocked = false
 
-    data class SelectInWindow(val appItemId: String, val autoPlay: Boolean) : WindowOp
+    init {
+        every { wrapper.snapshots } returns snapshotState.asStateFlow()
+        every { wrapper.events } returns eventFlow.asSharedFlow()
+        every { wrapper.play() } answers {
+            playCallCount += 1
+            snapshotState.value = snapshotState.value.copy(rate = 1f, status = AudioEngineStatus.ReadyToPlay)
+        }
+        every { wrapper.pause() } answers {
+            snapshotState.value = snapshotState.value.copy(rate = 0f)
+        }
+        coEvery { wrapper.seek(any()) } coAnswers {
+            val positionMs = (firstArg<Double>() * 1000).toLong()
+            if (seekBlocked) {
+                suspendSeek(positionMs)
+            } else {
+                updatePosition(positionMs)
+                true
+            }
+        }
+        every { wrapper.insertItem(any()) } answers {
+            val url = firstArg<String>()
+            insertedUrls += url
+            val item = TestKitharaItemHandle(
+                url = url,
+                kitharaId = "mock:${nextItemOrdinal++}:${url.hashCode()}",
+                emitEvent = eventFlow::tryEmit,
+            )
+            itemsByUrl[url] = item
+            itemsById[item.kitharaId] = item
+            item
+        }
+        coEvery { wrapper.selectItem(any()) } coAnswers {
+            val kitharaId = firstArg<String>()
+            val item = itemsById[kitharaId] ?: error("Missing test item: $kitharaId")
+            item.awaitSelectionReady()
+            if (item.lastSnapshot.status == EngineItemStatus.Failed) {
+                throw IllegalStateException(
+                    item.lastSnapshot.error?.toTestFailureMessage() ?: "Item failed to load",
+                )
+            }
+            selectCallCount += 1
+            snapshotState.value = snapshotState.value.copy(currentKitharaItemId = kitharaId)
+        }
+        every { wrapper.removeItem(any()) } answers {
+            val kitharaId = firstArg<String>()
+            val item = itemsById.remove(kitharaId) ?: return@answers
+            itemsByUrl.remove(item.url)
+        }
+        every { wrapper.removeAllItems() } answers {
+            removeAllItemsCallCount += 1
+            itemsById.clear()
+            itemsByUrl.clear()
+            snapshotState.value = EnginePlayerSnapshot()
+        }
+    }
 
-    data class PruneWindow(val keepAppItemIds: Set<String>) : WindowOp
+    fun item(url: String): TestKitharaItemHandle? = itemsByUrl[url]
+
+    fun emitPlayerEvent(event: KitharaPlayerEvent) {
+        eventFlow.tryEmit(event)
+    }
+
+    fun updatePosition(positionMs: Long, isPlaying: Boolean = snapshotState.value.rate > 0f) {
+        snapshotState.value = snapshotState.value.copy(
+            currentPositionMs = positionMs,
+            rate = if (isPlaying) 1f else 0f,
+            status = AudioEngineStatus.ReadyToPlay,
+        )
+    }
+
+    fun blockSeek() {
+        seekBlocked = true
+        pendingSeekCallback = null
+    }
+
+    fun finishBlockedSeek(success: Boolean, positionMs: Long) {
+        seekBlocked = false
+        if (success) {
+            updatePosition(positionMs)
+        }
+        pendingSeekCallback?.invoke(success)
+        pendingSeekCallback = null
+    }
+
+    fun resetRecordedOps() {
+        insertedUrls.clear()
+        removeAllItemsCallCount = 0
+        selectCallCount = 0
+    }
+
+    private suspend fun suspendSeek(positionMs: Long): Boolean {
+        val completion = CompletableDeferred<Boolean>()
+        pendingSeekCallback = { success ->
+            if (success) {
+                updatePosition(positionMs)
+            }
+            completion.complete(success)
+        }
+        return completion.await()
+    }
 }
 
-private class FakeAudioPlaybackEngine : AudioPlaybackEngine {
+private class TestKitharaItemHandle(
+    val url: String,
+    override val kitharaId: String,
+    private val emitEvent: (KitharaPlayerEvent) -> Boolean,
+) : KitharaItemHandle {
+    private val readyForSelection = CompletableDeferred<Unit>()
+    var lastSnapshot: EngineItemSnapshot = EngineItemSnapshot()
+        private set
 
-    private val _engineState = MutableStateFlow(AudioEngineState())
-    private val _events = MutableSharedFlow<AudioEngineEvent>(extraBufferCapacity = 16)
+    fun setSnapshot(snapshot: EngineItemSnapshot) {
+        lastSnapshot = snapshot
+        if (!readyForSelection.isCompleted &&
+            (snapshot.status == EngineItemStatus.ReadyToPlay || snapshot.status == EngineItemStatus.Failed)
+        ) {
+            readyForSelection.complete(Unit)
+        }
+        snapshot.durationMs?.let { emitEvent(KitharaPlayerEvent.DurationDiscovered(kitharaId, it)) }
+        when (snapshot.status) {
+            EngineItemStatus.ReadyToPlay ->
+                emitEvent(KitharaPlayerEvent.ItemReady(kitharaId, snapshot.durationMs))
 
-    override val engineState: StateFlow<AudioEngineState> = _engineState.asStateFlow()
-    override val events: SharedFlow<AudioEngineEvent> = _events.asSharedFlow()
+            EngineItemStatus.Failed ->
+                emitEvent(
+                    KitharaPlayerEvent.ItemFailed(
+                        kitharaId,
+                        snapshot.error ?: AudioEngineError.LoadFailed("Unknown item error"),
+                    ),
+                )
 
-    val windowOps = mutableListOf<WindowOp>()
-    val windowItemIds = linkedSetOf<String>()
-    val seekRequests = mutableListOf<Long>()
-    var playCallCount = 0
-    var pauseCallCount = 0
-    var stopCallCount = 0
-
-    override fun play() {
-        playCallCount++
-        _engineState.value = _engineState.value.copy(isPlaying = true)
+            EngineItemStatus.Unknown -> Unit
+        }
     }
 
-    override fun pause() {
-        pauseCallCount++
-        _engineState.value = _engineState.value.copy(isPlaying = false)
+    suspend fun awaitSelectionReady() {
+        readyForSelection.await()
     }
+}
 
-    override suspend fun seekTo(positionMs: Long): Boolean {
-        seekRequests += positionMs
-        _engineState.value = _engineState.value.copy(currentPositionMs = positionMs)
-        return true
-    }
-
-    override fun setQueueWindow(
-        current: AudioTrackRequest,
-        next: AudioTrackRequest?,
-        autoPlay: Boolean,
-    ) {
-        windowOps += WindowOp.SetWindow(current, next, autoPlay)
-        windowItemIds.clear()
-        windowItemIds += current.id
-        next?.let { windowItemIds += it.id }
-        _engineState.value = AudioEngineState(
-            status = AudioEngineStatus.ReadyToPlay,
-            currentItemId = current.id,
-            isPlaying = false,
-        )
-    }
-
-    override fun appendNext(next: AudioTrackRequest) {
-        windowOps += WindowOp.AppendNext(next)
-        windowItemIds += next.id
-    }
-
-    override suspend fun selectInWindow(appItemId: String, autoPlay: Boolean): Boolean {
-        windowOps += WindowOp.SelectInWindow(appItemId, autoPlay)
-        if (appItemId !in windowItemIds) return false
-
-        _engineState.value = _engineState.value.copy(
-            currentItemId = appItemId,
-            currentPositionMs = 0L,
-            isPlaying = autoPlay,
-        )
-        return true
-    }
-
-    override fun pruneWindow(keepAppItemIds: Set<String>) {
-        windowOps += WindowOp.PruneWindow(keepAppItemIds)
-        windowItemIds.retainAll(keepAppItemIds)
-    }
-
-    override fun stop() {
-        stopCallCount++
-        windowItemIds.clear()
-        _engineState.value = AudioEngineState()
-    }
-
-    suspend fun emitEvent(event: AudioEngineEvent) {
-        _events.emit(event)
-    }
+private fun AudioEngineError.toTestFailureMessage(): String = when (this) {
+    is AudioEngineError.LoadFailed -> message
+    is AudioEngineError.StreamFailed -> message
+    is AudioEngineError.EngineCrashed -> message
+    AudioEngineError.SeekFailed -> "Seek failed"
 }

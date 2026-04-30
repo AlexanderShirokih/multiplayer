@@ -136,7 +136,7 @@ class TrackListViewModel(
     }
 
     fun onAcknowledgePlaybackError() {
-        playbackBridge.acknowledgeError()
+        playbackBridge.resetError()
     }
 
     fun onClearAddTrackError() {

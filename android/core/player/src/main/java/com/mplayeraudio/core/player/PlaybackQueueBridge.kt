@@ -2,7 +2,6 @@ package com.mplayeraudio.core.player
 
 import com.mplayeraudio.core.domain.musiclibrary.MusicProviderId
 import com.mplayeraudio.core.domain.musiclibrary.TrackId
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 sealed interface PlayableSource {
@@ -62,7 +61,7 @@ interface PlaybackQueueBridge : NowPlayingStripController {
 
     suspend fun playTrack(index: Int)
 
-    fun acknowledgeError()
+    fun resetError()
 
     fun shutdown()
 }

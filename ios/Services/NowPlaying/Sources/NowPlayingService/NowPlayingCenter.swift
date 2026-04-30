@@ -114,7 +114,10 @@ private extension NowPlayingCenter {
         remoteCommandCenter.setHandler(for: .togglePlayPause) { [weak self] in
             self?.runWhenControlsEnabled(command: "togglePlayPause") { center in
                 let wasPlaying = center.lastPlaybackState.isPlaying
-                nowPlayingLog.info("togglePlayPause command accepted wasPlaying=\(wasPlaying, privacy: .public) itemId=\(center.lastPlaybackState.currentItem?.id ?? "nil", privacy: .public)")
+                let itemId = center.lastPlaybackState.currentItem?.id ?? "nil"
+                nowPlayingLog.info(
+                    "togglePlayPause accepted wasPlaying=\(wasPlaying, privacy: .public) itemId=\(itemId, privacy: .public)"
+                )
                 if wasPlaying {
                     center.deactivateAudioSessionIfNeeded()
                 }
@@ -175,18 +178,22 @@ private extension NowPlayingCenter {
     ) -> MPRemoteCommandHandlerStatus {
         MainActor.assumeIsolated {
             let currentIndex = self.lastPlaybackState.currentIndex ?? -1
+            let controlsEnabled = self.lastPlaybackState.controlsEnabled
+            let isPlaying = self.lastPlaybackState.isPlaying
+            let queueCount = self.lastPlaybackState.queue.count
+            let audioSessionActive = self.isAudioSessionActive
             writeNowPlayingTrace(
-                "remote command received command=\(command) controlsEnabled=\(self.lastPlaybackState.controlsEnabled) isPlaying=\(self.lastPlaybackState.isPlaying) queueCount=\(self.lastPlaybackState.queue.count) currentIndex=\(currentIndex) audioSessionActive=\(self.isAudioSessionActive)"
+                "remote command=\(command) controls=\(controlsEnabled) playing=\(isPlaying) count=\(queueCount) index=\(currentIndex)"
             )
             nowPlayingLog.info(
-                "remote command received command=\(command, privacy: .public) controlsEnabled=\(self.lastPlaybackState.controlsEnabled, privacy: .public) isPlaying=\(self.lastPlaybackState.isPlaying, privacy: .public) queueCount=\(self.lastPlaybackState.queue.count, privacy: .public) currentIndex=\(currentIndex, privacy: .public) audioSessionActive=\(self.isAudioSessionActive, privacy: .public)"
+                "remote command=\(command, privacy: .public) controls=\(controlsEnabled, privacy: .public) index=\(currentIndex, privacy: .public)"
             )
             guard condition(self) else {
                 writeNowPlayingTrace(
-                    "remote command rejected command=\(command) controlsEnabled=\(self.lastPlaybackState.controlsEnabled) isPlaying=\(self.lastPlaybackState.isPlaying) currentIndex=\(currentIndex)"
+                    "remote command rejected command=\(command) controls=\(controlsEnabled) playing=\(isPlaying) index=\(currentIndex)"
                 )
                 nowPlayingLog.error(
-                    "remote command rejected command=\(command, privacy: .public) controlsEnabled=\(self.lastPlaybackState.controlsEnabled, privacy: .public) isPlaying=\(self.lastPlaybackState.isPlaying, privacy: .public) currentIndex=\(currentIndex, privacy: .public)"
+                    "remote rejected command=\(command, privacy: .public) controls=\(controlsEnabled, privacy: .public) index=\(currentIndex, privacy: .public)"
                 )
                 return .commandFailed
             }
@@ -231,11 +238,13 @@ private extension NowPlayingCenter {
             previousState.currentIndex != playbackState.currentIndex ||
             previousItemId != playbackState.currentItem?.id ||
             previousState.controlsEnabled != playbackState.controlsEnabled {
+            let itemId = playbackState.currentItem?.id ?? "nil"
+            let currentIndex = playbackState.currentIndex ?? -1
             writeNowPlayingTrace(
-                "playback state update itemId=\(playbackState.currentItem?.id ?? "nil") isPlaying=\(playbackState.isPlaying) currentIndex=\(playbackState.currentIndex ?? -1) queueCount=\(playbackState.queue.count) positionMs=\(playbackState.currentPositionMs) controlsEnabled=\(playbackState.controlsEnabled)"
+                "playback state itemId=\(itemId) playing=\(playbackState.isPlaying) index=\(currentIndex) positionMs=\(playbackState.currentPositionMs)"
             )
             nowPlayingLog.info(
-                "playback state update itemId=\(playbackState.currentItem?.id ?? "nil", privacy: .public) isPlaying=\(playbackState.isPlaying, privacy: .public) currentIndex=\(playbackState.currentIndex ?? -1, privacy: .public) queueCount=\(playbackState.queue.count, privacy: .public) positionMs=\(playbackState.currentPositionMs, privacy: .public) controlsEnabled=\(playbackState.controlsEnabled, privacy: .public)"
+                "playback state itemId=\(itemId, privacy: .public) playing=\(playbackState.isPlaying, privacy: .public) index=\(currentIndex, privacy: .public)"
             )
         }
         if playbackState.isPlaying {
@@ -309,8 +318,10 @@ private extension NowPlayingCenter {
             currentPositionMs: lastPlaybackState.currentPositionMs,
             controlsEnabled: lastPlaybackState.controlsEnabled
         )
+        let itemId = immediatePlaybackState.currentItem?.id ?? "nil"
+        let currentIndex = immediatePlaybackState.currentIndex ?? -1
         nowPlayingLog.info(
-            "apply immediate playback state itemId=\(immediatePlaybackState.currentItem?.id ?? "nil", privacy: .public) isPlaying=\(isPlaying, privacy: .public) currentIndex=\(immediatePlaybackState.currentIndex ?? -1, privacy: .public) positionMs=\(immediatePlaybackState.currentPositionMs, privacy: .public)"
+            "apply immediate itemId=\(itemId, privacy: .public) playing=\(isPlaying, privacy: .public) index=\(currentIndex, privacy: .public)"
         )
         nowPlayingInfoCenter.playbackState = systemPlaybackState(for: immediatePlaybackState)
         updateCommandAvailability(for: immediatePlaybackState)
@@ -349,7 +360,7 @@ private extension NowPlayingCenter {
             "handle play command itemId=\(currentItemId) currentIndex=\(currentIndex) audioSessionActive=\(isAudioSessionActive)"
         )
         nowPlayingLog.info(
-            "handle play command itemId=\(currentItemId, privacy: .public) currentIndex=\(currentIndex, privacy: .public) audioSessionActive=\(isAudioSessionActive, privacy: .public)"
+            "handle play command itemId=\(currentItemId, privacy: .public) currentIndex=\(currentIndex, privacy: .public)"
         )
         activateAudioSessionIfNeeded()
         await playbackBridge.play()

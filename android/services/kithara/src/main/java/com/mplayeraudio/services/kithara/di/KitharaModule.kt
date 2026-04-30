@@ -4,11 +4,10 @@ import com.mplayeraudio.core.domain.musiclibrary.MusicProviderId
 import com.mplayeraudio.core.domain.musiclibrary.TrackStreamUrlProvider
 import com.mplayeraudio.core.player.PlayableUrlResolver
 import com.mplayeraudio.core.player.PlaybackQueueBridge
-import com.mplayeraudio.services.kithara.AudioPlaybackEngine
 import com.mplayeraudio.services.kithara.AndroidKitharaLogger
 import com.mplayeraudio.services.kithara.CompositePlayableUrlResolver
 import com.mplayeraudio.services.kithara.KitharaLogger
-import com.mplayeraudio.services.kithara.KitharaAudioPlaybackEngine
+import com.mplayeraudio.services.kithara.KitharaPlayerWrapper
 import com.mplayeraudio.services.kithara.PlaybackQueueController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,12 +23,7 @@ fun kitharaModule(): Module = module {
         CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     }
     single<KitharaLogger> { AndroidKitharaLogger }
-    single<AudioPlaybackEngine> {
-        KitharaAudioPlaybackEngine(
-            scope = get(named(KitharaScopeQualifier)),
-            logger = get(),
-        )
-    }
+    single { KitharaPlayerWrapper(scope = get(named(KitharaScopeQualifier))) }
     single<PlayableUrlResolver> {
         CompositePlayableUrlResolver(
             providers = mapOf(
@@ -47,7 +41,7 @@ fun kitharaModule(): Module = module {
     }
     single<PlaybackQueueBridge> {
         PlaybackQueueController(
-            engine = get(),
+            player = get(),
             urlResolver = get(),
             scope = get(named(KitharaScopeQualifier)),
             logger = get(),

@@ -19,4 +19,8 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockk)
+    testImplementation(files("${rootProject.projectDir}/libs/kithara.aar"))
+    testImplementation(files("${rootProject.projectDir}/libs/rust-tls.aar"))
+    testImplementation("net.java.dev.jna:jna:${libs.versions.jna.get()}@aar")
 }

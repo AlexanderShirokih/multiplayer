@@ -9,11 +9,10 @@ import com.mplayeraudio.core.player.PlaybackQueueItem
 import com.mplayeraudio.core.player.PlaybackQueueState
 import com.mplayeraudio.core.player.PlayableSource
 import com.mplayeraudio.core.domain.musiclibrary.YandexTrackId
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -30,20 +29,20 @@ class KitharaSimplePlayerTest {
 
     @Test
     fun `Playing phase maps to STATE_READY with playWhenReady=true`() = runTest {
-        val bridge = FakePlaybackQueueBridge()
+        val stateFlow = MutableStateFlow(PlaybackQueueState())
+        val bridge = playbackQueueBridgeMock(stateFlow)
         val player = KitharaSimplePlayer(
             controller = bridge,
             scope = this,
             looper = android.os.Looper.getMainLooper(),
         )
 
-        bridge.setState(
+        stateFlow.value =
             PlaybackQueueState(
                 queue = listOf(queueItem()),
                 currentIndex = 0,
                 phase = PlaybackPhase.Playing,
             ),
-        )
         advanceUntilIdle()
 
         assertEquals(Player.STATE_READY, player.playbackState)
@@ -54,20 +53,20 @@ class KitharaSimplePlayerTest {
 
     @Test
     fun `Paused phase maps to STATE_READY with playWhenReady=false`() = runTest {
-        val bridge = FakePlaybackQueueBridge()
+        val stateFlow = MutableStateFlow(PlaybackQueueState())
+        val bridge = playbackQueueBridgeMock(stateFlow)
         val player = KitharaSimplePlayer(
             controller = bridge,
             scope = this,
             looper = android.os.Looper.getMainLooper(),
         )
 
-        bridge.setState(
+        stateFlow.value =
             PlaybackQueueState(
                 queue = listOf(queueItem()),
                 currentIndex = 0,
                 phase = PlaybackPhase.Paused,
             ),
-        )
         advanceUntilIdle()
 
         assertEquals(Player.STATE_READY, player.playbackState)
@@ -78,21 +77,21 @@ class KitharaSimplePlayerTest {
 
     @Test
     fun `Failed phase maps to STATE_IDLE with playerError set`() = runTest {
-        val bridge = FakePlaybackQueueBridge()
+        val stateFlow = MutableStateFlow(PlaybackQueueState())
+        val bridge = playbackQueueBridgeMock(stateFlow)
         val player = KitharaSimplePlayer(
             controller = bridge,
             scope = this,
             looper = android.os.Looper.getMainLooper(),
         )
 
-        bridge.setState(
+        stateFlow.value =
             PlaybackQueueState(
                 queue = listOf(queueItem()),
                 currentIndex = 0,
                 phase = PlaybackPhase.Failed,
                 playbackError = PlaybackError.TrackUnavailable("0:track", "Network error"),
             ),
-        )
         advanceUntilIdle()
 
         assertEquals(Player.STATE_IDLE, player.playbackState)
@@ -103,14 +102,15 @@ class KitharaSimplePlayerTest {
 
     @Test
     fun `Idle phase maps to STATE_IDLE without error`() = runTest {
-        val bridge = FakePlaybackQueueBridge()
+        val stateFlow = MutableStateFlow(PlaybackQueueState())
+        val bridge = playbackQueueBridgeMock(stateFlow)
         val player = KitharaSimplePlayer(
             controller = bridge,
             scope = this,
             looper = android.os.Looper.getMainLooper(),
         )
 
-        bridge.setState(PlaybackQueueState())
+        stateFlow.value = PlaybackQueueState()
         advanceUntilIdle()
 
         assertEquals(Player.STATE_IDLE, player.playbackState)
@@ -121,26 +121,35 @@ class KitharaSimplePlayerTest {
 
     @Test
     fun `currentDurationMs overrides static item duration in playlist`() = runTest {
-        val bridge = FakePlaybackQueueBridge()
+        val stateFlow = MutableStateFlow(PlaybackQueueState())
+        val bridge = playbackQueueBridgeMock(stateFlow)
         val player = KitharaSimplePlayer(
             controller = bridge,
             scope = this,
             looper = android.os.Looper.getMainLooper(),
         )
 
-        bridge.setState(
+        stateFlow.value =
             PlaybackQueueState(
                 queue = listOf(queueItem(durationMs = 0L)),
                 currentIndex = 0,
                 phase = PlaybackPhase.Playing,
                 currentDurationMs = 180_000L,
             ),
-        )
         advanceUntilIdle()
 
         assertEquals(180_000L, player.contentDuration)
 
         player.release()
+    }
+}
+
+private fun playbackQueueBridgeMock(
+    stateFlow: MutableStateFlow<PlaybackQueueState>,
+): PlaybackQueueBridge {
+    return mockk(relaxed = true) {
+        every { playbackState } returns stateFlow
+        every { state } returns emptyFlow()
     }
 }
 
@@ -153,24 +162,4 @@ private fun queueItem(durationMs: Long = 180_000L): PlaybackQueueItem {
         subtitle = "Artist",
         durationMs = durationMs,
     )
-}
-
-private class FakePlaybackQueueBridge : PlaybackQueueBridge {
-
-    private val stateFlow = MutableStateFlow(PlaybackQueueState())
-
-    override val playbackState: StateFlow<PlaybackQueueState> = stateFlow.asStateFlow()
-    override val state: Flow<NowPlayingStripExternalState> = emptyFlow()
-
-    fun setState(state: PlaybackQueueState) { stateFlow.value = state }
-
-    override suspend fun replaceQueue(queue: List<PlaybackQueueItem>, startIndex: Int?, autoPlay: Boolean) = Unit
-    override suspend fun playTrack(index: Int) = Unit
-    override suspend fun play() = Unit
-    override suspend fun pause() = Unit
-    override suspend fun skipNext() = Unit
-    override suspend fun skipPrevious() = Unit
-    override suspend fun seekTo(positionMs: Long) = Unit
-    override fun acknowledgeError() = Unit
-    override fun shutdown() = Unit
 }

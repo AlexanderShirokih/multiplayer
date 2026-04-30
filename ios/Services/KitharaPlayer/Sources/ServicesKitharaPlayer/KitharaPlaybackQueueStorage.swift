@@ -13,21 +13,28 @@ extension PlaybackQueueStorage {
             startIndex: startIndex,
             autoPlay: autoPlay
         )
+        guard let nextIndex = replacement.nextIndex else {
+            playbackState = replacement.state
+            broadcast()
+            engine.stop()
+            return
+        }
+
         playbackState = replacement.state
         broadcast()
 
-        guard let nextIndex = replacement.nextIndex else {
-            engine.stop()
+        if replacement.shouldRebuildWindow {
+            await applyWindow(
+                currentIndex: nextIndex,
+                autoPlay: replacement.state.isPlaying,
+                startPositionMs: replacement.state.currentPositionMs
+            )
             return
         }
 
-        if replacement.shouldLoadTrack {
-            await loadQueueItem(queue[nextIndex], autoPlay: true)
-            return
-        }
-
-        if replacement.shouldStopEngine {
-            engine.stop()
+        await reconcileWindow(currentIndex: nextIndex)
+        if replacement.state.isPlaying {
+            engine.play()
         }
     }
 
@@ -47,7 +54,7 @@ extension PlaybackQueueStorage {
             controlsEnabled: true
         )
         broadcast()
-        await loadQueueItem(item, autoPlay: true)
+        await selectOrApplyWindow(currentIndex: index, autoPlay: true)
     }
 
     func play() async {
@@ -60,29 +67,47 @@ extension PlaybackQueueStorage {
         let engineState = engine.currentState
         let queueCount = self.playbackState.queue.count
         let currentPositionMs = self.playbackState.currentPositionMs
+        let engineItemId = engineState.currentItemId ?? "nil"
+        let engineStatus = String(describing: engineState.status)
         writePlaybackQueueTrace(
-            "play requested itemId=\(item.id) currentIndex=\(index) queueCount=\(queueCount) positionMs=\(currentPositionMs) engineItemId=\(engineState.currentItemId ?? "nil") engineStatus=\(String(describing: engineState.status)) engineIsPlaying=\(engineState.isPlaying)"
+            "play itemId=\(item.id) index=\(index) count=\(queueCount) " +
+            "positionMs=\(currentPositionMs) engineItemId=\(engineItemId) engineStatus=\(engineStatus)"
         )
         playbackQueueLog.info(
-            "play requested itemId=\(item.id, privacy: .public) currentIndex=\(index, privacy: .public) queueCount=\(queueCount, privacy: .public) positionMs=\(currentPositionMs, privacy: .public) engineItemId=\(engineState.currentItemId ?? "nil", privacy: .public) engineStatus=\(String(describing: engineState.status), privacy: .public) engineIsPlaying=\(engineState.isPlaying, privacy: .public)"
+            "play itemId=\(item.id, privacy: .public) index=\(index, privacy: .public)"
+        )
+        playbackQueueLog.info(
+            "play engineItemId=\(engineItemId, privacy: .public)"
         )
         if canResumeCurrentItem(item) {
-            writePlaybackQueueTrace("resuming current item via engine.play itemId=\(item.id)")
-            playbackQueueLog.info("resuming current item via engine.play itemId=\(item.id, privacy: .public)")
-            engine.play()
+            let resumePositionMs = playbackState.currentPositionMs
+            writePlaybackQueueTrace(
+                "resuming current item via window rebuild itemId=\(item.id) positionMs=\(resumePositionMs)"
+            )
+            playbackQueueLog.info(
+                "resume via window rebuild itemId=\(item.id, privacy: .public)"
+            )
+            playbackQueueLog.info(
+                "resume via window rebuild positionMs=\(resumePositionMs, privacy: .public)"
+            )
             playbackState = PlaybackQueueState(
                 queue: playbackState.queue,
                 currentIndex: index,
                 isPlaying: true,
-                currentPositionMs: playbackState.currentPositionMs,
+                currentPositionMs: resumePositionMs,
                 controlsEnabled: true
             )
             broadcast()
+            await applyWindow(
+                currentIndex: index,
+                autoPlay: true,
+                startPositionMs: resumePositionMs
+            )
             return
         }
 
-        writePlaybackQueueTrace("resume not possible, loading queue item itemId=\(item.id)")
-        playbackQueueLog.info("resume not possible, loading queue item itemId=\(item.id, privacy: .public)")
+        writePlaybackQueueTrace("resume not possible, applying queue window itemId=\(item.id)")
+        playbackQueueLog.info("resume not possible, applying queue window itemId=\(item.id, privacy: .public)")
         playbackState = PlaybackQueueState(
             queue: playbackState.queue,
             currentIndex: index,
@@ -91,7 +116,7 @@ extension PlaybackQueueStorage {
             controlsEnabled: true
         )
         broadcast()
-        await loadQueueItem(item, autoPlay: true)
+        await selectOrApplyWindow(currentIndex: index, autoPlay: true)
     }
 
     func pause() {
@@ -106,7 +131,7 @@ extension PlaybackQueueStorage {
             "pause requested itemId=\(currentItemId) currentIndex=\(currentIndex) positionMs=\(currentPositionMs)"
         )
         playbackQueueLog.info(
-            "pause requested itemId=\(currentItemId, privacy: .public) currentIndex=\(currentIndex, privacy: .public) positionMs=\(currentPositionMs, privacy: .public)"
+            "pause itemId=\(currentItemId, privacy: .public) index=\(currentIndex, privacy: .public) positionMs=\(currentPositionMs, privacy: .public)"
         )
         engine.pause()
         playbackState = PlaybackQueueState(
@@ -127,7 +152,6 @@ extension PlaybackQueueStorage {
         guard nextIndex != currentIndex else {
             return
         }
-        let item = playbackState.queue[nextIndex]
         playbackState = PlaybackQueueState(
             queue: playbackState.queue,
             currentIndex: nextIndex,
@@ -136,7 +160,7 @@ extension PlaybackQueueStorage {
             controlsEnabled: true
         )
         broadcast()
-        await loadQueueItem(item, autoPlay: true)
+        await selectOrApplyWindow(currentIndex: nextIndex, autoPlay: true)
     }
 
     func skipPrevious() async {
@@ -158,7 +182,6 @@ extension PlaybackQueueStorage {
         }
 
         let previousIndex = currentIndex - 1
-        let item = playbackState.queue[previousIndex]
         playbackState = PlaybackQueueState(
             queue: playbackState.queue,
             currentIndex: previousIndex,
@@ -167,7 +190,7 @@ extension PlaybackQueueStorage {
             controlsEnabled: true
         )
         broadcast()
-        await loadQueueItem(item, autoPlay: true)
+        await selectOrApplyWindow(currentIndex: previousIndex, autoPlay: true)
     }
 
     func seekTo(positionMs: Int64) async {
@@ -194,18 +217,19 @@ extension PlaybackQueueStorage {
     func handleEngineState(_ engineState: AudioEngineState) {
         let storageIsPlaying = self.playbackState.isPlaying
         if storageIsPlaying != engineState.isPlaying {
+            let engineStatus = String(describing: engineState.status)
             writePlaybackQueueTrace(
-                "engine transport mismatch storageIsPlaying=\(storageIsPlaying) engineIsPlaying=\(engineState.isPlaying) engineStatus=\(String(describing: engineState.status)) engineItemId=\(engineState.currentItemId ?? "nil") positionMs=\(engineState.currentPositionMs)"
+                "transport mismatch storagePlaying=\(storageIsPlaying) enginePlaying=\(engineState.isPlaying) engineStatus=\(engineStatus)"
             )
             playbackQueueLog.info(
-                "engine transport mismatch storageIsPlaying=\(storageIsPlaying, privacy: .public) engineIsPlaying=\(engineState.isPlaying, privacy: .public) engineStatus=\(String(describing: engineState.status), privacy: .public) engineItemId=\(engineState.currentItemId ?? "nil", privacy: .public) positionMs=\(engineState.currentPositionMs, privacy: .public)"
+                "transport mismatch storagePlaying=\(storageIsPlaying, privacy: .public) enginePlaying=\(engineState.isPlaying, privacy: .public)"
             )
         }
         guard playbackState.currentPositionMs != engineState.currentPositionMs else {
             return
         }
         playbackQueueLog.info(
-            "engine position update itemId=\(engineState.currentItemId ?? "nil", privacy: .public) positionMs=\(engineState.currentPositionMs, privacy: .public) status=\(String(describing: engineState.status), privacy: .public)"
+            "engine position itemId=\(engineState.currentItemId ?? "nil", privacy: .public) positionMs=\(engineState.currentPositionMs, privacy: .public)"
         )
         playbackState = PlaybackQueueState(
             queue: playbackState.queue,
@@ -226,8 +250,8 @@ extension PlaybackQueueStorage {
         case let .itemFailed(itemId, _):
             await handleItemFailed(itemId: itemId)
 
-        case .currentItemChanged:
-            break
+        case let .currentItemChanged(itemId):
+            await handleCurrentItemChanged(itemId: itemId)
         }
     }
 
@@ -273,8 +297,7 @@ extension PlaybackQueueStorage {
                 controlsEnabled: !queue.isEmpty
             ),
             nextIndex: nextIndex,
-            shouldLoadTrack: shouldPlay && !preservingCurrentTrack,
-            shouldStopEngine: !preservingCurrentTrack
+            shouldRebuildWindow: !preservingCurrentTrack
         )
     }
 
@@ -322,44 +345,68 @@ extension PlaybackQueueStorage {
             return false
         }
         let engineState = engine.currentState
+        let engineItemId = engineState.currentItemId ?? "nil"
+        let engineStatus = String(describing: engineState.status)
         let canResume = engineState.currentItemId == item.id && engineState.status == .readyToPlay
         writePlaybackQueueTrace(
-            "canResumeCurrentItem=\(canResume) itemId=\(item.id) engineItemId=\(engineState.currentItemId ?? "nil") engineStatus=\(String(describing: engineState.status)) engineIsPlaying=\(engineState.isPlaying)"
+            "canResume=\(canResume) itemId=\(item.id) engineItemId=\(engineItemId) engineStatus=\(engineStatus) engineIsPlaying=\(engineState.isPlaying)"
         )
         playbackQueueLog.info(
-            "canResumeCurrentItem=\(canResume, privacy: .public) itemId=\(item.id, privacy: .public) engineItemId=\(engineState.currentItemId ?? "nil", privacy: .public) engineStatus=\(String(describing: engineState.status), privacy: .public) engineIsPlaying=\(engineState.isPlaying, privacy: .public)"
+            "canResume=\(canResume, privacy: .public) itemId=\(item.id, privacy: .public) engineItemId=\(engineItemId, privacy: .public)"
         )
         return canResume
     }
 
-    private func loadQueueItem(
-        _ item: PlaybackQueueItem,
+    private func selectOrApplyWindow(
+        currentIndex: Int,
         autoPlay: Bool
     ) async {
+        guard playbackState.queue.indices.contains(currentIndex) else {
+            return
+        }
+        let item = playbackState.queue[currentIndex]
+        if await engine.selectInWindow(appItemId: item.id, autoPlay: autoPlay) {
+            await reconcileWindow(currentIndex: currentIndex)
+            return
+        }
+        await applyWindow(currentIndex: currentIndex, autoPlay: autoPlay)
+    }
+
+    private func applyWindow(
+        currentIndex: Int,
+        autoPlay: Bool,
+        startPositionMs: Int64 = 0
+    ) async {
+        guard playbackState.queue.indices.contains(currentIndex) else {
+            return
+        }
+        let item = playbackState.queue[currentIndex]
         retriedItemIDs.remove(item.id)
-        writePlaybackQueueTrace("loadQueueItem start itemId=\(item.id) autoPlay=\(autoPlay)")
+        writePlaybackQueueTrace("applyWindow start itemId=\(item.id) index=\(currentIndex) autoPlay=\(autoPlay)")
         playbackQueueLog.info(
-            "loadQueueItem start itemId=\(item.id, privacy: .public) autoPlay=\(autoPlay, privacy: .public)"
+            "applyWindow start itemId=\(item.id, privacy: .public) index=\(currentIndex, privacy: .public) autoPlay=\(autoPlay, privacy: .public)"
         )
         do {
-            let url = try await resolveStreamURL(for: item)
-            engine.loadTrack(
-                AudioTrackRequest(
-                    id: item.id,
-                    url: url.absoluteString
-                ),
+            let currentRequest = try await resolveTrackRequest(for: item)
+            let nextRequest = await resolveNextTrackRequest(after: currentIndex)
+            engine.setQueueWindow(
+                current: currentRequest,
+                next: nextRequest,
                 autoPlay: autoPlay
             )
-            writePlaybackQueueTrace("loadQueueItem submitted to engine itemId=\(item.id) autoPlay=\(autoPlay)")
+            if startPositionMs > 0 {
+                _ = await engine.seekTo(positionMs: startPositionMs)
+            }
+            writePlaybackQueueTrace("applyWindow submitted to engine itemId=\(item.id) autoPlay=\(autoPlay)")
             playbackQueueLog.info(
-                "loadQueueItem submitted to engine itemId=\(item.id, privacy: .public) autoPlay=\(autoPlay, privacy: .public)"
+                "applyWindow submitted to engine itemId=\(item.id, privacy: .public) autoPlay=\(autoPlay, privacy: .public)"
             )
         } catch {
             writePlaybackQueueTrace(
-                "loadQueueItem failed itemId=\(item.id) error=\(String(describing: error))"
+                "applyWindow failed itemId=\(item.id) error=\(String(describing: error))"
             )
             playbackQueueLog.error(
-                "loadQueueItem failed itemId=\(item.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
+                "applyWindow failed itemId=\(item.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
             )
             playbackState = PlaybackQueueState(
                 queue: playbackState.queue,
@@ -369,6 +416,65 @@ extension PlaybackQueueStorage {
                 controlsEnabled: playbackState.controlsEnabled
             )
             broadcast()
+        }
+    }
+
+    private func reconcileWindow(currentIndex: Int) async {
+        engine.pruneWindow(keepAppItemIds: keepWindowItemIds(currentIndex: currentIndex))
+        await extendWindowIfNeeded(currentIndex: currentIndex)
+    }
+
+    private func extendWindowIfNeeded(currentIndex: Int) async {
+        let nextIndex = currentIndex + 1
+        guard playbackState.queue.indices.contains(nextIndex) else {
+            return
+        }
+        let nextItem = playbackState.queue[nextIndex]
+        guard engine.currentState.currentItemId != nextItem.id else {
+            return
+        }
+        guard let request = await resolveOptionalTrackRequest(for: nextItem) else {
+            return
+        }
+        engine.appendNext(request)
+    }
+
+    private func keepWindowItemIds(currentIndex: Int) -> Set<String> {
+        var ids = Set<String>()
+        if playbackState.queue.indices.contains(currentIndex) {
+            ids.insert(playbackState.queue[currentIndex].id)
+        }
+        let nextIndex = currentIndex + 1
+        if playbackState.queue.indices.contains(nextIndex) {
+            ids.insert(playbackState.queue[nextIndex].id)
+        }
+        return ids
+    }
+
+    private func resolveTrackRequest(for item: PlaybackQueueItem) async throws -> AudioTrackRequest {
+        let url = try await resolveStreamURL(for: item)
+        return AudioTrackRequest(
+            id: item.id,
+            url: url.absoluteString
+        )
+    }
+
+    private func resolveNextTrackRequest(after currentIndex: Int) async -> AudioTrackRequest? {
+        let nextIndex = currentIndex + 1
+        guard playbackState.queue.indices.contains(nextIndex) else {
+            return nil
+        }
+        return await resolveOptionalTrackRequest(for: playbackState.queue[nextIndex])
+    }
+
+    private func resolveOptionalTrackRequest(for item: PlaybackQueueItem) async -> AudioTrackRequest? {
+        do {
+            return try await resolveTrackRequest(for: item)
+        } catch {
+            playbackQueueLog.info(
+                "skip preloaded next because url resolution failed itemId=\(item.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
+            )
+            return nil
         }
     }
 
@@ -403,33 +509,47 @@ extension PlaybackQueueStorage {
             )
             return
         }
-        let nextIndex = currentIndex + 1
-        guard nextIndex < playbackState.queue.count else {
-            playbackQueueLog.info("queue finished at index=\(currentIndex, privacy: .public)")
-            playbackState = PlaybackQueueState(
-                queue: playbackState.queue,
-                currentIndex: playbackState.currentIndex,
-                isPlaying: false,
-                currentPositionMs: 0,
-                controlsEnabled: playbackState.controlsEnabled
+        guard currentIndex == playbackState.queue.count - 1 else {
+            playbackQueueLog.info(
+                "mid-queue playedToEnd does not advance eventItemId=\(itemId, privacy: .public) currentIndex=\(currentIndex, privacy: .public)"
             )
-            broadcast()
             return
         }
 
-        let nextItem = playbackState.queue[nextIndex]
-        playbackQueueLog.info(
-            "advance to next item after end nextIndex=\(nextIndex, privacy: .public) itemId=\(nextItem.id, privacy: .public)"
-        )
+        playbackQueueLog.info("queue finished at index=\(currentIndex, privacy: .public)")
         playbackState = PlaybackQueueState(
             queue: playbackState.queue,
-            currentIndex: nextIndex,
-            isPlaying: true,
+            currentIndex: playbackState.currentIndex,
+            isPlaying: false,
             currentPositionMs: 0,
-            controlsEnabled: true
+            controlsEnabled: playbackState.controlsEnabled
         )
         broadcast()
-        await loadQueueItem(nextItem, autoPlay: true)
+    }
+
+    private func handleCurrentItemChanged(itemId: String?) async {
+        guard let itemId,
+              let newIndex = playbackState.queue.firstIndex(where: { $0.id == itemId }) else {
+            playbackQueueLog.info(
+                "ignore currentItemChanged eventItemId=\(itemId ?? "nil", privacy: .public)"
+            )
+            return
+        }
+        let previousIndex = playbackState.currentIndex
+        if previousIndex != newIndex {
+            playbackQueueLog.info(
+                "currentItemChanged previousIndex=\(previousIndex ?? -1, privacy: .public) newIndex=\(newIndex, privacy: .public)"
+            )
+            playbackState = PlaybackQueueState(
+                queue: playbackState.queue,
+                currentIndex: newIndex,
+                isPlaying: playbackState.isPlaying || engine.currentState.isPlaying,
+                currentPositionMs: 0,
+                controlsEnabled: true
+            )
+            broadcast()
+        }
+        await reconcileWindow(currentIndex: newIndex)
     }
 
     private func handleItemFailed(itemId: String?) async {
@@ -449,8 +569,8 @@ extension PlaybackQueueStorage {
         if retriedItemIDs.contains(currentItem.id) || !shouldRetry(item: currentItem) {
             retriedItemIDs.remove(currentItem.id)
             urlCache.removeValue(forKey: currentItem.id)
-            playbackQueueLog.error("item failure fallback to handlePlayedToEnd itemId=\(currentItem.id, privacy: .public)")
-            await handlePlayedToEnd(itemId: currentItem.id)
+            playbackQueueLog.error("item failure fallback to next item itemId=\(currentItem.id, privacy: .public)")
+            await advanceAfterCurrentFailure()
             return
         }
 
@@ -459,13 +579,12 @@ extension PlaybackQueueStorage {
         playbackQueueLog.info("retrying failed item with fresh url itemId=\(currentItem.id, privacy: .public)")
 
         do {
-            let url = try await resolveStreamURL(for: currentItem)
+            let request = try await resolveTrackRequest(for: currentItem)
             let shouldAutoPlay = self.playbackState.isPlaying
-            engine.loadTrack(
-                AudioTrackRequest(
-                    id: currentItem.id,
-                    url: url.absoluteString
-                ),
+            let nextRequest = await resolveNextTrackRequest(after: playbackState.currentIndex ?? 0)
+            engine.setQueueWindow(
+                current: request,
+                next: nextRequest,
                 autoPlay: shouldAutoPlay
             )
             playbackQueueLog.info(
@@ -476,8 +595,35 @@ extension PlaybackQueueStorage {
             playbackQueueLog.error(
                 "retry load failed itemId=\(currentItem.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
             )
-            await handlePlayedToEnd(itemId: currentItem.id)
+            await advanceAfterCurrentFailure()
         }
+    }
+
+    private func advanceAfterCurrentFailure() async {
+        guard let currentIndex = playbackState.currentIndex else {
+            return
+        }
+        let nextIndex = currentIndex + 1
+        guard playbackState.queue.indices.contains(nextIndex) else {
+            playbackState = PlaybackQueueState(
+                queue: playbackState.queue,
+                currentIndex: playbackState.currentIndex,
+                isPlaying: false,
+                currentPositionMs: 0,
+                controlsEnabled: playbackState.controlsEnabled
+            )
+            broadcast()
+            return
+        }
+        playbackState = PlaybackQueueState(
+            queue: playbackState.queue,
+            currentIndex: nextIndex,
+            isPlaying: true,
+            currentPositionMs: 0,
+            controlsEnabled: true
+        )
+        broadcast()
+        await selectOrApplyWindow(currentIndex: nextIndex, autoPlay: true)
     }
 
     private func shouldCache(_ item: PlaybackQueueItem) -> Bool {
@@ -526,8 +672,7 @@ struct CachedStreamURL {
 struct QueueReplacement {
     let state: PlaybackQueueState
     let nextIndex: Int?
-    let shouldLoadTrack: Bool
-    let shouldStopEngine: Bool
+    let shouldRebuildWindow: Bool
 }
 
 let restartThresholdMs: Int64 = 3_000

@@ -5,6 +5,7 @@ import Foundation
 import Kithara
 import OSLog
 
+// swiftlint:disable:next type_body_length
 final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable {
     private let player: KitharaPlayer
     private let stateRelay = AsyncValueRelay<AudioEngineState>(AudioEngineState())
@@ -12,11 +13,11 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
     private let lock = NSLock()
 
     private var itemIdMap: [String: String] = [:]
+    private var windowEntries: [String: WindowEntry] = [:]
     private var currentKitharaItemId: String?
     private var lastErrorMessage: String?
     private var lastFailedItemId: String?
     private var cancellables = Set<AnyCancellable>()
-    private var currentItemCancellable: AnyCancellable?
 
     init() {
         let player = KitharaPlayer()
@@ -39,22 +40,26 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
 
     func play() {
         let state = currentState
+        let itemId = state.currentItemId ?? "nil"
+        let status = String(describing: state.status)
         writeKitharaEngineTrace(
-            "engine.play itemId=\(state.currentItemId ?? "nil") status=\(String(describing: state.status)) isPlaying=\(state.isPlaying)"
+            "engine.play itemId=\(itemId) status=\(status) isPlaying=\(state.isPlaying)"
         )
         kitharaEngineLog.info(
-            "engine.play itemId=\(state.currentItemId ?? "nil", privacy: .public) status=\(String(describing: state.status), privacy: .public) isPlaying=\(state.isPlaying, privacy: .public)"
+            "engine.play itemId=\(itemId, privacy: .public) status=\(status, privacy: .public) isPlaying=\(state.isPlaying, privacy: .public)"
         )
         player.play()
     }
 
     func pause() {
         let state = currentState
+        let itemId = state.currentItemId ?? "nil"
+        let status = String(describing: state.status)
         writeKitharaEngineTrace(
-            "engine.pause itemId=\(state.currentItemId ?? "nil") status=\(String(describing: state.status)) isPlaying=\(state.isPlaying)"
+            "engine.pause itemId=\(itemId) status=\(status) isPlaying=\(state.isPlaying)"
         )
         kitharaEngineLog.info(
-            "engine.pause itemId=\(state.currentItemId ?? "nil", privacy: .public) status=\(String(describing: state.status), privacy: .public) isPlaying=\(state.isPlaying, privacy: .public)"
+            "engine.pause itemId=\(itemId, privacy: .public) status=\(status, privacy: .public) isPlaying=\(state.isPlaying, privacy: .public)"
         )
         player.pause()
     }
@@ -68,46 +73,140 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
         }
     }
 
-    func loadTrack(_ request: AudioTrackRequest, autoPlay: Bool) {
-        writeKitharaEngineTrace("loadTrack requestId=\(request.id) autoPlay=\(autoPlay)")
+    func setQueueWindow(current: AudioTrackRequest, next: AudioTrackRequest?, autoPlay: Bool) {
+        writeKitharaEngineTrace(
+            "setQueueWindow currentId=\(current.id) nextId=\(next?.id ?? "nil") autoPlay=\(autoPlay)"
+        )
         kitharaEngineLog.info(
-            "loadTrack requestId=\(request.id, privacy: .public) autoPlay=\(autoPlay, privacy: .public)"
+            "setQueueWindow currentId=\(current.id, privacy: .public) nextId=\(next?.id ?? "nil", privacy: .public) autoPlay=\(autoPlay, privacy: .public)"
         )
         player.removeAllItems()
-        currentItemCancellable = nil
 
-        let item = KitharaPlayerItem(url: request.url)
+        let currentItem = makeWindowItem(request: current)
+        let nextItem = next.map(makeWindowItem(request:))
         lock.withLock {
-            itemIdMap = [item.id: request.id]
-            currentKitharaItemId = item.id
+            itemIdMap.removeAll()
+            windowEntries.removeAll()
+            registerLocked(item: currentItem, appItemId: current.id)
+            if let nextItem, let next {
+                registerLocked(item: nextItem, appItemId: next.id)
+            }
+            currentKitharaItemId = currentItem.id
             lastErrorMessage = nil
             lastFailedItemId = nil
         }
 
-        observeCurrentItem(item, appItemId: request.id)
-        item.load()
-
         do {
-            try player.insert(item)
-            eventRelay.yield(.currentItemChanged(itemId: request.id))
-            if autoPlay {
-                writeKitharaEngineTrace("autoPlay after loadTrack requestId=\(request.id)")
-                kitharaEngineLog.info("autoPlay after loadTrack requestId=\(request.id, privacy: .public)")
-                player.play()
-            }
-            publishState()
+            try player.insert(currentItem)
         } catch {
             let message = String(describing: error)
             writeKitharaEngineTrace(
-                "loadTrack insert failed requestId=\(request.id) error=\(message)"
+                "setQueueWindow insert failed currentId=\(current.id) error=\(message)"
             )
             kitharaEngineLog.error(
-                "loadTrack insert failed requestId=\(request.id, privacy: .public) error=\(message, privacy: .public)"
+                "setQueueWindow insert failed currentId=\(current.id, privacy: .public) error=\(message, privacy: .public)"
             )
             storeErrorMessage(message)
-            emitItemFailedOnce(itemId: request.id, reason: message)
+            emitItemFailedOnce(itemId: current.id, reason: message)
             publishState(forcedStatus: .failed)
+            return
         }
+
+        if let nextItem, let next {
+            do {
+                try player.insert(nextItem, after: currentItem)
+            } catch {
+                writeKitharaEngineTrace(
+                    "setQueueWindow next insert failed nextId=\(next.id) error=\(String(describing: error))"
+                )
+                kitharaEngineLog.info(
+                    "setQueueWindow next insert failed nextId=\(next.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
+                )
+                unregisterWindowItem(appItemId: next.id, kitharaItemId: nextItem.id)
+            }
+        }
+
+        if autoPlay {
+            writeKitharaEngineTrace("autoPlay after setQueueWindow currentId=\(current.id)")
+            kitharaEngineLog.info("autoPlay after setQueueWindow currentId=\(current.id, privacy: .public)")
+            player.play()
+        }
+        publishState()
+    }
+
+    func appendNext(_ next: AudioTrackRequest) {
+        writeKitharaEngineTrace("appendNext requestId=\(next.id)")
+        kitharaEngineLog.info("appendNext requestId=\(next.id, privacy: .public)")
+        if lock.withLock({ windowEntries[next.id] != nil }) {
+            return
+        }
+
+        let item = makeWindowItem(request: next)
+        do {
+            try player.insert(item, after: player.items.last)
+            lock.withLock {
+                registerLocked(item: item, appItemId: next.id)
+            }
+            publishState()
+        } catch {
+            writeKitharaEngineTrace(
+                "appendNext insert failed requestId=\(next.id) error=\(String(describing: error))"
+            )
+            kitharaEngineLog.info(
+                "appendNext insert failed requestId=\(next.id, privacy: .public) error=\(String(describing: error), privacy: .public)"
+            )
+        }
+    }
+
+    func selectInWindow(appItemId: String, autoPlay: Bool) async -> Bool {
+        guard let targetItemId = lock.withLock({ windowEntries[appItemId]?.item.id }),
+              let index = player.items.firstIndex(where: { $0.id == targetItemId }) else {
+            return false
+        }
+
+        do {
+            try player.selectItem(at: index, autoplay: autoPlay)
+            lock.withLock {
+                currentKitharaItemId = targetItemId
+                lastErrorMessage = nil
+                lastFailedItemId = nil
+            }
+            publishState()
+            return true
+        } catch {
+            writeKitharaEngineTrace(
+                "selectInWindow failed appItemId=\(appItemId) error=\(String(describing: error))"
+            )
+            kitharaEngineLog.info(
+                "selectInWindow failed appItemId=\(appItemId, privacy: .public) error=\(String(describing: error), privacy: .public)"
+            )
+            return false
+        }
+    }
+
+    func pruneWindow(keepAppItemIds: Set<String>) {
+        let entriesToRemove = lock.withLock {
+            windowEntries.filter { !keepAppItemIds.contains($0.key) }
+        }
+        guard !entriesToRemove.isEmpty else { return }
+
+        for (appItemId, entry) in entriesToRemove {
+            do {
+                try player.remove(entry.item)
+            } catch {
+                writeKitharaEngineTrace(
+                    "pruneWindow remove failed appItemId=\(appItemId) error=\(String(describing: error))"
+                )
+                kitharaEngineLog.info(
+                    "pruneWindow remove failed appItemId=\(appItemId, privacy: .public) error=\(String(describing: error), privacy: .public)"
+                )
+            }
+            lock.withLock {
+                itemIdMap.removeValue(forKey: entry.item.id)
+                windowEntries.removeValue(forKey: appItemId)
+            }
+        }
+        publishState()
     }
 
     func stop() {
@@ -120,9 +219,9 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
         )
         player.pause()
         player.removeAllItems()
-        currentItemCancellable = nil
         lock.withLock {
             itemIdMap.removeAll()
+            windowEntries.removeAll()
             currentKitharaItemId = nil
             lastErrorMessage = nil
             lastFailedItemId = nil
@@ -136,16 +235,6 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
                 self?.handlePlayerEvent(event)
             }
             .store(in: &cancellables)
-    }
-
-    private func observeCurrentItem(
-        _ item: KitharaPlayerItem,
-        appItemId: String
-    ) {
-        currentItemCancellable = item.eventPublisher
-            .sink { [weak self] event in
-                self?.handleItemEvent(event, appItemId: appItemId)
-            }
     }
 
     private func handlePlayerEvent(_ event: PlayerEvent) {
@@ -225,6 +314,10 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
             kitharaEngineLog.error(
                 "item event failed statusChanged appItemId=\(appItemId, privacy: .public)"
             )
+            guard isCurrentItem(appItemId: appItemId) else {
+                dropPreloadedFailedItem(appItemId: appItemId, reason: message)
+                return
+            }
             storeErrorMessage(message)
             emitItemFailedOnce(itemId: appItemId, reason: message)
             publishState(forcedStatus: .failed)
@@ -233,6 +326,10 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
             kitharaEngineLog.error(
                 "item event error appItemId=\(appItemId, privacy: .public) error=\(error, privacy: .public)"
             )
+            guard isCurrentItem(appItemId: appItemId) else {
+                dropPreloadedFailedItem(appItemId: appItemId, reason: error)
+                return
+            }
             storeErrorMessage(error)
             emitItemFailedOnce(itemId: appItemId, reason: error)
             publishState(forcedStatus: .failed)
@@ -282,12 +379,14 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
         if previousState.status != nextState.status ||
             previousState.currentItemId != nextState.currentItemId ||
             previousState.isPlaying != nextState.isPlaying {
+            let itemId = nextState.currentItemId ?? "nil"
+            let status = String(describing: nextState.status)
             writeKitharaEngineTrace(
-                "publishState itemId=\(nextState.currentItemId ?? "nil") status=\(String(describing: nextState.status)) isPlaying=\(nextState.isPlaying) positionMs=\(nextState.currentPositionMs)"
-            )
-            kitharaEngineLog.info(
-                "publishState itemId=\(nextState.currentItemId ?? "nil", privacy: .public) status=\(String(describing: nextState.status), privacy: .public) isPlaying=\(nextState.isPlaying, privacy: .public) positionMs=\(nextState.currentPositionMs, privacy: .public)"
-            )
+            "publishState itemId=\(itemId) status=\(status) isPlaying=\(nextState.isPlaying) positionMs=\(nextState.currentPositionMs)"
+        )
+        kitharaEngineLog.info(
+                "publishState itemId=\(itemId, privacy: .public) status=\(status, privacy: .public) isPlaying=\(nextState.isPlaying, privacy: .public)"
+        )
         }
         stateRelay.yield(
             nextState
@@ -306,12 +405,88 @@ final class KitharaAudioPlaybackEngine: AudioPlaybackEngine, @unchecked Sendable
             itemIdMap[kitharaItemId]
         }
     }
+
+    private func makeWindowItem(request: AudioTrackRequest) -> KitharaPlayerItem {
+        let item = KitharaPlayerItem(url: request.url)
+        item.load()
+        return item
+    }
+
+    private func registerLocked(
+        item: KitharaPlayerItem,
+        appItemId: String
+    ) {
+        itemIdMap[item.id] = appItemId
+        let cancellable = item.eventPublisher
+            .sink { [weak self] event in
+                self?.handleItemEvent(event, appItemId: appItemId)
+            }
+        windowEntries[appItemId] = WindowEntry(
+            item: item,
+            cancellable: cancellable
+        )
+    }
+
+    private func isCurrentItem(appItemId: String) -> Bool {
+        lock.withLock {
+            guard let currentKitharaItemId else { return false }
+            return itemIdMap[currentKitharaItemId] == appItemId
+        }
+    }
+
+    private func dropPreloadedFailedItem(
+        appItemId: String,
+        reason: String
+    ) {
+        writeKitharaEngineTrace(
+            "drop failed preloaded item appItemId=\(appItemId) reason=\(reason)"
+        )
+        kitharaEngineLog.info(
+            "drop failed preloaded item appItemId=\(appItemId, privacy: .public) reason=\(reason, privacy: .public)"
+        )
+        guard let entry = lock.withLock({ windowEntries[appItemId] }) else {
+            return
+        }
+        do {
+            try player.remove(entry.item)
+        } catch {
+            kitharaEngineLog.info(
+                "drop failed preloaded remove failed appItemId=\(appItemId, privacy: .public) error=\(String(describing: error), privacy: .public)"
+            )
+        }
+        lock.withLock {
+            unregisterLocked(appItemId: appItemId, kitharaItemId: entry.item.id)
+        }
+        publishState()
+    }
+
+    private func unregisterWindowItem(
+        appItemId: String,
+        kitharaItemId: String
+    ) {
+        lock.withLock {
+            unregisterLocked(appItemId: appItemId, kitharaItemId: kitharaItemId)
+        }
+    }
+
+    private func unregisterLocked(
+        appItemId: String,
+        kitharaItemId: String
+    ) {
+        itemIdMap.removeValue(forKey: kitharaItemId)
+        windowEntries.removeValue(forKey: appItemId)
+    }
 }
 
 private struct EngineMetadata {
     let currentKitharaItemId: String?
     let itemIdMap: [String: String]
     let lastErrorMessage: String?
+}
+
+private struct WindowEntry {
+    let item: KitharaPlayerItem
+    let cancellable: AnyCancellable
 }
 
 private let kitharaEngineLog = Logger(subsystem: "com.mplayeraudio", category: "KitharaEngine")

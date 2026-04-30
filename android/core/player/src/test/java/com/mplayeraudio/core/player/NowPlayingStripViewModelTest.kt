@@ -8,6 +8,10 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -31,28 +35,29 @@ class NowPlayingStripViewModelTest {
 
     @Test
     fun `play pause dispatches command but does not optimistically change playback`() = runTest(dispatcher) {
-        val controller = FakeNowPlayingStripController(
-            initialState = NowPlayingStripExternalState(
+        val controllerState = MutableStateFlow(
+            NowPlayingStripExternalState(
                 title = "Track",
                 subtitle = "Album",
                 isPlaying = false,
             ),
         )
+        val controller = nowPlayingStripControllerMock(controllerState)
         val viewModel = NowPlayingStripViewModel(controller)
         advanceUntilIdle()
 
         viewModel.onAction(NowPlayingStripAction.PlayPauseClicked)
         advanceUntilIdle()
 
-        assertEquals(1, controller.playCallCount)
+        coVerify(exactly = 1) { controller.play() }
         assertFalse(viewModel.state.value.isPlaying)
         viewModel.dispose()
     }
 
     @Test
     fun `previous and next do not mutate state locally`() = runTest(dispatcher) {
-        val controller = FakeNowPlayingStripController(
-            initialState = NowPlayingStripExternalState(
+        val controllerState = MutableStateFlow(
+            NowPlayingStripExternalState(
                 title = "Track",
                 subtitle = "Album",
                 isPlaying = true,
@@ -60,6 +65,7 @@ class NowPlayingStripViewModelTest {
                 durationMs = 180_000L,
             ),
         )
+        val controller = nowPlayingStripControllerMock(controllerState)
         val viewModel = NowPlayingStripViewModel(controller)
         advanceUntilIdle()
         val before = viewModel.state.value
@@ -68,22 +74,23 @@ class NowPlayingStripViewModelTest {
         viewModel.onAction(NowPlayingStripAction.NextClicked)
         advanceUntilIdle()
 
-        assertEquals(1, controller.previousCallCount)
-        assertEquals(1, controller.nextCallCount)
+        coVerify(exactly = 1) { controller.skipPrevious() }
+        coVerify(exactly = 1) { controller.skipNext() }
         assertEquals(before, viewModel.state.value)
         viewModel.dispose()
     }
 
     @Test
     fun `seek drag updates only preview fraction`() = runTest(dispatcher) {
-        val controller = FakeNowPlayingStripController(
-            initialState = NowPlayingStripExternalState(
+        val controllerState = MutableStateFlow(
+            NowPlayingStripExternalState(
                 title = "Track",
                 subtitle = "Album",
                 currentPositionMs = 30_000L,
                 durationMs = 120_000L,
             ),
         )
+        val controller = nowPlayingStripControllerMock(controllerState)
         val viewModel = NowPlayingStripViewModel(controller)
         advanceUntilIdle()
 
@@ -99,14 +106,15 @@ class NowPlayingStripViewModelTest {
 
     @Test
     fun `seek finish calls controller and clears preview`() = runTest(dispatcher) {
-        val controller = FakeNowPlayingStripController(
-            initialState = NowPlayingStripExternalState(
+        val controllerState = MutableStateFlow(
+            NowPlayingStripExternalState(
                 title = "Track",
                 subtitle = "Album",
                 currentPositionMs = 30_000L,
                 durationMs = 120_000L,
             ),
         )
+        val controller = nowPlayingStripControllerMock(controllerState)
         val viewModel = NowPlayingStripViewModel(controller)
         advanceUntilIdle()
 
@@ -115,7 +123,7 @@ class NowPlayingStripViewModelTest {
         viewModel.onAction(NowPlayingStripAction.SeekFinished(0.75f))
         advanceUntilIdle()
 
-        assertEquals(90_000L, controller.lastSeekPositionMs)
+        coVerify(exactly = 1) { controller.seekTo(90_000L) }
         assertFalse(viewModel.state.value.isSeekInProgress)
         assertEquals(0.25f, viewModel.state.value.displayedProgressFraction)
         viewModel.dispose()
@@ -123,21 +131,22 @@ class NowPlayingStripViewModelTest {
 
     @Test
     fun `external state update replaces preview after seek finishes`() = runTest(dispatcher) {
-        val controller = FakeNowPlayingStripController(
-            initialState = NowPlayingStripExternalState(
+        val controllerState = MutableStateFlow(
+            NowPlayingStripExternalState(
                 title = "Track",
                 subtitle = "Album",
                 currentPositionMs = 30_000L,
                 durationMs = 120_000L,
             ),
         )
+        val controller = nowPlayingStripControllerMock(controllerState)
         val viewModel = NowPlayingStripViewModel(controller)
         advanceUntilIdle()
 
         viewModel.onAction(NowPlayingStripAction.SeekStarted)
         viewModel.onAction(NowPlayingStripAction.SeekChanged(0.75f))
         advanceUntilIdle()
-        controller.stateFlow.value = controller.stateFlow.value.copy(currentPositionMs = 105_000L)
+        controllerState.value = controllerState.value.copy(currentPositionMs = 105_000L)
         advanceUntilIdle()
 
         assertTrue(viewModel.state.value.isSeekInProgress)
@@ -145,7 +154,7 @@ class NowPlayingStripViewModelTest {
 
         viewModel.onAction(NowPlayingStripAction.SeekFinished(0.75f))
         advanceUntilIdle()
-        controller.stateFlow.value = controller.stateFlow.value.copy(currentPositionMs = 105_000L)
+        controllerState.value = controllerState.value.copy(currentPositionMs = 105_000L)
         advanceUntilIdle()
 
         assertFalse(viewModel.state.value.isSeekInProgress)
@@ -154,36 +163,15 @@ class NowPlayingStripViewModelTest {
     }
 }
 
-private class FakeNowPlayingStripController(
-    initialState: NowPlayingStripExternalState,
-) : NowPlayingStripController {
-    val stateFlow = MutableStateFlow(initialState)
-
-    var playCallCount = 0
-    var pauseCallCount = 0
-    var nextCallCount = 0
-    var previousCallCount = 0
-    var lastSeekPositionMs: Long? = null
-
-    override val state = stateFlow
-
-    override suspend fun play() {
-        playCallCount += 1
-    }
-
-    override suspend fun pause() {
-        pauseCallCount += 1
-    }
-
-    override suspend fun skipNext() {
-        nextCallCount += 1
-    }
-
-    override suspend fun skipPrevious() {
-        previousCallCount += 1
-    }
-
-    override suspend fun seekTo(positionMs: Long) {
-        lastSeekPositionMs = positionMs
+private fun nowPlayingStripControllerMock(
+    state: MutableStateFlow<NowPlayingStripExternalState>,
+): NowPlayingStripController {
+    return mockk(relaxed = true) {
+        every { this@mockk.state } returns state
+        coEvery { play() } returns Unit
+        coEvery { pause() } returns Unit
+        coEvery { skipNext() } returns Unit
+        coEvery { skipPrevious() } returns Unit
+        coEvery { seekTo(any()) } returns Unit
     }
 }

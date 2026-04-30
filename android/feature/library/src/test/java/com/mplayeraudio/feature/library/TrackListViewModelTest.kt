@@ -28,15 +28,16 @@ import com.mplayeraudio.core.player.PlaybackQueueBridge
 import com.mplayeraudio.core.player.PlaybackQueueItem
 import com.mplayeraudio.core.player.PlaybackQueueState
 import com.mplayeraudio.core.player.PlayableSource
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -185,7 +186,8 @@ class TrackListViewModelTest {
     @Test
     fun `active track follows current queue item id instead of raw playback index`() = runTest(dispatcher) {
         val playlist = playlistFixture()
-        val playbackBridge = ManualPlaybackQueueBridge()
+        val playbackState = MutableStateFlow(PlaybackQueueState())
+        val playbackBridge = playbackQueueBridgeMock(playbackState)
         val library = FakeMusicLibrary(playlist = playlist)
         val viewModel = TrackListViewModel(
             destination = LibraryTrackListDestination(
@@ -207,7 +209,7 @@ class TrackListViewModelTest {
         advanceUntilIdle()
 
         val displayedTracks = viewModel.state.value.tracks
-        playbackBridge.emitState(
+        playbackState.value =
             PlaybackQueueState(
                 queue = listOf(
                     displayedTracks[1].queueItem,
@@ -216,8 +218,7 @@ class TrackListViewModelTest {
                 currentIndex = 0,
                 phase = PlaybackPhase.Playing,
                 currentPositionMs = 15_000L,
-            ),
-        )
+            )
         advanceUntilIdle()
 
         assertEquals(1, viewModel.state.value.activeTrackIndex)
@@ -228,7 +229,8 @@ class TrackListViewModelTest {
     @Test
     fun `playback error keeps current track selected but stops playing indicator`() = runTest(dispatcher) {
         val playlist = playlistFixture()
-        val playbackBridge = ManualPlaybackQueueBridge()
+        val playbackState = MutableStateFlow(PlaybackQueueState())
+        val playbackBridge = playbackQueueBridgeMock(playbackState)
         val library = FakeMusicLibrary(playlist = playlist)
         val viewModel = TrackListViewModel(
             destination = LibraryTrackListDestination(
@@ -250,7 +252,7 @@ class TrackListViewModelTest {
         advanceUntilIdle()
 
         val displayedTracks = viewModel.state.value.tracks
-        playbackBridge.emitState(
+        playbackState.value =
             PlaybackQueueState(
                 queue = displayedTracks.map(TrackListItemState::queueItem),
                 currentIndex = 1,
@@ -259,8 +261,7 @@ class TrackListViewModelTest {
                     itemId = displayedTracks[1].queueItem.id,
                     message = "Network is unreachable",
                 ),
-            ),
-        )
+            )
         advanceUntilIdle()
 
         assertEquals(1, viewModel.state.value.activeTrackIndex)
@@ -272,7 +273,7 @@ class TrackListViewModelTest {
     @Test
     fun `same playlist emission does not replace queue again`() = runTest(dispatcher) {
         val playlist = playlistFixture()
-        val playbackBridge = CountingPlaybackQueueBridge()
+        val playbackBridge = playbackQueueBridgeMock(MutableStateFlow(PlaybackQueueState()))
         val library = FakeMusicLibrary(playlist = playlist)
         TrackListViewModel(
             destination = LibraryTrackListDestination(
@@ -296,7 +297,9 @@ class TrackListViewModelTest {
         library.emitPlaylist(playlist)
         advanceUntilIdle()
 
-        assertEquals(1, playbackBridge.replaceQueueCallCount)
+        coVerify(exactly = 1) {
+            playbackBridge.replaceQueue(any(), any(), any())
+        }
     }
 
     @Test
@@ -402,7 +405,7 @@ class TrackListViewModelTest {
     fun `onDeletePlaylist marks playlist as deleted and clears playback queue`() = runTest(dispatcher) {
         val library = FakeMusicLibrary(playlist = playlistFixture())
         val repo = FakeUserPlaylistsRepository()
-        val playbackBridge = CountingPlaybackQueueBridge()
+        val playbackBridge = playbackQueueBridgeMock(MutableStateFlow(PlaybackQueueState()))
         val viewModel = TrackListViewModel(
             destination = LibraryTrackListDestination(
                 ref = PlaylistRef(
@@ -422,8 +425,6 @@ class TrackListViewModelTest {
         )
         advanceUntilIdle()
 
-        val initialReplaceCount = playbackBridge.replaceQueueCallCount
-
         viewModel.onDeletePlaylist()
         advanceUntilIdle()
 
@@ -431,7 +432,9 @@ class TrackListViewModelTest {
         assertEquals(false, viewModel.state.value.isDeletingPlaylist)
         assertEquals(false, viewModel.state.value.isEditing)
         assertEquals(listOf(playlistFixtureId), repo.deletedPlaylistIds)
-        assertEquals(initialReplaceCount + 1, playbackBridge.replaceQueueCallCount)
+        coVerify(exactly = 2) {
+            playbackBridge.replaceQueue(any(), any(), any())
+        }
     }
 
     @Test
@@ -498,6 +501,22 @@ class TrackListViewModelTest {
     }
 }
 
+private fun playbackQueueBridgeMock(
+    playbackState: MutableStateFlow<PlaybackQueueState>,
+): PlaybackQueueBridge {
+    return mockk(relaxed = true) {
+        every { this@mockk.playbackState } returns playbackState
+        every { state } returns emptyFlow()
+        coEvery { replaceQueue(any(), any(), any()) } returns Unit
+        coEvery { playTrack(any()) } returns Unit
+        coEvery { play() } returns Unit
+        coEvery { pause() } returns Unit
+        coEvery { skipNext() } returns Unit
+        coEvery { skipPrevious() } returns Unit
+        coEvery { seekTo(any()) } returns Unit
+    }
+}
+
 private class FakeMusicLibrary(
     private val playlist: Playlist? = null,
     private val savedTracksResult: SavedTracksResult? = null,
@@ -534,78 +553,6 @@ private class FakeMusicLibrary(
     }
 }
 
-private class ManualPlaybackQueueBridge(
-    initialState: PlaybackQueueState = PlaybackQueueState(),
-) : PlaybackQueueBridge {
-
-    private val stateFlow = MutableStateFlow(initialState)
-
-    override val playbackState: StateFlow<PlaybackQueueState> = stateFlow.asStateFlow()
-
-    override val state: Flow<NowPlayingStripExternalState> = playbackState.map { ps ->
-        val currentItem = ps.currentItem
-        NowPlayingStripExternalState(
-            title = currentItem?.title.orEmpty(),
-            subtitle = currentItem?.subtitle.orEmpty(),
-            isPlaying = ps.isPlaying,
-            currentPositionMs = ps.currentPositionMs,
-            durationMs = ps.currentDurationMs ?: currentItem?.durationMs ?: 0L,
-            controlsEnabled = ps.controlsEnabled,
-        )
-    }
-
-    fun emitState(state: PlaybackQueueState) { stateFlow.value = state }
-
-    override suspend fun replaceQueue(queue: List<PlaybackQueueItem>, startIndex: Int?, autoPlay: Boolean) = Unit
-    override suspend fun playTrack(index: Int) = Unit
-    override suspend fun play() = Unit
-    override suspend fun pause() = Unit
-    override suspend fun skipNext() = Unit
-    override suspend fun skipPrevious() = Unit
-    override suspend fun seekTo(positionMs: Long) = Unit
-    override fun acknowledgeError() = Unit
-    override fun shutdown() = Unit
-}
-
-private class CountingPlaybackQueueBridge : PlaybackQueueBridge {
-
-    private val stateFlow = MutableStateFlow(PlaybackQueueState())
-
-    var replaceQueueCallCount = 0
-        private set
-
-    override val playbackState: StateFlow<PlaybackQueueState> = stateFlow.asStateFlow()
-
-    override val state: Flow<NowPlayingStripExternalState> = playbackState.map { ps ->
-        val currentItem = ps.currentItem
-        NowPlayingStripExternalState(
-            title = currentItem?.title.orEmpty(),
-            subtitle = currentItem?.subtitle.orEmpty(),
-            isPlaying = ps.isPlaying,
-            currentPositionMs = ps.currentPositionMs,
-            durationMs = ps.currentDurationMs ?: currentItem?.durationMs ?: 0L,
-            controlsEnabled = ps.controlsEnabled,
-        )
-    }
-
-    override suspend fun replaceQueue(queue: List<PlaybackQueueItem>, startIndex: Int?, autoPlay: Boolean) {
-        replaceQueueCallCount += 1
-        stateFlow.value = PlaybackQueueState(
-            queue = queue,
-            currentIndex = startIndex,
-            phase = if (autoPlay && queue.isNotEmpty()) PlaybackPhase.Playing else PlaybackPhase.Idle,
-        )
-    }
-
-    override suspend fun playTrack(index: Int) = Unit
-    override suspend fun play() = Unit
-    override suspend fun pause() = Unit
-    override suspend fun skipNext() = Unit
-    override suspend fun skipPrevious() = Unit
-    override suspend fun seekTo(positionMs: Long) = Unit
-    override fun acknowledgeError() = Unit
-    override fun shutdown() = Unit
-}
 
 private fun playlistFixture(
     provider: MusicProviderId = MusicProviderId.YandexMusic,
